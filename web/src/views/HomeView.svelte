@@ -16,6 +16,23 @@
   <a href={WIKI_HOME} target="_blank" rel="noopener">data-science wiki</a>.
 </p>
 
+{#if app.mode === "browser"}
+  <section class="card intro">
+    <h2>Running in your browser</h2>
+    <p>
+      The arena engine runs in this tab. To compare remote models, add an <a href="#/models">OpenAI or Anthropic key</a>.
+      It stays in this tab and goes only to the provider. Then <a href="#/build">build an experiment</a> with a small
+      spend limit.
+    </p>
+    <p>
+      <strong>Local models (Ollama, LM Studio)?</strong> A web page cannot reach them, so run the app on your machine.
+      It discovers your installed models and reads keys from <code>.env</code>:
+    </p>
+    <pre>git clone {REPO_URL}.git && cd llm_arena
+make install && make web && uv run arena ui</pre>
+  </section>
+{/if}
+
 <div class="actions">
   <a class="cta" href="#/build">Build an experiment →</a>
   <a class="cta secondary" href="#/models">See available models</a>
@@ -56,4 +73,7 @@
   .small { font-size: 12px !important; }
   .small a { margin-right: 10px; }
   .footer { margin-top: 32px; }
+  .intro { margin: 16px 0; }
+  .intro h2 { margin-top: 0; }
+  .intro code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
 </style>
