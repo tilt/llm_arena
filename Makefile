@@ -1,7 +1,7 @@
 SHELL := /bin/sh
 PYTHON_VERSION ?= 3.12
 
-.PHONY: help install format validate lint typecheck test test-live smoke report models contracts ui clean
+.PHONY: help install format validate lint typecheck test test-live smoke report models contracts ui web test-web clean
 
 help:
 	@printf "Targets:\n"
@@ -14,6 +14,8 @@ help:
 	@printf "  make smoke       run the smoke experiment and build its report\n"
 	@printf "  make contracts   regenerate JSON Schemas, scenario data and conformance vectors\n"
 	@printf "  make ui          start the local app on http://127.0.0.1:8765\n"
+	@printf "  make web         build the web UI (web/dist, served by arena ui)\n"
+	@printf "  make test-web    svelte-check + vitest for the web UI\n"
 
 install:
 	uv sync --all-extras --python $(PYTHON_VERSION)
@@ -42,6 +44,12 @@ test-live:
 
 ui:
 	uv run arena ui
+
+web:
+	cd web && npm ci && npm run build
+
+test-web:
+	cd web && npm run contracts && npm run check && npm test
 
 contracts:
 	uv run arena contracts

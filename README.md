@@ -59,7 +59,19 @@ Details:
   POST /api/runs/{id}/cancel               GET /api/runs/{id}/bundle   GET /api/runs/{id}/report
   ```
 
-The web UI (Svelte) is the next phase. Until it is built, `/` shows a placeholder with links to the API.
+### Web UI
+
+`make web` builds the Svelte UI (`web/`). It needs Node ≥ 20, and `arena ui` serves it. The UI has four views:
+- **Models:** the catalog, filterable by capability, plus API keys.
+- **Build:** pick scenarios, bind a model to each role (the choices are filtered by the role's capability needs, with
+  prices), set parameters, estimate cost, start, or download the experiment as YAML.
+- **Runs:** live progress, then an in-app report with heatmaps, confidence intervals, step metrics, arena ratings,
+  traces and wiki links.
+- **Overview:** the scenarios and benchmarks.
+
+The UI uses only the `ArenaBackend` interface, and its TypeScript types are generated from `contracts/schemas`
+(`npm run contracts`). The same UI will run the in-browser engine. `make test-web` runs svelte-check and vitest; for
+development use `cd web && npm run dev`, which proxies `/api` to a running `arena ui`.
 
 ## What is in the arena
 

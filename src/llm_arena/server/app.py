@@ -8,11 +8,11 @@ money through configured keys, so it must not be reachable from other machines o
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -142,6 +142,15 @@ def create_app(
     def report(run_id: str) -> FileResponse:
         _require_run(runs_dir, run_id)
         return FileResponse(build_report(runs_dir / run_id, inline_plotly=True), media_type="text/html")
+
+    @app.middleware("http")
+    async def cache_policy(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        # Only content-hashed assets may be cached; the HTML shell must be revalidated, or browsers
+        # keep running an old UI (with old asset hashes) after an upgrade.
+        response = await call_next(request)
+        if not request.url.path.startswith("/assets/"):
+            response.headers.setdefault("Cache-Control", "no-cache")
+        return response
 
     if static_dir is not None and (static_dir / "index.html").exists():
         app.mount("/", StaticFiles(directory=static_dir, html=True), name="web")

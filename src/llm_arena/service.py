@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
-from dataclasses import asdict
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -18,7 +17,7 @@ from pydantic import BaseModel, Field
 from llm_arena.llm.catalog import Catalog
 from llm_arena.llm.pricing import known_price, price_per_mtok
 from llm_arena.llm.spec import ModelSpec
-from llm_arena.report.aggregate import summarize
+from llm_arena.report.aggregate import ConfigSummary, PairedTest, summarize
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import EventSink, ignore
 from llm_arena.runner.ports import RunStore, Runtime
@@ -45,11 +44,17 @@ class Estimate(BaseModel):
     note: str = "Rough estimate from typical tokens per trial; actual spend depends on model verbosity."
 
 
+class BundleSummary(BaseModel):
+    configs: list[ConfigSummary]
+    paired_tests: list[PairedTest]
+    ratings: dict[str, dict[str, float]] = Field(description="scope ('overall' or scenario) -> config -> rating")
+
+
 class RunBundle(BaseModel):
     """Everything the report viewer needs for one run; export/import format between runtimes."""
 
     run: dict[str, Any]
-    summary: dict[str, Any]
+    summary: BundleSummary
     trials: list[dict[str, Any]]
     scores: list[dict[str, Any]]
     battles: list[dict[str, Any]]
@@ -143,11 +148,7 @@ class ArenaService:
         traces = {trial["trial_id"]: store.load_trace(trial["trial_id"]) for trial in data.trials[:max_traces]}
         return RunBundle(
             run=data.run,
-            summary={
-                "configs": [asdict(c) for c in summary.configs],
-                "paired_tests": [asdict(t) for t in summary.paired_tests],
-                "ratings": summary.ratings,
-            },  # fmt: skip
+            summary=BundleSummary(configs=summary.configs, paired_tests=summary.paired_tests, ratings=summary.ratings),
             trials=data.trials,
             scores=data.scores,
             battles=data.battles,

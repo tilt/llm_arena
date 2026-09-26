@@ -1,0 +1,65 @@
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface-1: #fcfcfb; --surface-2: #f3f2ee; --surface-3: #ebeae4;
+  --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #6f6d68;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11, 11, 11, 0.1);
+  --accent: #2a78d6; --accent-ink: #ffffff; --good: #006300; --critical: #b52f2f; --warn-bg: #fdf3dc;
+  --seq-0: #cde2fb; --seq-1: #9ec5f4; --seq-2: #6da7ec; --seq-3: #3987e5; --seq-4: #256abf; --seq-5: #184f95; --seq-6: #0d366b;
+  --ink-on-low: #0b0b0b; --ink-on-high: #ffffff;
+  --radius: 10px;
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface-1: #1a1a19; --surface-2: #232321; --surface-3: #2c2c2a;
+    --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #9a988f;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255, 255, 255, 0.1);
+    --accent: #3987e5; --good: #0ca30c; --critical: #e66767; --warn-bg: #3a2f14;
+    --seq-0: #1d2a3a; --seq-1: #104281; --seq-2: #184f95; --seq-3: #1c5cab; --seq-4: #2a78d6; --seq-5: #5598e7; --seq-6: #9ec5f4;
+    --ink-on-low: #ffffff; --ink-on-high: #0b0b0b;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface-1: #1a1a19; --surface-2: #232321; --surface-3: #2c2c2a;
+  --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #9a988f;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255, 255, 255, 0.1);
+  --accent: #3987e5; --good: #0ca30c; --critical: #e66767; --warn-bg: #3a2f14;
+  --seq-0: #1d2a3a; --seq-1: #104281; --seq-2: #184f95; --seq-3: #1c5cab; --seq-4: #2a78d6; --seq-5: #5598e7; --seq-6: #9ec5f4;
+  --ink-on-low: #ffffff; --ink-on-high: #0b0b0b;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--text-primary); }
+a { color: var(--accent); }
+h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
+h2 { font-size: 19px; margin: 32px 0 8px; }
+h3 { font-size: 15px; margin: 20px 0 6px; }
+p.lead { color: var(--text-secondary); margin: 0 0 16px; max-width: 75ch; }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+.grid { display: grid; gap: 12px; }
+.muted { color: var(--text-muted); }
+.pass { color: var(--good); font-weight: 600; }
+.fail { color: var(--critical); font-weight: 600; }
+.note { background: var(--warn-bg); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+.pill { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--surface-2);
+  color: var(--text-secondary); margin: 0 4px 4px 0; white-space: nowrap; }
+.pill.on { background: var(--accent); color: var(--accent-ink); }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { color: var(--text-secondary); font-weight: 600; white-space: nowrap; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+button, select, input, textarea { font: inherit; font-size: 14px; color: var(--text-primary); }
+button { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+button:hover:not(:disabled) { background: var(--surface-3); }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+select, input[type="text"], input[type="number"], input[type="password"], textarea {
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; }
+select { max-width: 100%; }
+label { font-size: 13px; color: var(--text-secondary); }
+pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2); border-radius: 6px; padding: 8px;
+  font-size: 12px; margin: 4px 0; max-height: 280px; overflow: auto; }
+details > summary { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

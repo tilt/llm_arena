@@ -1,4 +1,209 @@
 {
+  "$defs": {
+    "BundleSummary": {
+      "properties": {
+        "configs": {
+          "items": {
+            "$ref": "#/$defs/ConfigSummary"
+          },
+          "title": "Configs",
+          "type": "array"
+        },
+        "paired_tests": {
+          "items": {
+            "$ref": "#/$defs/PairedTest"
+          },
+          "title": "Paired Tests",
+          "type": "array"
+        },
+        "ratings": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object"
+          },
+          "description": "scope ('overall' or scenario) -> config -> rating",
+          "title": "Ratings",
+          "type": "object"
+        }
+      },
+      "required": [
+        "configs",
+        "paired_tests",
+        "ratings"
+      ],
+      "title": "BundleSummary",
+      "type": "object"
+    },
+    "ConfigSummary": {
+      "properties": {
+        "ci_high": {
+          "title": "Ci High",
+          "type": "number"
+        },
+        "ci_low": {
+          "title": "Ci Low",
+          "type": "number"
+        },
+        "config": {
+          "title": "Config",
+          "type": "string"
+        },
+        "derived": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Derived",
+          "type": "object"
+        },
+        "e2e_means": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "E2E Means",
+          "type": "object"
+        },
+        "errors": {
+          "title": "Errors",
+          "type": "integer"
+        },
+        "judge_cost_usd": {
+          "title": "Judge Cost Usd",
+          "type": "number"
+        },
+        "latency_p50_s": {
+          "title": "Latency P50 S",
+          "type": "number"
+        },
+        "latency_p95_s": {
+          "title": "Latency P95 S",
+          "type": "number"
+        },
+        "mean_cost_usd": {
+          "title": "Mean Cost Usd",
+          "type": "number"
+        },
+        "mean_tokens": {
+          "title": "Mean Tokens",
+          "type": "number"
+        },
+        "pass_at_k": {
+          "title": "Pass At K",
+          "type": "number"
+        },
+        "pass_hat_k": {
+          "title": "Pass Hat K",
+          "type": "number"
+        },
+        "pass_rate": {
+          "title": "Pass Rate",
+          "type": "number"
+        },
+        "pattern": {
+          "title": "Pattern",
+          "type": "string"
+        },
+        "per_task_pass": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Per Task Pass",
+          "type": "object"
+        },
+        "repeats": {
+          "title": "Repeats",
+          "type": "integer"
+        },
+        "roles": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Roles",
+          "type": "object"
+        },
+        "scenario": {
+          "title": "Scenario",
+          "type": "string"
+        },
+        "step_means": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Step Means",
+          "type": "object"
+        },
+        "tasks": {
+          "title": "Tasks",
+          "type": "integer"
+        },
+        "trials": {
+          "title": "Trials",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scenario",
+        "pattern",
+        "config",
+        "roles",
+        "trials",
+        "tasks",
+        "repeats",
+        "pass_rate",
+        "ci_low",
+        "ci_high",
+        "pass_hat_k",
+        "pass_at_k",
+        "errors",
+        "mean_tokens",
+        "mean_cost_usd",
+        "judge_cost_usd",
+        "latency_p50_s",
+        "latency_p95_s"
+      ],
+      "title": "ConfigSummary",
+      "type": "object"
+    },
+    "PairedTest": {
+      "properties": {
+        "best": {
+          "title": "Best",
+          "type": "string"
+        },
+        "difference": {
+          "title": "Difference",
+          "type": "number"
+        },
+        "other": {
+          "title": "Other",
+          "type": "string"
+        },
+        "p_value": {
+          "title": "P Value",
+          "type": "number"
+        },
+        "scenario": {
+          "title": "Scenario",
+          "type": "string"
+        },
+        "tasks": {
+          "title": "Tasks",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scenario",
+        "best",
+        "other",
+        "difference",
+        "p_value",
+        "tasks"
+      ],
+      "title": "PairedTest",
+      "type": "object"
+    }
+  },
   "description": "Everything the report viewer needs for one run; export/import format between runtimes.",
   "properties": {
     "battles": {
@@ -23,9 +228,7 @@
       "type": "array"
     },
     "summary": {
-      "additionalProperties": true,
-      "title": "Summary",
-      "type": "object"
+      "$ref": "#/$defs/BundleSummary"
     },
     "traces": {
       "additionalProperties": true,

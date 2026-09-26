@@ -39,10 +39,6 @@
       "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/agent-evaluation"
     },
     {
-      "title": "Evaluation harnesses",
-      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/evaluation-harnesses"
-    },
-    {
       "title": "LLM-as-judge",
       "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/llm-as-judge"
     }

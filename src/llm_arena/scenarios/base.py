@@ -125,7 +125,7 @@ class Scenario(ABC):
             requires=sorted(self.requires),
             open_ended=self.open_ended,
             tasks=self.task_count(),
-            wiki=[*PATTERN_LINKS.get(self.pattern, []), *EVALUATION_LINKS],
+            wiki=list({link.url: link for link in [*PATTERN_LINKS.get(self.pattern, []), *EVALUATION_LINKS]}.values()),
         )
 
     def params(self, overrides: dict[str, Any] | None = None) -> dict[str, Any]:

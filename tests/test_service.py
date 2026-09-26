@@ -86,6 +86,6 @@ async def test_start_run_streams_events_and_returns_a_bundle() -> None:
     assert await service.wait(run_id) == "r1"
     assert isinstance(events[-1], RunFinished)
     bundle = service.run_bundle("r1")
-    assert bundle.trials[0]["passed"] and bundle.summary["configs"][0]["pass_rate"] == 1.0
+    assert bundle.trials[0]["passed"] and bundle.summary.configs[0].pass_rate == 1.0
     assert bundle.traces[bundle.trials[0]["trial_id"]]["spans"]
     bundle.model_dump_json()  # the bundle is a JSON contract
