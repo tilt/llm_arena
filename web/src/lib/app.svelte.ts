@@ -9,6 +9,7 @@ export const app = $state({
   scenarios: [] as ScenarioManifest[],
   models: null as ModelsResponse | null,
   error: "",
+  status: "",
 });
 
 export async function refresh(options: { models?: boolean } = {}): Promise<void> {

@@ -107,15 +107,17 @@ async def test_memory_and_duckdb_stores_give_the_same_summary(tmp_path: Path) ->
 
 async def test_resume_skips_finished_trials_and_retries_errors(tmp_path: Path) -> None:
     await _runner(_experiment(), DuckDBStore(tmp_path / "r1"), run_id="r1").run()
-    calls: list[str] = []
+    clients: dict[str, ScriptedLLM] = {}
 
-    def counting_factory(spec: ModelSpec) -> LLMClient:
-        calls.append(spec.name)
-        return factory(spec)
+    def recording_factory(spec: ModelSpec) -> LLMClient:
+        client = factory(spec)
+        assert isinstance(client, ScriptedLLM)
+        clients[spec.name] = client
+        return client
 
-    await _runner(_experiment(), DuckDBStore(tmp_path / "r1"), run_id="r1", client_factory=counting_factory).run()
+    await _runner(_experiment(), DuckDBStore(tmp_path / "r1"), run_id="r1", client_factory=recording_factory).run()
     # The "bad" model cannot produce a valid critique, so its trials errored and are retried; "good" ones are skipped.
-    assert calls == ["bad"]
+    assert clients["good"].calls == [] and clients["bad"].calls
 
 
 async def test_budget_limit_stops_the_run() -> None:

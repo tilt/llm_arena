@@ -73,6 +73,26 @@ The UI uses only the `ArenaBackend` interface, and its TypeScript types are gene
 (`npm run contracts`). The same UI will run the in-browser engine. `make test-web` runs svelte-check and vitest; for
 development use `cd web && npm run dev`, which proxies `/api` to a running `arena ui`.
 
+## Browser-only mode
+
+The same UI also runs with no server at all, as on GitHub Pages. The arena's Python engine then runs in the tab via
+Pyodide, in a Web Worker. Setup:
+- Enter an OpenAI or Anthropic key in **Models**. It is kept in the tab's memory and sent only to the provider's API.
+  Opting in keeps it in local storage on that device.
+- Set a spend limit on each run.
+
+What changes compared with the local app:
+- **Models:** remote only (OpenAI, Anthropic), because a web page cannot reach your local model servers.
+- **Code execution:** runs in a separate Pyodide worker that is terminated on timeout.
+- **Benchmarks:** fetch their pinned files from the Hugging Face CDN.
+- **Runs:** stored in the browser (IndexedDB). They can be exported and imported as run bundles, which the local app
+  opens too.
+
+`#/selftest` replays the conformance vectors inside the browser engine; all must pass.
+
+To serve browser mode locally: `make web` (builds the engine wheel into `web/public/py`, then the UI), then open
+`web/dist` with any static file server.
+
 ## What is in the arena
 
 | Scenario | Pattern | Environment (all seeded / mocked) | Pass criteria |

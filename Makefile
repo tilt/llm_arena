@@ -1,7 +1,7 @@
 SHELL := /bin/sh
 PYTHON_VERSION ?= 3.12
 
-.PHONY: help install format validate lint typecheck test test-live smoke report models contracts ui web test-web clean
+.PHONY: help install format validate lint typecheck test test-live smoke report models contracts ui web web-engine test-web clean
 
 help:
 	@printf "Targets:\n"
@@ -45,8 +45,14 @@ test-live:
 ui:
 	uv run arena ui
 
-web:
+web: web-engine
 	cd web && npm ci && npm run build
+
+# The browser engine: the arena wheel plus the conformance vectors for the in-browser self-test.
+web-engine:
+	rm -rf web/public/py && mkdir -p web/public/py
+	uv build --wheel -q -o web/public/py
+	uv run python -c "import json, pathlib; vectors = {p.stem: json.loads(p.read_text()) for p in pathlib.Path('contracts/conformance').glob('*.json')}; pathlib.Path('web/public/py/conformance.json').write_text(json.dumps(vectors))"
 
 test-web:
 	cd web && npm run contracts && npm run check && npm test

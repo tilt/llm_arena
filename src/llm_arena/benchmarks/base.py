@@ -6,6 +6,7 @@ import re
 from abc import abstractmethod
 from typing import Any, ClassVar
 
+from llm_arena.benchmarks.hf import HFSource
 from llm_arena.eval.base import EvalContext, Evaluator, FunctionEvaluator, Score, Task, TrialOutput
 from llm_arena.llm.client import user
 from llm_arena.patterns.roles import RoleModels
@@ -27,6 +28,8 @@ class Benchmark(Scenario):
     default_params = {"max_tokens": None}
     pass_criteria = ["correct"]
     sample_size: ClassVar[int] = 100
+    # Pinned upstream files; runtimes whose loader cannot fetch synchronously prefetch these first.
+    sources: ClassVar[tuple[HFSource, ...]] = ()
 
     def task_count(self) -> int:
         return self.sample_size  # without downloading the dataset

@@ -89,6 +89,7 @@ class ExperimentRunner:
         self.budget = BudgetGuard(experiment.max_cost_usd)
         self._clients: dict[str, LLMClient] = {}
         self._cancelled = False
+        self._planned: list[TrialSpec] | None = None
 
     def cancel(self) -> None:
         """Stop starting new trials; running trials finish."""
@@ -157,12 +158,29 @@ class ExperimentRunner:
         return self._clients[spec.name]
 
     # ---- execution ------------------------------------------------------------------------
+    async def preflight(self) -> list[TrialSpec]:
+        """Resolve models, plan trials and build every client now, so configuration errors (unknown model,
+        missing capability, missing key, unsupported provider) surface before anything runs."""
+        await self.prepare()
+        trials = self.plan()
+        specs = {spec.name: spec for trial in trials for spec in trial.bindings.values()}
+        if self.judge_spec is not None:
+            specs[self.judge_spec.name] = self.judge_spec
+        for spec in specs.values():
+            try:
+                self._client(spec)
+            except ConfigError:
+                raise
+            except Exception as exc:
+                raise ConfigError(f"{spec.name}: {exc}") from exc
+        self._planned = trials
+        return trials
+
     async def run(self) -> str:
         if self.store is None:
             raise ConfigError("ExperimentRunner.run needs a RunStore")
         store = self.store
-        await self.prepare()
-        trials = self.plan()
+        trials = self._planned if self._planned is not None else await self.preflight()
         store.start_run(self.run_id, self.experiment.name, self.experiment.model_dump_json())
         done = store.completed_trials()
         pending = [trial for trial in trials if trial.trial_id not in done]

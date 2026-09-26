@@ -3,6 +3,8 @@
   import type { RunListing } from "../lib/contracts";
   import { pct } from "../lib/format";
 
+  import { WorkerBackend } from "../lib/worker-backend";
+
   let runs = $state<RunListing[] | null>(null);
   let error = $state("");
 
@@ -13,6 +15,13 @@
 
 <h1>Runs</h1>
 <p class="lead">Past and active runs. Open one to follow its progress or read its report.</p>
+{#if app.backend instanceof WorkerBackend}
+  <p class="muted">Runs are kept in this browser. Import a run bundle (exported here or from the local app):
+    <input type="file" accept="application/json,.json" onchange={async (e) => {
+      const file = e.currentTarget.files?.[0];
+      if (file && app.backend instanceof WorkerBackend) { await app.backend.importBundle(file); runs = await app.backend.runs(); }
+    }} /></p>
+{/if}
 {#if error}<p class="note">{error}</p>{/if}
 <div class="card table-wrap">
   <table>

@@ -16,6 +16,7 @@ LETTERS = "ABCDEFGHIJ"
 @register
 class GSM8KBench(Benchmark):
     name = "gsm8k"
+    sources = (GSM8K,)
     title = "GSM8K (maths word problems)"
     tokens_per_trial = 800
     description = "GSM8K test subset (MIT): multi-step arithmetic word problems, numeric match."
@@ -57,6 +58,7 @@ def parse_choice(text: str) -> str | None:
 @register
 class MMLUProBench(Benchmark):
     name = "mmlu_pro"
+    sources = (MMLU_PRO,)
     title = "MMLU-Pro (knowledge)"
     tokens_per_trial = 1200
     description = "MMLU-Pro test subset (MIT), stratified by subject; 10-option multiple choice."

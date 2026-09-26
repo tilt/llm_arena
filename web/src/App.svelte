@@ -1,6 +1,8 @@
 <script lang="ts">
   import { app, refresh } from "./lib/app.svelte";
   import { detectLocalBackend } from "./lib/backend";
+  import { WorkerBackend } from "./lib/worker-backend";
+  import SelftestView from "./views/SelftestView.svelte";
   import { router } from "./lib/router.svelte";
   import { WIKI_HOME } from "./lib/wiki";
   import BuildView from "./views/BuildView.svelte";
@@ -17,6 +19,16 @@
         await refresh();
       } else {
         app.mode = "browser";
+        const wheel = new URL("py/llm_arena-0.1.0-py3-none-any.whl", document.baseURI).href;
+        const worker = new WorkerBackend(wheel, (message) => (app.status = message));
+        try {
+          await worker.ready;
+          app.backend = worker;
+          app.status = "";
+          await refresh();
+        } catch (error) {
+          app.error = `The in-browser engine could not start: ${error instanceof Error ? error.message : String(error)}`;
+        }
       }
     });
   });
@@ -43,7 +55,8 @@
       <span class="pill on">local app</span>
       {#each providers as [name, state] (name)}<span class="pill" title={state}>{state === "available" ? "●" : "○"} {name}</span>{/each}
     {:else if app.mode === "browser"}
-      <span class="pill">browser mode</span>
+      <span class="pill on">browser mode</span>
+      {#each providers as [name, state] (name)}<span class="pill" title={state}>{state === "available" ? "●" : "○"} {name}</span>{/each}
     {/if}
   </span>
 </header>
@@ -53,12 +66,12 @@
     <p class="muted">Connecting…</p>
   {:else if app.mode === "browser" && !app.backend}
     <h1>LLM Arena</h1>
-    <p class="lead">
-      This page is not served by the local app. Browser-only mode (running the arena in this tab with your own API key)
-      comes next. For now, install and run it locally:
-    </p>
-    <pre>git clone https://github.com/tilt/llm_arena && cd llm_arena
-make install && make web && uv run arena ui</pre>
+    {#if app.error}
+      <p class="note">{app.error}</p>
+    {:else}
+      <p class="lead">{app.status || "Starting the in-browser engine…"}</p>
+      <p class="muted">The arena's Python engine runs in this tab (Pyodide). It is cached after the first visit.</p>
+    {/if}
   {:else}
     {#if app.error}<p class="note">{app.error}</p>{/if}
     {#if router.route.name === "home"}<HomeView />
@@ -66,6 +79,7 @@ make install && make web && uv run arena ui</pre>
     {:else if router.route.name === "models"}<ModelsView />
     {:else if router.route.name === "runs"}<RunsView />
     {:else if router.route.name === "run"}<RunView id={router.route.id} />
+    {:else if router.route.name === "selftest"}<SelftestView />
     {/if}
   {/if}
 </main>

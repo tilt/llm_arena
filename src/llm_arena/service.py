@@ -129,6 +129,7 @@ class ArenaService:
         """Start a run in the background and return its id; progress arrives through `sink`."""
         run_id = run_id or new_run_id(experiment.name)
         runner = self._runner(experiment, run_id=run_id, sink=sink, live=live)
+        await runner.preflight()  # configuration errors go to the caller, not into a background task
         runner.store = self.store_factory(run_id)
         self._runners[run_id] = runner
         self._tasks[run_id] = asyncio.create_task(runner.run())

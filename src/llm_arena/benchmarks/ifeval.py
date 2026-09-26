@@ -98,6 +98,7 @@ def _nth_paragraph_starts_with(text: str, kwargs: dict[str, Any]) -> bool:
 @register
 class IFEvalBench(Benchmark):
     name = "ifeval"
+    sources = (IFEVAL,)
     title = "IFEval (instruction following)"
     tokens_per_trial = 900
     description = "IFEval subset (Apache-2.0): verifiable formatting/length/keyword instructions, own checkers."

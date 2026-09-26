@@ -20,6 +20,7 @@ async def run_tests(sandbox: Sandbox | None, program: str, timeout_s: float = 15
 @register
 class HumanEvalBench(Benchmark):
     name = "humaneval"
+    sources = (HUMANEVAL,)
     title = "HumanEval (code)"
     tokens_per_trial = 1200
     requires = frozenset({"sandbox"})
@@ -50,6 +51,7 @@ class HumanEvalBench(Benchmark):
 @register
 class MBPPBench(Benchmark):
     name = "mbpp"
+    sources = (MBPP,)
     title = "MBPP (code)"
     tokens_per_trial = 900
     requires = frozenset({"sandbox"})

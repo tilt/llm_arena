@@ -27,7 +27,8 @@ export interface ArenaBackend {
   runtime(): Promise<RuntimeResponse>;
   scenarios(): Promise<ScenarioManifest[]>;
   models(refresh?: boolean): Promise<ModelsResponse>;
-  setKey(provider: string, key: string): Promise<void>;
+  /** remember: keep the key on this device (browser mode only; the local app keeps keys server-side). */
+  setKey(provider: string, key: string, remember?: boolean): Promise<void>;
   clearKey(provider: string): Promise<void>;
   estimate(experiment: ExperimentConfig): Promise<Estimate>;
   startRun(request: StartRun): Promise<string>;

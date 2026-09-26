@@ -67,7 +67,10 @@
 {#if progress.finished && progress.stoppedEarly}<p class="note">The run stopped early (cancelled or spend limit).</p>{/if}
 {#if error}<p class="note">{error}</p>{/if}
 {#if bundle}
-  {#if reportUrl}<p class="muted">Standalone report: <a href={reportUrl} target="_blank" rel="noopener">open HTML report</a></p>{/if}
+  <p class="muted">
+    {#if reportUrl}Standalone report: <a href={reportUrl} target="_blank" rel="noopener">open HTML report</a> · {/if}
+    <a href={URL.createObjectURL(new Blob([JSON.stringify(bundle)], { type: "application/json" }))} download={`${id}.json`}>Download run bundle</a>
+  </p>
   <ReportView {bundle} manifests={app.scenarios} />
 {:else if !live && !error}
   <p class="muted">Loading…</p>

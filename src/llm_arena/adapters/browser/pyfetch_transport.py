@@ -31,3 +31,27 @@ class PyfetchTransport:
         except ValueError:
             data = {"raw": text[:2000]}
         return HttpResponse(response.status, data)
+
+
+async def pyfetch_get_json(url: str, headers: dict[str, str]) -> HttpResponse:
+    from pyodide.http import pyfetch
+
+    try:
+        response = await pyfetch(url, method="GET", headers=headers)
+        text = await response.string()
+    except Exception as exc:
+        raise TransportError(f"{type(exc).__name__}: {exc}") from exc
+    try:
+        data = json.loads(text)
+    except ValueError:
+        data = {"raw": text[:2000]}
+    return HttpResponse(response.status, data)
+
+
+async def pyfetch_bytes(url: str) -> bytes:
+    from pyodide.http import pyfetch
+
+    response = await pyfetch(url)
+    if response.status >= 400:
+        raise TransportError(f"HTTP {response.status} for {url}")
+    return bytes(await response.bytes())

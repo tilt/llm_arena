@@ -68,7 +68,7 @@ packages = ["llm_arena"]
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["aisuite.*", "plotly.*", "huggingface_hub.*", "tavily.*", "arxiv.*", "matplotlib.*", "pyodide.*", "js"]
+module = ["aisuite.*", "plotly.*", "huggingface_hub.*", "tavily.*", "arxiv.*", "matplotlib.*", "pyodide.*", "pyodide_js", "js"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
