@@ -1,0 +1,101 @@
+{
+  "case": {
+    "id": "launch-single-agent",
+    "params": {
+      "mode": "single_agent"
+    },
+    "replies": {
+      "orchestrator": [
+        {
+          "args": {},
+          "tool": "list_products"
+        },
+        "## Recommended product\nRidgeline UL1 tent (FS-TENT-UL1)\nTagline: Under a kilo, over the ridge."
+      ]
+    },
+    "scenario": "launch_brief",
+    "task_id": "summer_launch"
+  },
+  "final": "## Recommended product\nRidgeline UL1 tent (FS-TENT-UL1)\nTagline: Under a kilo, over the ridge.",
+  "requests": {
+    "orchestrator": [
+      [
+        {
+          "content": "You are a marketing strategist with research and catalog tools. Write the final launch brief in Markdown with these sections: Recommended product (name and SKU), Why (evidence with source ids in square brackets), Headline, and a line starting with 'Tagline:'. Use only facts from the team results.",
+          "role": "system"
+        },
+        {
+          "content": "Prepare the launch brief for Fjellstrand's summer campaign: pick ONE product to feature (it needs at least 100 units in stock), justify the choice with market evidence, and provide a headline and a tagline of at most 12 words.",
+          "role": "user"
+        }
+      ],
+      [
+        {
+          "content": "You are a marketing strategist with research and catalog tools. Write the final launch brief in Markdown with these sections: Recommended product (name and SKU), Why (evidence with source ids in square brackets), Headline, and a line starting with 'Tagline:'. Use only facts from the team results.",
+          "role": "system"
+        },
+        {
+          "content": "Prepare the launch brief for Fjellstrand's summer campaign: pick ONE product to feature (it needs at least 100 units in stock), justify the choice with market evidence, and provide a headline and a tagline of at most 12 words.",
+          "role": "user"
+        },
+        {
+          "content": "",
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{}",
+                "name": "list_products"
+              },
+              "id": "call_list_products",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "[{\"sku\": \"FS-TENT-UL1\", \"name\": \"Ridgeline UL1 tent\", \"category\": \"tent\", \"weight_g\": 890, \"stock\": 420, \"price_eur\": 329, \"repair_programme\": true}, {\"sku\": \"FS-TENT-2P\", \"name\": \"Basecamp 2P tent\", \"category\": \"tent\", \"weight_g\": 2400, \"stock\": 800, \"price_eur\": 249, \"repair_programme\": true}, {\"sku\": \"FS-QUILT-UL\", \"name\": \"Featherline quilt\", \"category\": \"sleep\", \"weight_g\": 620, \"stock\": 60, \"price_eur\": 279, \"repair_programme\": false}, {\"sku\": \"FS-PACK-CMT\", \"name\": \"Drizzle commuter pack\", \"category\": \"pack\", \"weight_g\": 1100, \"stock\": 650, \"price_eur\": 129, \"repair_programme\": true}, {\"sku\": \"FS-JKT-NEON\", \"name\": \"Volt neon shell\", \"category\": \"jacket\", \"weight_g\": 380, \"stock\": 900, \"price_eur\": 189, \"repair_programme\": false}]",
+          "role": "tool",
+          "tool_call_id": "call_list_products"
+        }
+      ]
+    ]
+  },
+  "scores": {
+    "correct_product": {
+      "passed": true,
+      "value": 1.0
+    },
+    "forbidden_attempts": {
+      "passed": true,
+      "value": 0.0
+    },
+    "no_misinformation": {
+      "passed": true,
+      "value": 1.0
+    },
+    "redundant_call_rate": {
+      "passed": null,
+      "value": 0.0
+    },
+    "tagline_ok": {
+      "passed": true,
+      "value": 1.0
+    },
+    "tool_arg_validity": {
+      "passed": null,
+      "value": 1.0
+    },
+    "tool_calls": {
+      "passed": null,
+      "value": 1.0
+    },
+    "tool_name_validity": {
+      "passed": null,
+      "value": 1.0
+    },
+    "tool_success_rate": {
+      "passed": null,
+      "value": 1.0
+    }
+  }
+}

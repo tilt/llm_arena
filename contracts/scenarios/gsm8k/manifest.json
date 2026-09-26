@@ -1,0 +1,48 @@
+{
+  "description": "GSM8K test subset (MIT): multi-step arithmetic word problems, numeric match.",
+  "id": "gsm8k",
+  "kind": "benchmark",
+  "open_ended": false,
+  "params": [
+    {
+      "choices": null,
+      "default": null,
+      "description": "",
+      "name": "max_tokens",
+      "type": "string"
+    }
+  ],
+  "pass_criteria": [
+    "correct"
+  ],
+  "pattern": "benchmark",
+  "requires": [],
+  "roles": [
+    {
+      "description": "the model under test",
+      "fallback": null,
+      "name": "model",
+      "needs": []
+    }
+  ],
+  "tasks": 100,
+  "title": "GSM8K (maths word problems)",
+  "wiki": [
+    {
+      "title": "Evaluation harnesses",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/evaluation-harnesses"
+    },
+    {
+      "title": "Agent evaluation",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/agent-evaluation"
+    },
+    {
+      "title": "Evaluation harnesses",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/evaluation-harnesses"
+    },
+    {
+      "title": "LLM-as-judge",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/llm-as-judge"
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "properties": {
+    "level": {
+      "enum": [
+        "step",
+        "e2e"
+      ],
+      "title": "Level",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "passed": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Passed"
+    },
+    "rationale": {
+      "default": "",
+      "title": "Rationale",
+      "type": "string"
+    },
+    "value": {
+      "title": "Value",
+      "type": "number"
+    }
+  },
+  "required": [
+    "name",
+    "value",
+    "level"
+  ],
+  "title": "Score",
+  "type": "object"
+}

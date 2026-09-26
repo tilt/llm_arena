@@ -1,0 +1,5 @@
+Store policy:
+1. Orders can be cancelled only while their status is 'processing'. Cancelling restocks the items.
+2. Refunds are allowed up to 30 days after delivery, and never exceed the amount paid for the refunded items.
+3. Partial refunds for damaged items refund the unit price of each damaged item.
+4. Always send the customer a short message explaining what was done (or why it could not be done).

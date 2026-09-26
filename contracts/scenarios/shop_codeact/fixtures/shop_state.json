@@ -1,0 +1,85 @@
+{
+  "actions": [],
+  "messages": [],
+  "orders": [
+    {
+      "customer_email": "rui.tanaka@mail.test",
+      "delivered_on": "2026-03-06",
+      "order_id": 1003,
+      "ordered_on": "2026-03-01",
+      "paid": 58.0,
+      "status": "delivered"
+    },
+    {
+      "customer_email": "ines.moreau@mail.test",
+      "delivered_on": "2026-05-08",
+      "order_id": 1017,
+      "ordered_on": "2026-05-02",
+      "paid": 60.0,
+      "status": "delivered"
+    },
+    {
+      "customer_email": "ana.pereira@mail.test",
+      "delivered_on": null,
+      "order_id": 1042,
+      "ordered_on": "2026-05-13",
+      "paid": 173.0,
+      "status": "processing"
+    },
+    {
+      "customer_email": "tobias.klein@mail.test",
+      "delivered_on": null,
+      "order_id": 1050,
+      "ordered_on": "2026-05-10",
+      "paid": 48.0,
+      "status": "shipped"
+    },
+    {
+      "customer_email": "ana.pereira@mail.test",
+      "delivered_on": "2026-04-24",
+      "order_id": 1061,
+      "ordered_on": "2026-04-20",
+      "paid": 54.0,
+      "status": "delivered"
+    }
+  ],
+  "products": [
+    {
+      "name": "Ash glaze mug",
+      "price": 18.0,
+      "sku": "MUG-ASH",
+      "stock": 42
+    },
+    {
+      "name": "Tide blue mug",
+      "price": 18.0,
+      "sku": "MUG-TID",
+      "stock": 0
+    },
+    {
+      "name": "Rice bowl, speckled",
+      "price": 24.0,
+      "sku": "BWL-RICE",
+      "stock": 15
+    },
+    {
+      "name": "Dinner plate, stoneware",
+      "price": 32.0,
+      "sku": "PLT-DIN",
+      "stock": 0
+    },
+    {
+      "name": "Small teapot",
+      "price": 58.0,
+      "sku": "TPT-SML",
+      "stock": 6
+    },
+    {
+      "name": "Tall bud vase",
+      "price": 45.0,
+      "sku": "VAS-TAL",
+      "stock": 3
+    }
+  ],
+  "refunds": []
+}

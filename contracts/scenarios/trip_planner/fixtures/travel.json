@@ -1,0 +1,202 @@
+{
+  "calendar": [
+    {
+      "end": "2026-06-09T15:30",
+      "start": "2026-06-09T13:00",
+      "title": "Team retro (Ostreva office)"
+    },
+    {
+      "end": "2026-06-12T16:00",
+      "start": "2026-06-10T09:00",
+      "title": "Design Summit"
+    },
+    {
+      "end": "2026-06-19T09:00",
+      "start": "2026-06-19T08:00",
+      "title": "Dentist"
+    }
+  ],
+  "flights": [
+    [
+      "CA101",
+      "OST",
+      "PEL",
+      "2026-06-09T07:10",
+      "2026-06-09T08:25",
+      89.0,
+      false
+    ],
+    [
+      "CA117",
+      "OST",
+      "PEL",
+      "2026-06-09T16:05",
+      "2026-06-09T17:20",
+      119.0,
+      true
+    ],
+    [
+      "WM240",
+      "OST",
+      "PEL",
+      "2026-06-09T18:40",
+      "2026-06-09T19:55",
+      164.0,
+      false
+    ],
+    [
+      "WM252",
+      "OST",
+      "PEL",
+      "2026-06-09T21:30",
+      "2026-06-09T22:45",
+      99.0,
+      false
+    ],
+    [
+      "CA130",
+      "PEL",
+      "OST",
+      "2026-06-12T15:20",
+      "2026-06-12T16:35",
+      92.0,
+      false
+    ],
+    [
+      "CA134",
+      "PEL",
+      "OST",
+      "2026-06-12T18:15",
+      "2026-06-12T19:30",
+      128.0,
+      false
+    ],
+    [
+      "WM266",
+      "PEL",
+      "OST",
+      "2026-06-12T20:50",
+      "2026-06-12T22:05",
+      149.0,
+      false
+    ],
+    [
+      "NR410",
+      "PEL",
+      "VAR",
+      "2026-06-20T06:30",
+      "2026-06-20T08:40",
+      139.0,
+      true
+    ],
+    [
+      "NR414",
+      "PEL",
+      "VAR",
+      "2026-06-20T08:15",
+      "2026-06-20T10:25",
+      155.0,
+      false
+    ],
+    [
+      "WM418",
+      "PEL",
+      "VAR",
+      "2026-06-20T09:50",
+      "2026-06-20T12:05",
+      118.0,
+      false
+    ],
+    [
+      "NR422",
+      "PEL",
+      "VAR",
+      "2026-06-20T10:10",
+      "2026-06-20T11:55",
+      171.0,
+      false
+    ]
+  ],
+  "hotels": [
+    [
+      "H-PEL-1",
+      "Pellmoor",
+      "Hotel Kessel",
+      4,
+      185.0,
+      {
+        "Kessel Hall": 0.3
+      }
+    ],
+    [
+      "H-PEL-2",
+      "Pellmoor",
+      "The Selm Quay",
+      4,
+      142.0,
+      {
+        "Kessel Hall": 1.6
+      }
+    ],
+    [
+      "H-PEL-3",
+      "Pellmoor",
+      "Budget Inn Pellmoor",
+      2,
+      69.0,
+      {
+        "Kessel Hall": 0.8
+      }
+    ],
+    [
+      "H-PEL-4",
+      "Pellmoor",
+      "Grand Westmarch",
+      5,
+      240.0,
+      {
+        "Kessel Hall": 2.9
+      }
+    ],
+    [
+      "H-VAR-1",
+      "Varrel",
+      "Oskel Riverside",
+      3,
+      118.0,
+      {
+        "Varrel Old Town": 1.1
+      }
+    ],
+    [
+      "H-VAR-2",
+      "Varrel",
+      "Old Town Loft",
+      4,
+      149.0,
+      {
+        "Varrel Old Town": 0.2
+      }
+    ],
+    [
+      "H-VAR-3",
+      "Varrel",
+      "Varrel Plaza",
+      4,
+      172.0,
+      {
+        "Varrel Old Town": 0.1
+      }
+    ],
+    [
+      "H-VAR-4",
+      "Varrel",
+      "Station Hostel",
+      2,
+      55.0,
+      {
+        "Varrel Old Town": 2.4
+      }
+    ]
+  ]
+}

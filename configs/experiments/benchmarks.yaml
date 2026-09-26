@@ -1,0 +1,15 @@
+# Classic benchmark subsets (downloaded at pinned revisions on first use; `uv sync --extra benchmarks`).
+name: benchmarks
+scenarios: [gsm8k, mmlu_pro, ifeval, humaneval, mbpp, function_calling]
+limit: 30
+configs:
+  - name: qwen3-14b
+    roles: {model: ollama:qwen3:14b}
+  - name: qwen3-4b
+    roles: {model: ollama:qwen3:4b}
+  - name: qwen3.8-27b
+    roles: {model: ollama:qwen3.8:27b-mlx}
+  - name: qwen3.6-35b-a3b-coding
+    roles: {model: ollama:qwen3.6:35b-a3b-coding-nvfp4}
+  - name: gpt-4.1-mini
+    roles: {model: openai:gpt-4.1-mini}

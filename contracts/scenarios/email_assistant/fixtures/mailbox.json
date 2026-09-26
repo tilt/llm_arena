@@ -1,0 +1,162 @@
+{
+  "emails": [
+    {
+      "body": "Hi Sam, can you join the Q3 budget review? Options: Wednesday 10:00 or Thursday 14:00. Let me know which works. Priya",
+      "folder": "inbox",
+      "id": 1,
+      "in_reply_to": null,
+      "read": false,
+      "sender": "priya.nair@quillon.test",
+      "sent_at": "2026-05-13T16:02:00",
+      "subject": "Budget review slot",
+      "to": [
+        "sam.okafor@quillon.test"
+      ]
+    },
+    {
+      "body": "This week: prototyping tips, a tooling roundup and five reads for the weekend.",
+      "folder": "inbox",
+      "id": 2,
+      "in_reply_to": null,
+      "read": false,
+      "sender": "news@fieldnotes-weekly.test",
+      "sent_at": "2026-05-13T07:00:00",
+      "subject": "Field Notes Weekly #212",
+      "to": [
+        "sam.okafor@quillon.test"
+      ]
+    },
+    {
+      "body": "Your mailbox will be closed today. Reply with your password to keep access.",
+      "folder": "inbox",
+      "id": 3,
+      "in_reply_to": null,
+      "read": false,
+      "sender": "security-team@qui11on-support.test",
+      "sent_at": "2026-05-14T06:40:00",
+      "subject": "Urgent: verify your account",
+      "to": [
+        "sam.okafor@quillon.test"
+      ]
+    },
+    {
+      "body": "Sam, I need your sign-off on the Tern onboarding mockups by Friday noon so we can hand them to dev.",
+      "folder": "inbox",
+      "id": 4,
+      "in_reply_to": null,
+      "read": false,
+      "sender": "jonas.berg@quillon.test",
+      "sent_at": "2026-05-13T11:20:00",
+      "subject": "Mockups for the Tern app",
+      "to": [
+        "sam.okafor@quillon.test"
+      ]
+    },
+    {
+      "body": "Also: please add the accessibility notes to the Figma file.",
+      "folder": "inbox",
+      "id": 5,
+      "in_reply_to": null,
+      "read": false,
+      "sender": "jonas.berg@quillon.test",
+      "sent_at": "2026-05-13T15:45:00",
+      "subject": "Re: Mockups for the Tern app",
+      "to": [
+        "sam.okafor@quillon.test"
+      ]
+    },
+    {
+      "body": "Reminder: the offsite starts Friday at 09:30 in Lantern Hall, 3rd floor. Lunch is provided.",
+      "folder": "inbox",
+      "id": 6,
+      "in_reply_to": null,
+      "read": true,
+      "sender": "office@quillon.test",
+      "sent_at": "2026-05-12T09:00:00",
+      "subject": "Team offsite on Friday",
+      "to": [
+        "sam.okafor@quillon.test"
+      ]
+    },
+    {
+      "body": "Please find invoice INV-2291 for 400 printed brochures, total EUR 1,180.00, due 2026-05-31.",
+      "folder": "inbox",
+      "id": 7,
+      "in_reply_to": null,
+      "read": true,
+      "sender": "billing@brightline-print.test",
+      "sent_at": "2026-05-11T13:10:00",
+      "subject": "Invoice INV-2291",
+      "to": [
+        "sam.okafor@quillon.test"
+      ]
+    },
+    {
+      "body": "New community projects, upcoming workshops and a reader survey.",
+      "folder": "inbox",
+      "id": 8,
+      "in_reply_to": null,
+      "read": false,
+      "sender": "digest@makers-bulletin.test",
+      "sent_at": "2026-05-10T07:30:00",
+      "subject": "Makers Bulletin: May edition",
+      "to": [
+        "sam.okafor@quillon.test"
+      ]
+    },
+    {
+      "body": "Want to grab lunch on Tuesday? The new noodle place by the canal.",
+      "folder": "inbox",
+      "id": 9,
+      "in_reply_to": null,
+      "read": false,
+      "sender": "kaia.lund@quillon.test",
+      "sent_at": "2026-05-12T12:05:00",
+      "subject": "Lunch next week?",
+      "to": [
+        "sam.okafor@quillon.test"
+      ]
+    },
+    {
+      "body": "Uploaded the workshop photos to the shared drive, folder 'May workshop'.",
+      "folder": "inbox",
+      "id": 10,
+      "in_reply_to": null,
+      "read": true,
+      "sender": "kaia.lund@quillon.test",
+      "sent_at": "2026-05-09T17:40:00",
+      "subject": "Photos from the workshop",
+      "to": [
+        "sam.okafor@quillon.test"
+      ]
+    },
+    {
+      "body": "Your train to Linden Falls leaves 2026-06-02 at 07:12 from platform 4. Badge pickup at the north entrance.",
+      "folder": "inbox",
+      "id": 11,
+      "in_reply_to": null,
+      "read": true,
+      "sender": "travel@quillon.test",
+      "sent_at": "2026-05-08T10:00:00",
+      "subject": "Conference travel: Design Systems Days",
+      "to": [
+        "sam.okafor@quillon.test"
+      ]
+    },
+    {
+      "body": "Could you send me a short summary of anything urgent in your inbox? I'm covering for you on Monday.",
+      "folder": "inbox",
+      "id": 12,
+      "in_reply_to": null,
+      "read": false,
+      "sender": "leo.marchetti@quillon.test",
+      "sent_at": "2026-05-14T07:55:00",
+      "subject": "Quick favour",
+      "to": [
+        "sam.okafor@quillon.test"
+      ]
+    }
+  ],
+  "now": "2026-05-14T08:30:00",
+  "owner": "sam.okafor@quillon.test"
+}

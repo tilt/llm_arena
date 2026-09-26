@@ -1,0 +1,92 @@
+{
+  "CampaignCopy": {
+    "properties": {
+      "body": {
+        "description": "Two or three sentences",
+        "title": "Body",
+        "type": "string"
+      },
+      "headline": {
+        "title": "Headline",
+        "type": "string"
+      },
+      "tagline": {
+        "title": "Tagline",
+        "type": "string"
+      }
+    },
+    "required": [
+      "headline",
+      "tagline",
+      "body"
+    ],
+    "title": "CampaignCopy",
+    "type": "object"
+  },
+  "ProductPick": {
+    "properties": {
+      "reason": {
+        "title": "Reason",
+        "type": "string"
+      },
+      "sku": {
+        "title": "Sku",
+        "type": "string"
+      },
+      "stock": {
+        "title": "Stock",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "sku",
+      "reason",
+      "stock"
+    ],
+    "title": "ProductPick",
+    "type": "object"
+  },
+  "TrendFindings": {
+    "$defs": {
+      "TrendFinding": {
+        "properties": {
+          "evidence": {
+            "description": "The concrete figure or finding",
+            "title": "Evidence",
+            "type": "string"
+          },
+          "source_id": {
+            "description": "id of the document that supports it",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "trend": {
+            "title": "Trend",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trend",
+          "evidence",
+          "source_id"
+        ],
+        "title": "TrendFinding",
+        "type": "object"
+      }
+    },
+    "properties": {
+      "findings": {
+        "items": {
+          "$ref": "#/$defs/TrendFinding"
+        },
+        "title": "Findings",
+        "type": "array"
+      }
+    },
+    "required": [
+      "findings"
+    ],
+    "title": "TrendFindings",
+    "type": "object"
+  }
+}

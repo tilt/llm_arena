@@ -1,0 +1,23 @@
+[
+  {
+    "criteria": [
+      {
+        "description": "The product choice is justified with specific, credible market evidence.",
+        "name": "evidence",
+        "weight": 1.0
+      },
+      {
+        "description": "Product, evidence and copy fit together; no contradictions.",
+        "name": "consistency",
+        "weight": 1.0
+      },
+      {
+        "description": "Headline and tagline are catchy, concrete and on-brand for outdoor gear.",
+        "name": "copy",
+        "weight": 1.0
+      }
+    ],
+    "name": "brief_quality",
+    "pass_threshold": 0.7
+  }
+]

@@ -1,0 +1,41 @@
+# Curated model aliases — OPTIONAL.
+#
+# Installed models are discovered automatically (`arena models list`): use their reference directly in
+# experiments, e.g. `ollama:qwen3:14b`, `lmstudio:qwen/qwen3-14b`, `openai:gpt-4.1-mini`. Discovery also
+# reports capabilities (tools, vision, thinking), so role checks work without any entry here.
+#
+# Add an alias only to change how a model is called, e.g. a different tool protocol, sampling,
+# reasoning effort, context size, backend or price. An alias always wins over discovery.
+
+defaults:
+  temperature: 0.2
+  timeout_s: 300
+
+models:
+  # Same model, JSON tool protocol instead of native tool calls (compare harness vs model).
+  qwen3-14b-json:
+    provider: ollama
+    model: qwen3:14b
+    tool_mode: json
+    capabilities: {reasoning: true}
+
+  # Reasoning effort is a call parameter, not a model property.
+  gpt-5-mini-low:
+    provider: openai
+    model: gpt-5-mini
+    reasoning_effort: low
+    capabilities: {vision: true, reasoning: true}
+
+  # Same model through the aisuite backend (extra `aisuite`), to compare client stacks.
+  qwen3-14b-aisuite:
+    provider: ollama
+    model: qwen3:14b
+    backend: aisuite
+    capabilities: {reasoning: true, json_schema: false}
+
+  # A deterministic judge: pin temperature 0 for grading.
+  judge-gpt-4.1-mini:
+    provider: openai
+    model: gpt-4.1-mini
+    temperature: 0.0
+    capabilities: {vision: true}

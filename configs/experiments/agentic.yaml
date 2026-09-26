@@ -1,0 +1,28 @@
+# All agentic-pattern scenarios, local vs remote, with role-specific model mixes.
+name: agentic
+scenarios: [email_assistant, react_multihop, research_report, shop_codeact, trip_planner, launch_brief, chart_codegen]
+repeats: 2
+judge: judge-gpt-4.1-mini
+arena: {enabled: true}
+max_parallel_trials: 4
+configs:
+  - name: gpt-4.1-mini
+    roles: {"*": openai:gpt-4.1-mini}
+  - name: qwen3-14b
+    roles: {"*": ollama:qwen3:14b, critic: ollama:qwen3-vl:8b}   # critic needs vision for charts
+  - name: qwen3-14b-json-tools
+    roles: {"*": qwen3-14b-json}
+    scenarios: [email_assistant, trip_planner]
+  - name: hybrid-planner
+    roles: {planner: openai:gpt-4.1-mini, executor: ollama:qwen3:14b}
+    scenarios: [trip_planner]
+  - name: single-loop-baseline
+    roles: {"*": ollama:qwen3:14b}
+    scenarios: [trip_planner, launch_brief]
+    scenario_params:
+      trip_planner: {mode: single_loop}
+      launch_brief: {mode: single_agent}
+  - name: react-vs-act
+    roles: {"*": ollama:qwen3:14b}
+    scenarios: [react_multihop]
+    scenario_params: {react_multihop: {variant: act}}

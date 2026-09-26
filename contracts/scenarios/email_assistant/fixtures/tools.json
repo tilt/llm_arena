@@ -1,0 +1,227 @@
+[
+  {
+    "function": {
+      "description": "List emails in a folder, newest first (without bodies).",
+      "name": "list_emails",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "folder": {
+            "default": "inbox",
+            "description": "inbox, archive or sent",
+            "type": "string"
+          },
+          "unread_only": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "permission": "read",
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Search all folders except trash by text and/or sender.",
+      "name": "search_emails",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "default": "",
+            "description": "Case-insensitive text matched against subject and body",
+            "type": "string"
+          },
+          "sender": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filter by (part of) the sender address"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "permission": "read",
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Return an email including its body and mark it as read.",
+      "name": "read_email",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "email_id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "email_id"
+        ],
+        "type": "object"
+      }
+    },
+    "permission": "read",
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Mark an email as read or unread.",
+      "name": "mark_read",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "email_id": {
+            "type": "integer"
+          },
+          "read": {
+            "default": true,
+            "description": "false marks it unread",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "email_id"
+        ],
+        "type": "object"
+      }
+    },
+    "permission": "write",
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Move an email to the archive folder.",
+      "name": "archive_email",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "email_id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "email_id"
+        ],
+        "type": "object"
+      }
+    },
+    "permission": "write",
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Send a new email from the mailbox owner.",
+      "name": "send_email",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "to": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "to",
+          "subject",
+          "body"
+        ],
+        "type": "object"
+      }
+    },
+    "permission": "write",
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Reply to the sender of an email (subject gets a 'Re:' prefix).",
+      "name": "reply_email",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "type": "string"
+          },
+          "email_id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "email_id",
+          "body"
+        ],
+        "type": "object"
+      }
+    },
+    "permission": "write",
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Forward an email (with its full body) to other recipients, optionally with a note.",
+      "name": "forward_email",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "email_id": {
+            "type": "integer"
+          },
+          "note": {
+            "default": "",
+            "type": "string"
+          },
+          "to": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "email_id",
+          "to"
+        ],
+        "type": "object"
+      }
+    },
+    "permission": "write",
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Move an email to the trash.",
+      "name": "delete_email",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "email_id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "email_id"
+        ],
+        "type": "object"
+      }
+    },
+    "permission": "destructive",
+    "type": "function"
+  }
+]

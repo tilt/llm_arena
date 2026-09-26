@@ -1,0 +1,47 @@
+[
+  {
+    "category": "tent",
+    "name": "Ridgeline UL1 tent",
+    "price_eur": 329,
+    "repair_programme": true,
+    "sku": "FS-TENT-UL1",
+    "stock": 420,
+    "weight_g": 890
+  },
+  {
+    "category": "tent",
+    "name": "Basecamp 2P tent",
+    "price_eur": 249,
+    "repair_programme": true,
+    "sku": "FS-TENT-2P",
+    "stock": 800,
+    "weight_g": 2400
+  },
+  {
+    "category": "sleep",
+    "name": "Featherline quilt",
+    "price_eur": 279,
+    "repair_programme": false,
+    "sku": "FS-QUILT-UL",
+    "stock": 60,
+    "weight_g": 620
+  },
+  {
+    "category": "pack",
+    "name": "Drizzle commuter pack",
+    "price_eur": 129,
+    "repair_programme": true,
+    "sku": "FS-PACK-CMT",
+    "stock": 650,
+    "weight_g": 1100
+  },
+  {
+    "category": "jacket",
+    "name": "Volt neon shell",
+    "price_eur": 189,
+    "repair_programme": false,
+    "sku": "FS-JKT-NEON",
+    "stock": 900,
+    "weight_g": 380
+  }
+]

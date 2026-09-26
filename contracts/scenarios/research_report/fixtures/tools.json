@@ -1,0 +1,44 @@
+[
+  {
+    "function": {
+      "description": "Search for sources; returns id, title, url, publication date and a snippet per hit.",
+      "name": "search",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "max_results": {
+            "default": 5,
+            "type": "integer"
+          },
+          "query": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Fetch the full text of a source by its id.",
+      "name": "fetch_document",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "doc_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "doc_id"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  }
+]

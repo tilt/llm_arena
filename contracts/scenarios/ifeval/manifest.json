@@ -1,0 +1,48 @@
+{
+  "description": "IFEval subset (Apache-2.0): verifiable formatting/length/keyword instructions, own checkers.",
+  "id": "ifeval",
+  "kind": "benchmark",
+  "open_ended": false,
+  "params": [
+    {
+      "choices": null,
+      "default": null,
+      "description": "",
+      "name": "max_tokens",
+      "type": "string"
+    }
+  ],
+  "pass_criteria": [
+    "correct"
+  ],
+  "pattern": "benchmark",
+  "requires": [],
+  "roles": [
+    {
+      "description": "the model under test",
+      "fallback": null,
+      "name": "model",
+      "needs": []
+    }
+  ],
+  "tasks": 100,
+  "title": "IFEval (instruction following)",
+  "wiki": [
+    {
+      "title": "Evaluation harnesses",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/evaluation-harnesses"
+    },
+    {
+      "title": "Agent evaluation",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/agent-evaluation"
+    },
+    {
+      "title": "Evaluation harnesses",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/evaluation-harnesses"
+    },
+    {
+      "title": "LLM-as-judge",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/llm-as-judge"
+    }
+  ]
+}

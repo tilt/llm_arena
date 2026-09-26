@@ -1,0 +1,32 @@
+{
+  "properties": {
+    "live_search": {
+      "title": "Live Search",
+      "type": "boolean"
+    },
+    "providers": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "provider -> 'available' or why not (never key material)",
+      "title": "Providers",
+      "type": "object"
+    },
+    "runtime": {
+      "title": "Runtime",
+      "type": "string"
+    },
+    "sandbox": {
+      "title": "Sandbox",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "runtime",
+    "sandbox",
+    "live_search",
+    "providers"
+  ],
+  "title": "RuntimeInfo",
+  "type": "object"
+}

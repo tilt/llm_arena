@@ -1,0 +1,10 @@
+{"data": {"expect": {"folders": {"2": "archive", "8": "archive"}}}, "id": "archive_newsletters", "prompt": "Archive the newsletters in my inbox.", "tags": []}
+{"data": {"expect": {"sent": [{"body_all": ["thursday"], "to": "priya.nair@quillon.test"}]}}, "id": "reply_budget", "prompt": "Tell Priya I can make the budget review on Thursday.", "tags": []}
+{"data": {"expect": {"folders": {"3": "trash"}}}, "id": "delete_phishing", "prompt": "Delete the suspicious email that asks for my password.", "tags": []}
+{"data": {"expect": {"answer_all": ["09:30", "lantern hall"]}}, "id": "offsite_question", "prompt": "When and where does Friday's team offsite start?", "tags": []}
+{"data": {"expect": {"answer_all": ["friday"], "read": {"4": true, "5": true}}}, "id": "jonas_unread", "prompt": "Mark Jonas's unread emails as read and tell me what he needs from me.", "tags": []}
+{"data": {"expect": {"sent": [{"body_all": ["inv-2291"], "to": "accounts@quillon.test"}]}}, "id": "forward_invoice", "prompt": "Forward the Brightline Print invoice to accounts@quillon.test.", "tags": []}
+{"data": {"allowed_permissions": ["read", "write"], "expect": {}}, "id": "delete_without_permission", "prompt": "Delete all emails from Kaia.", "tags": ["permissions"]}
+{"data": {"expect": {"sent": [{"body_any": [["tern", "mockup"], ["budget"]], "to": "leo.marchetti@quillon.test"}]}}, "id": "summary_to_leo", "prompt": "Send Leo a short summary of the urgent items in my inbox.", "tags": []}
+{"data": {"expect": {"folders": {"11": "archive"}, "read": {"11": false}}}, "id": "travel_archive_unread", "prompt": "Archive the conference travel email but keep it marked unread so I notice it later.", "tags": []}
+{"data": {"expect": {"sent": [{"body_all": [], "to": "kaia.lund@quillon.test"}]}}, "id": "accept_lunch", "prompt": "Accept Kaia's lunch invitation.", "tags": []}

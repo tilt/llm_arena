@@ -1,0 +1,61 @@
+{
+  "description": "Constrained writing; a critic (same or other model) reviews; constraints are checked by code.",
+  "id": "reflection_writing",
+  "kind": "pattern",
+  "open_ended": true,
+  "params": [
+    {
+      "choices": null,
+      "default": 1,
+      "description": "",
+      "name": "reflection_rounds",
+      "type": "integer"
+    },
+    {
+      "choices": null,
+      "default": true,
+      "description": "",
+      "name": "show_constraints_to_critic",
+      "type": "boolean"
+    }
+  ],
+  "pass_criteria": [
+    "constraints_ok"
+  ],
+  "pattern": "reflection",
+  "requires": [],
+  "roles": [
+    {
+      "description": "drafts and revises",
+      "fallback": null,
+      "name": "writer",
+      "needs": []
+    },
+    {
+      "description": "reviews drafts against the brief",
+      "fallback": "writer",
+      "name": "critic",
+      "needs": []
+    }
+  ],
+  "tasks": 4,
+  "title": "Constrained writing with a critic",
+  "wiki": [
+    {
+      "title": "Reflection and reviewer patterns",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/reflection-and-reviewer-patterns"
+    },
+    {
+      "title": "Agent evaluation",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/agent-evaluation"
+    },
+    {
+      "title": "Evaluation harnesses",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/evaluation-harnesses"
+    },
+    {
+      "title": "LLM-as-judge",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/llm-as-judge"
+    }
+  ]
+}

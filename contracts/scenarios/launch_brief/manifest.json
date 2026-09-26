@@ -1,0 +1,88 @@
+{
+  "description": "Orchestrator + researcher/analyst/copywriter with typed handoffs vs a single agent with all tools.",
+  "id": "launch_brief",
+  "kind": "pattern",
+  "open_ended": true,
+  "params": [
+    {
+      "choices": [
+        "multi_agent",
+        "single_agent"
+      ],
+      "default": "multi_agent",
+      "description": "",
+      "name": "mode",
+      "type": "string"
+    },
+    {
+      "choices": [
+        "auto",
+        "fixed"
+      ],
+      "default": "auto",
+      "description": "",
+      "name": "delegation",
+      "type": "string"
+    },
+    {
+      "choices": null,
+      "default": 8,
+      "description": "",
+      "name": "max_turns",
+      "type": "integer"
+    }
+  ],
+  "pass_criteria": [
+    "correct_product",
+    "tagline_ok",
+    "no_misinformation"
+  ],
+  "pattern": "multi_agent",
+  "requires": [],
+  "roles": [
+    {
+      "description": "delegates and composes the brief",
+      "fallback": null,
+      "name": "orchestrator",
+      "needs": []
+    },
+    {
+      "description": "finds market trends",
+      "fallback": "orchestrator",
+      "name": "researcher",
+      "needs": []
+    },
+    {
+      "description": "picks the product from the catalog",
+      "fallback": "orchestrator",
+      "name": "analyst",
+      "needs": []
+    },
+    {
+      "description": "writes headline and tagline",
+      "fallback": "orchestrator",
+      "name": "copywriter",
+      "needs": []
+    }
+  ],
+  "tasks": 2,
+  "title": "Product launch team (multi-agent)",
+  "wiki": [
+    {
+      "title": "Multi-agent systems",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/multi-agent-systems"
+    },
+    {
+      "title": "Agent evaluation",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/agent-evaluation"
+    },
+    {
+      "title": "Evaluation harnesses",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/evaluation-harnesses"
+    },
+    {
+      "title": "LLM-as-judge",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/llm-as-judge"
+    }
+  ]
+}

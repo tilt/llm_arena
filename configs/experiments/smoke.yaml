@@ -1,0 +1,10 @@
+# Small end-to-end check: 2 scenarios x 2 configs x 3 tasks. Adjust the models to what you have running.
+name: smoke
+scenarios: [reflection_sql, email_assistant]
+limit: 3
+repeats: 1
+configs:
+  - name: qwen3-14b
+    roles: {"*": ollama:qwen3:14b}
+  - name: qwen3-4b
+    roles: {"*": ollama:qwen3:4b}

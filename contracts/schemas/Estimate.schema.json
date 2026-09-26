@@ -1,0 +1,44 @@
+{
+  "properties": {
+    "cost_usd": {
+      "title": "Cost Usd",
+      "type": "number"
+    },
+    "note": {
+      "default": "Rough estimate from typical tokens per trial; actual spend depends on model verbosity.",
+      "title": "Note",
+      "type": "string"
+    },
+    "per_scenario": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Per Scenario",
+      "type": "object"
+    },
+    "tokens": {
+      "title": "Tokens",
+      "type": "integer"
+    },
+    "trials": {
+      "title": "Trials",
+      "type": "integer"
+    },
+    "unknown_prices": {
+      "description": "models without a known price (costed at 0)",
+      "items": {
+        "type": "string"
+      },
+      "title": "Unknown Prices",
+      "type": "array"
+    }
+  },
+  "required": [
+    "trials",
+    "per_scenario",
+    "tokens",
+    "cost_usd"
+  ],
+  "title": "Estimate",
+  "type": "object"
+}

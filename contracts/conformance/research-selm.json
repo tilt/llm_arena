@@ -1,0 +1,201 @@
+{
+  "case": {
+    "id": "research-selm",
+    "params": {},
+    "replies": {
+      "researcher": [
+        {
+          "args": {
+            "query": "Selm tidal pilot"
+          },
+          "tool": "search"
+        },
+        {
+          "args": {
+            "doc_id": "selm_tidal-1"
+          },
+          "tool": "fetch_document"
+        },
+        "Notes: 12 MW, 2024, Ostreva Energy Cooperative, 38 percent [selm_tidal-1]"
+      ],
+      "reviewer": [
+        "{\"verdict\": \"accept\", \"issues\": []}"
+      ],
+      "writer": [
+        "The Selm pilot (12 MW) was commissioned in 2024 by the Ostreva Energy Cooperative and reached a 38 percent capacity factor [selm_tidal-1]."
+      ]
+    },
+    "scenario": "research_report",
+    "task_id": "selm_tidal"
+  },
+  "final": "The Selm pilot (12 MW) was commissioned in 2024 by the Ostreva Energy Cooperative and reached a 38 percent capacity factor [selm_tidal-1].",
+  "requests": {
+    "researcher": [
+      [
+        {
+          "content": "You are a careful research assistant. Find and read the most authoritative sources for the question (official statistics, agencies, peer-reviewed journals) and be sceptical of sensational sites. Finish with research notes: key facts, each followed by the source id in square brackets.",
+          "role": "system"
+        },
+        {
+          "content": "Summarise the status and performance of the Selm estuary tidal turbine pilot near Ostreva.",
+          "role": "user"
+        }
+      ],
+      [
+        {
+          "content": "You are a careful research assistant. Find and read the most authoritative sources for the question (official statistics, agencies, peer-reviewed journals) and be sceptical of sensational sites. Finish with research notes: key facts, each followed by the source id in square brackets.",
+          "role": "system"
+        },
+        {
+          "content": "Summarise the status and performance of the Selm estuary tidal turbine pilot near Ostreva.",
+          "role": "user"
+        },
+        {
+          "content": "",
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"query\": \"Selm tidal pilot\"}",
+                "name": "search"
+              },
+              "id": "call_search",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "[{\"id\": \"selm_tidal-1\", \"title\": \"Selm estuary tidal pilot: first-year operating report\", \"url\": \"https://energy.calvoria.gov.test/selm_tidal/1\", \"published\": \"2025-03-02\", \"snippet\": \"The Selm estuary tidal pilot, operated by the Ostreva Energy Cooperative, was commissioned in 2024 with an installed capacity of 12 MW across eight seabed turbi\"}, {\"id\": \"selm_tidal-3\", \"title\": \"Tidal turbines hum beneath the Selm\", \"url\": \"https://ostreva-herald.test/selm_tidal/3\", \"published\": \"2024-09-10\", \"snippet\": \"Eight turbines now turn beneath the Selm estuary. The cooperative behind the project says the pilot could be expanded if the second monitoring year confirms the\"}, {\"id\": \"selm_tidal-2\", \"title\": \"Sediment and fish passage monitoring at the Selm tidal array\", \"url\": \"https://journal-coastal-systems.test/selm_tidal/2\", \"published\": \"2025-06-18\", \"snippet\": \"Monitoring at the 12 MW Selm tidal array found no significant change in sediment transport during 2024. Fish passage rates for sea trout stayed within the natur\"}, {\"id\": \"pellmoor_cargo-1\", \"title\": \"Urban logistics pilot evaluation: Pellmoor\", \"url\": \"https://stats.westmarch.gov.test/pellmoor_cargo/1\", \"published\": \"2025-12-01\", \"snippet\": \"During 2025 a fleet of 18 cargo bikes handled about 1,200 parcel deliveries per week in central Pellmoor. Compared with the van baseline, delivery emissions fel\"}, {\"id\": \"selm_tidal-4\", \"title\": \"Ostreva's MASSIVE 50 MW tidal farm is live!\", \"url\": \"https://greentechbuzz.test/selm_tidal/4\", \"published\": \"2023-12-01\", \"snippet\": \"Ostreva switched on a 50 MW tidal farm back in 2019 and it now powers the whole city, insiders say.\"}]",
+          "role": "tool",
+          "tool_call_id": "call_search"
+        }
+      ],
+      [
+        {
+          "content": "You are a careful research assistant. Find and read the most authoritative sources for the question (official statistics, agencies, peer-reviewed journals) and be sceptical of sensational sites. Finish with research notes: key facts, each followed by the source id in square brackets.",
+          "role": "system"
+        },
+        {
+          "content": "Summarise the status and performance of the Selm estuary tidal turbine pilot near Ostreva.",
+          "role": "user"
+        },
+        {
+          "content": "",
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"query\": \"Selm tidal pilot\"}",
+                "name": "search"
+              },
+              "id": "call_search",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "[{\"id\": \"selm_tidal-1\", \"title\": \"Selm estuary tidal pilot: first-year operating report\", \"url\": \"https://energy.calvoria.gov.test/selm_tidal/1\", \"published\": \"2025-03-02\", \"snippet\": \"The Selm estuary tidal pilot, operated by the Ostreva Energy Cooperative, was commissioned in 2024 with an installed capacity of 12 MW across eight seabed turbi\"}, {\"id\": \"selm_tidal-3\", \"title\": \"Tidal turbines hum beneath the Selm\", \"url\": \"https://ostreva-herald.test/selm_tidal/3\", \"published\": \"2024-09-10\", \"snippet\": \"Eight turbines now turn beneath the Selm estuary. The cooperative behind the project says the pilot could be expanded if the second monitoring year confirms the\"}, {\"id\": \"selm_tidal-2\", \"title\": \"Sediment and fish passage monitoring at the Selm tidal array\", \"url\": \"https://journal-coastal-systems.test/selm_tidal/2\", \"published\": \"2025-06-18\", \"snippet\": \"Monitoring at the 12 MW Selm tidal array found no significant change in sediment transport during 2024. Fish passage rates for sea trout stayed within the natur\"}, {\"id\": \"pellmoor_cargo-1\", \"title\": \"Urban logistics pilot evaluation: Pellmoor\", \"url\": \"https://stats.westmarch.gov.test/pellmoor_cargo/1\", \"published\": \"2025-12-01\", \"snippet\": \"During 2025 a fleet of 18 cargo bikes handled about 1,200 parcel deliveries per week in central Pellmoor. Compared with the van baseline, delivery emissions fel\"}, {\"id\": \"selm_tidal-4\", \"title\": \"Ostreva's MASSIVE 50 MW tidal farm is live!\", \"url\": \"https://greentechbuzz.test/selm_tidal/4\", \"published\": \"2023-12-01\", \"snippet\": \"Ostreva switched on a 50 MW tidal farm back in 2019 and it now powers the whole city, insiders say.\"}]",
+          "role": "tool",
+          "tool_call_id": "call_search"
+        },
+        {
+          "content": "",
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"doc_id\": \"selm_tidal-1\"}",
+                "name": "fetch_document"
+              },
+              "id": "call_fetch_document",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "{\"id\": \"selm_tidal-1\", \"title\": \"Selm estuary tidal pilot: first-year operating report\", \"url\": \"https://energy.calvoria.gov.test/selm_tidal/1\", \"published\": \"2025-03-02\", \"text\": \"The Selm estuary tidal pilot, operated by the Ostreva Energy Cooperative, was commissioned in 2024 with an installed capacity of 12 MW across eight seabed turbines. In its first full year the array reached a capacity factor of 38 percent, above the 33 percent assumed in planning.\"}",
+          "role": "tool",
+          "tool_call_id": "call_fetch_document"
+        }
+      ]
+    ],
+    "reviewer": [
+      [
+        {
+          "content": "You review research reports for unsupported claims, missing key facts, weak sources and clarity.",
+          "role": "system"
+        },
+        {
+          "content": "Question: Summarise the status and performance of the Selm estuary tidal turbine pilot near Ostreva.\n\nResearch notes:\nNotes: 12 MW, 2024, Ostreva Energy Cooperative, 38 percent [selm_tidal-1]\n\nReport:\nThe Selm pilot (12 MW) was commissioned in 2024 by the Ostreva Energy Cooperative and reached a 38 percent capacity factor [selm_tidal-1].\n\nRespond with a single JSON object that validates against this JSON schema (no prose, no code fences):\n{'properties': {'verdict': {'description': 'accept if no change is needed', 'enum': ['accept', 'revise'], 'title': 'Verdict', 'type': 'string'}, 'issues': {'description': 'Concrete, actionable problems; empty if none', 'items': {'type': 'string'}, 'title': 'Issues', 'type': 'array'}, 'summary': {'default': '', 'title': 'Summary', 'type': 'string'}}, 'required': ['verdict'], 'title': 'Critique', 'type': 'object'}",
+          "role": "user"
+        }
+      ]
+    ],
+    "writer": [
+      [
+        {
+          "content": "Write a report of at most 200 words answering the question. Cite every factual claim with the source id in square brackets, e.g. [doc-1]. Use only facts from the notes.",
+          "role": "system"
+        },
+        {
+          "content": "Question: Summarise the status and performance of the Selm estuary tidal turbine pilot near Ostreva.\n\nResearch notes:\nNotes: 12 MW, 2024, Ostreva Energy Cooperative, 38 percent [selm_tidal-1]",
+          "role": "user"
+        }
+      ]
+    ]
+  },
+  "scores": {
+    "citation_validity": {
+      "passed": true,
+      "value": 1.0
+    },
+    "draft_fact_recall": {
+      "passed": null,
+      "value": 1.0
+    },
+    "fact_recall": {
+      "passed": true,
+      "value": 1.0
+    },
+    "forbidden_attempts": {
+      "passed": true,
+      "value": 0.0
+    },
+    "gold_doc_recall": {
+      "passed": null,
+      "value": 0.5
+    },
+    "low_quality_fetch_rate": {
+      "passed": null,
+      "value": 0.0
+    },
+    "no_misinformation": {
+      "passed": true,
+      "value": 1.0
+    },
+    "preferred_source_ratio": {
+      "passed": true,
+      "value": 1.0
+    },
+    "redundant_call_rate": {
+      "passed": null,
+      "value": 0.0
+    },
+    "tool_arg_validity": {
+      "passed": null,
+      "value": 1.0
+    },
+    "tool_calls": {
+      "passed": null,
+      "value": 2.0
+    },
+    "tool_name_validity": {
+      "passed": null,
+      "value": 1.0
+    },
+    "tool_success_rate": {
+      "passed": null,
+      "value": 1.0
+    }
+  }
+}

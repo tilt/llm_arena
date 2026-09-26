@@ -1,0 +1,232 @@
+{
+  "case": {
+    "id": "trip-recovers-from-sold-out",
+    "params": {
+      "mode": "single_loop"
+    },
+    "replies": {
+      "planner": [
+        {
+          "args": {
+            "date": "2026-06-20",
+            "destination": "Varrel",
+            "origin": "Pellmoor"
+          },
+          "tool": "search_flights"
+        },
+        {
+          "args": {
+            "flight_id": "NR410"
+          },
+          "tool": "book_flight"
+        },
+        {
+          "args": {
+            "flight_id": "NR414"
+          },
+          "tool": "book_flight"
+        },
+        "Booked NR414."
+      ]
+    },
+    "scenario": "trip_planner",
+    "task_id": "varrel_morning"
+  },
+  "final": "Booked NR414.",
+  "requests": {
+    "planner": [
+      [
+        {
+          "content": "You are a travel booking assistant. Today is 2026-05-14. Book exactly what is needed, nothing more.",
+          "role": "system"
+        },
+        {
+          "content": "Book the cheapest flight from Pellmoor to Varrel on 20 June 2026 that arrives before noon. No hotel.",
+          "role": "user"
+        }
+      ],
+      [
+        {
+          "content": "You are a travel booking assistant. Today is 2026-05-14. Book exactly what is needed, nothing more.",
+          "role": "system"
+        },
+        {
+          "content": "Book the cheapest flight from Pellmoor to Varrel on 20 June 2026 that arrives before noon. No hotel.",
+          "role": "user"
+        },
+        {
+          "content": "",
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"origin\": \"Pellmoor\", \"destination\": \"Varrel\", \"date\": \"2026-06-20\"}",
+                "name": "search_flights"
+              },
+              "id": "call_search_flights",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "[{\"flight_id\": \"NR410\", \"origin\": \"PEL\", \"destination\": \"VAR\", \"departs\": \"2026-06-20T06:30\", \"arrives\": \"2026-06-20T08:40\", \"price_eur\": 139.0}, {\"flight_id\": \"NR414\", \"origin\": \"PEL\", \"destination\": \"VAR\", \"departs\": \"2026-06-20T08:15\", \"arrives\": \"2026-06-20T10:25\", \"price_eur\": 155.0}, {\"flight_id\": \"WM418\", \"origin\": \"PEL\", \"destination\": \"VAR\", \"departs\": \"2026-06-20T09:50\", \"arrives\": \"2026-06-20T12:05\", \"price_eur\": 118.0}, {\"flight_id\": \"NR422\", \"origin\": \"PEL\", \"destination\": \"VAR\", \"departs\": \"2026-06-20T10:10\", \"arrives\": \"2026-06-20T11:55\", \"price_eur\": 171.0}]",
+          "role": "tool",
+          "tool_call_id": "call_search_flights"
+        }
+      ],
+      [
+        {
+          "content": "You are a travel booking assistant. Today is 2026-05-14. Book exactly what is needed, nothing more.",
+          "role": "system"
+        },
+        {
+          "content": "Book the cheapest flight from Pellmoor to Varrel on 20 June 2026 that arrives before noon. No hotel.",
+          "role": "user"
+        },
+        {
+          "content": "",
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"origin\": \"Pellmoor\", \"destination\": \"Varrel\", \"date\": \"2026-06-20\"}",
+                "name": "search_flights"
+              },
+              "id": "call_search_flights",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "[{\"flight_id\": \"NR410\", \"origin\": \"PEL\", \"destination\": \"VAR\", \"departs\": \"2026-06-20T06:30\", \"arrives\": \"2026-06-20T08:40\", \"price_eur\": 139.0}, {\"flight_id\": \"NR414\", \"origin\": \"PEL\", \"destination\": \"VAR\", \"departs\": \"2026-06-20T08:15\", \"arrives\": \"2026-06-20T10:25\", \"price_eur\": 155.0}, {\"flight_id\": \"WM418\", \"origin\": \"PEL\", \"destination\": \"VAR\", \"departs\": \"2026-06-20T09:50\", \"arrives\": \"2026-06-20T12:05\", \"price_eur\": 118.0}, {\"flight_id\": \"NR422\", \"origin\": \"PEL\", \"destination\": \"VAR\", \"departs\": \"2026-06-20T10:10\", \"arrives\": \"2026-06-20T11:55\", \"price_eur\": 171.0}]",
+          "role": "tool",
+          "tool_call_id": "call_search_flights"
+        },
+        {
+          "content": "",
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"flight_id\": \"NR410\"}",
+                "name": "book_flight"
+              },
+              "id": "call_book_flight",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "Error: book_flight failed: flight NR410 is sold out",
+          "role": "tool",
+          "tool_call_id": "call_book_flight"
+        }
+      ],
+      [
+        {
+          "content": "You are a travel booking assistant. Today is 2026-05-14. Book exactly what is needed, nothing more.",
+          "role": "system"
+        },
+        {
+          "content": "Book the cheapest flight from Pellmoor to Varrel on 20 June 2026 that arrives before noon. No hotel.",
+          "role": "user"
+        },
+        {
+          "content": "",
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"origin\": \"Pellmoor\", \"destination\": \"Varrel\", \"date\": \"2026-06-20\"}",
+                "name": "search_flights"
+              },
+              "id": "call_search_flights",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "[{\"flight_id\": \"NR410\", \"origin\": \"PEL\", \"destination\": \"VAR\", \"departs\": \"2026-06-20T06:30\", \"arrives\": \"2026-06-20T08:40\", \"price_eur\": 139.0}, {\"flight_id\": \"NR414\", \"origin\": \"PEL\", \"destination\": \"VAR\", \"departs\": \"2026-06-20T08:15\", \"arrives\": \"2026-06-20T10:25\", \"price_eur\": 155.0}, {\"flight_id\": \"WM418\", \"origin\": \"PEL\", \"destination\": \"VAR\", \"departs\": \"2026-06-20T09:50\", \"arrives\": \"2026-06-20T12:05\", \"price_eur\": 118.0}, {\"flight_id\": \"NR422\", \"origin\": \"PEL\", \"destination\": \"VAR\", \"departs\": \"2026-06-20T10:10\", \"arrives\": \"2026-06-20T11:55\", \"price_eur\": 171.0}]",
+          "role": "tool",
+          "tool_call_id": "call_search_flights"
+        },
+        {
+          "content": "",
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"flight_id\": \"NR410\"}",
+                "name": "book_flight"
+              },
+              "id": "call_book_flight",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "Error: book_flight failed: flight NR410 is sold out",
+          "role": "tool",
+          "tool_call_id": "call_book_flight"
+        },
+        {
+          "content": "",
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"flight_id\": \"NR414\"}",
+                "name": "book_flight"
+              },
+              "id": "call_book_flight",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "{\"booking_id\": \"B001\", \"type\": \"flight\", \"status\": \"confirmed\", \"flight_id\": \"NR414\", \"origin\": \"PEL\", \"destination\": \"VAR\", \"departs\": \"2026-06-20T08:15\", \"arrives\": \"2026-06-20T10:25\", \"price_eur\": 155.0}",
+          "role": "tool",
+          "tool_call_id": "call_book_flight"
+        }
+      ]
+    ]
+  },
+  "scores": {
+    "constraints_satisfied": {
+      "passed": true,
+      "value": 1.0
+    },
+    "forbidden_attempts": {
+      "passed": true,
+      "value": 0.0
+    },
+    "no_extra_bookings": {
+      "passed": true,
+      "value": 1.0
+    },
+    "recovered_from_failure": {
+      "passed": true,
+      "value": 1.0
+    },
+    "redundant_call_rate": {
+      "passed": null,
+      "value": 0.0
+    },
+    "tool_arg_validity": {
+      "passed": null,
+      "value": 1.0
+    },
+    "tool_calls": {
+      "passed": null,
+      "value": 3.0
+    },
+    "tool_name_validity": {
+      "passed": null,
+      "value": 1.0
+    },
+    "tool_success_rate": {
+      "passed": null,
+      "value": 0.666667
+    }
+  }
+}

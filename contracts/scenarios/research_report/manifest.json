@@ -1,0 +1,84 @@
+{
+  "description": "Research with search tools, write a cited report, review and revise it.",
+  "id": "research_report",
+  "kind": "pattern",
+  "open_ended": true,
+  "params": [
+    {
+      "choices": null,
+      "default": 8,
+      "description": "",
+      "name": "max_turns",
+      "type": "integer"
+    },
+    {
+      "choices": null,
+      "default": 1,
+      "description": "",
+      "name": "reflection_rounds",
+      "type": "integer"
+    },
+    {
+      "choices": [
+        "corpus",
+        "tavily",
+        "arxiv"
+      ],
+      "default": "corpus",
+      "description": "",
+      "name": "backend",
+      "type": "string"
+    }
+  ],
+  "pass_criteria": [
+    "fact_recall",
+    "no_misinformation",
+    "citation_validity"
+  ],
+  "pattern": "tool_use+reflection",
+  "requires": [],
+  "roles": [
+    {
+      "description": "searches and reads sources",
+      "fallback": null,
+      "name": "researcher",
+      "needs": []
+    },
+    {
+      "description": "writes and revises the cited report",
+      "fallback": "researcher",
+      "name": "writer",
+      "needs": []
+    },
+    {
+      "description": "critiques the report against its sources",
+      "fallback": "writer",
+      "name": "reviewer",
+      "needs": []
+    }
+  ],
+  "tasks": 4,
+  "title": "Research report with sources",
+  "wiki": [
+    {
+      "title": "Tool use and function calling",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/tool-use-and-function-calling"
+    },
+    {
+      "title": "Reflection and reviewer patterns",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/reflection-and-reviewer-patterns"
+    },
+    {
+      "title": "Agent evaluation",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/agent-evaluation"
+    },
+    {
+      "title": "Evaluation harnesses",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/evaluation-harnesses"
+    },
+    {
+      "title": "LLM-as-judge",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/llm-as-judge"
+    }
+  ]
+}

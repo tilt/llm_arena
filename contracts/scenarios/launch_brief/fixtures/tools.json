@@ -1,0 +1,75 @@
+[
+  {
+    "function": {
+      "description": "Search for sources; returns id, title, url, publication date and a snippet per hit.",
+      "name": "search",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "max_results": {
+            "default": 5,
+            "type": "integer"
+          },
+          "query": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Fetch the full text of a source by its id.",
+      "name": "fetch_document",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "doc_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "doc_id"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "List all catalog products with category, weight, stock, price and repair-programme flag.",
+      "name": "list_products",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Return one product by SKU.",
+      "name": "get_product",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "sku": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sku"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  }
+]

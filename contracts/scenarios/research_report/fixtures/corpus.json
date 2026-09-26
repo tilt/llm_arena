@@ -1,0 +1,182 @@
+[
+  {
+    "id": "selm_tidal-1",
+    "meta": {
+      "domain": "energy.calvoria.gov.test",
+      "tier": "high",
+      "topic": "selm_tidal"
+    },
+    "published": "2025-03-02",
+    "text": "The Selm estuary tidal pilot, operated by the Ostreva Energy Cooperative, was commissioned in 2024 with an installed capacity of 12 MW across eight seabed turbines. In its first full year the array reached a capacity factor of 38 percent, above the 33 percent assumed in planning.",
+    "title": "Selm estuary tidal pilot: first-year operating report",
+    "url": "https://energy.calvoria.gov.test/selm_tidal/1"
+  },
+  {
+    "id": "selm_tidal-2",
+    "meta": {
+      "domain": "journal-coastal-systems.test",
+      "tier": "high",
+      "topic": "selm_tidal"
+    },
+    "published": "2025-06-18",
+    "text": "Monitoring at the 12 MW Selm tidal array found no significant change in sediment transport during 2024. Fish passage rates for sea trout stayed within the natural range recorded before construction.",
+    "title": "Sediment and fish passage monitoring at the Selm tidal array",
+    "url": "https://journal-coastal-systems.test/selm_tidal/2"
+  },
+  {
+    "id": "selm_tidal-3",
+    "meta": {
+      "domain": "ostreva-herald.test",
+      "tier": "medium",
+      "topic": "selm_tidal"
+    },
+    "published": "2024-09-10",
+    "text": "Eight turbines now turn beneath the Selm estuary. The cooperative behind the project says the pilot could be expanded if the second monitoring year confirms the early results.",
+    "title": "Tidal turbines hum beneath the Selm",
+    "url": "https://ostreva-herald.test/selm_tidal/3"
+  },
+  {
+    "id": "selm_tidal-4",
+    "meta": {
+      "domain": "greentechbuzz.test",
+      "tier": "low",
+      "topic": "selm_tidal"
+    },
+    "published": "2023-12-01",
+    "text": "Ostreva switched on a 50 MW tidal farm back in 2019 and it now powers the whole city, insiders say.",
+    "title": "Ostreva's MASSIVE 50 MW tidal farm is live!",
+    "url": "https://greentechbuzz.test/selm_tidal/4"
+  },
+  {
+    "id": "brannock_marsh-1",
+    "meta": {
+      "domain": "calvoria-academy.test",
+      "tier": "high",
+      "topic": "brannock_marsh"
+    },
+    "published": "2025-01-20",
+    "text": "Cores from the 340 hectares of salt marsh restored near Brannock since 2021 show carbon burial of about 2.1 tonnes per hectare per year, comparable to mature natural marshes in the region.",
+    "title": "Carbon burial in restored salt marshes of the Tavy estuary",
+    "url": "https://calvoria-academy.test/brannock_marsh/1"
+  },
+  {
+    "id": "brannock_marsh-2",
+    "meta": {
+      "domain": "energy.calvoria.gov.test",
+      "tier": "high",
+      "topic": "brannock_marsh"
+    },
+    "published": "2025-04-11",
+    "text": "The Brannock Wetland Trust leads the Tavy estuary restoration, which reconnected former grazing land to the tides. The review lists it as one of three projects meeting their interim targets.",
+    "title": "Nature-based climate projects: annual review",
+    "url": "https://energy.calvoria.gov.test/brannock_marsh/2"
+  },
+  {
+    "id": "brannock_marsh-3",
+    "meta": {
+      "domain": "ostreva-herald.test",
+      "tier": "medium",
+      "topic": "brannock_marsh"
+    },
+    "published": "2024-05-30",
+    "text": "Volunteers counted twice as many wading birds this spring as before the sea wall was opened in 2021.",
+    "title": "Birds return to the Brannock marshes",
+    "url": "https://ostreva-herald.test/brannock_marsh/3"
+  },
+  {
+    "id": "brannock_marsh-4",
+    "meta": {
+      "domain": "top10ecofacts.test",
+      "tier": "low",
+      "topic": "brannock_marsh"
+    },
+    "published": "2024-02-02",
+    "text": "Brannock restored 3,400 hectares of marsh that capture 10 tonnes of carbon per hectare every year!",
+    "title": "10 marsh facts that will blow your mind",
+    "url": "https://top10ecofacts.test/brannock_marsh/4"
+  },
+  {
+    "id": "quistra_desal-1",
+    "meta": {
+      "domain": "stats.westmarch.gov.test",
+      "tier": "high",
+      "topic": "quistra_desal"
+    },
+    "published": "2025-02-14",
+    "text": "The Quistra plant, opened in 2023, supplied an average of 45,000 cubic metres per day in 2024. Its specific energy consumption was 2.9 kWh per cubic metre including intake pumping.",
+    "title": "Water supply statistics 2025: Quistra plant",
+    "url": "https://stats.westmarch.gov.test/quistra_desal/1"
+  },
+  {
+    "id": "quistra_desal-2",
+    "meta": {
+      "domain": "journal-coastal-systems.test",
+      "tier": "high",
+      "topic": "quistra_desal"
+    },
+    "published": "2024-11-05",
+    "text": "The reverse osmosis plant at Quistra uses pressure-exchanger energy recovery. Brine plumes dilute to background salinity within 150 metres of the diffuser.",
+    "title": "Brine dispersion from the Quistra outfall",
+    "url": "https://journal-coastal-systems.test/quistra_desal/2"
+  },
+  {
+    "id": "quistra_desal-3",
+    "meta": {
+      "domain": "westmarch-daily.test",
+      "tier": "medium",
+      "topic": "quistra_desal"
+    },
+    "published": "2024-07-19",
+    "text": "Residents say summer shortages ended after the desalination plant came online.",
+    "title": "Quistra's taps no longer run dry",
+    "url": "https://westmarch-daily.test/quistra_desal/3"
+  },
+  {
+    "id": "quistra_desal-4",
+    "meta": {
+      "domain": "greentechbuzz.test",
+      "tier": "low",
+      "topic": "quistra_desal"
+    },
+    "published": "2024-01-09",
+    "text": "The new Quistra plant needs only 0.5 kWh per cubic metre and makes 200,000 cubic metres a day.",
+    "title": "Quistra desal uses almost no energy",
+    "url": "https://greentechbuzz.test/quistra_desal/4"
+  },
+  {
+    "id": "pellmoor_cargo-1",
+    "meta": {
+      "domain": "stats.westmarch.gov.test",
+      "tier": "high",
+      "topic": "pellmoor_cargo"
+    },
+    "published": "2025-12-01",
+    "text": "During 2025 a fleet of 18 cargo bikes handled about 1,200 parcel deliveries per week in central Pellmoor. Compared with the van baseline, delivery emissions fell by 31 percent.",
+    "title": "Urban logistics pilot evaluation: Pellmoor",
+    "url": "https://stats.westmarch.gov.test/pellmoor_cargo/1"
+  },
+  {
+    "id": "pellmoor_cargo-2",
+    "meta": {
+      "domain": "westmarch-daily.test",
+      "tier": "medium",
+      "topic": "pellmoor_cargo"
+    },
+    "published": "2025-06-03",
+    "text": "Couriers praised the new bike lanes, though some complained about hills on the north side of Pellmoor.",
+    "title": "Couriers pedal through the old town",
+    "url": "https://westmarch-daily.test/pellmoor_cargo/2"
+  },
+  {
+    "id": "pellmoor_cargo-3",
+    "meta": {
+      "domain": "top10ecofacts.test",
+      "tier": "low",
+      "topic": "pellmoor_cargo"
+    },
+    "published": "2025-08-08",
+    "text": "Pellmoor proved cargo bikes cut delivery emissions by 90% overnight.",
+    "title": "Cargo bikes cut emissions 90%!!",
+    "url": "https://top10ecofacts.test/pellmoor_cargo/3"
+  }
+]

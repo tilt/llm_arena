@@ -1,0 +1,18 @@
+# Does reflection help, and does the critic need execution feedback or a stronger model?
+name: reflection
+scenarios: [reflection_sql, reflection_writing]
+repeats: 3            # enables pass^k
+judge: judge-gpt-4.1-mini
+arena: {enabled: true}
+configs:
+  - name: no-reflection
+    roles: {"*": ollama:qwen3:14b}
+    params: {reflection_rounds: 0}
+  - name: self-reflect
+    roles: {"*": ollama:qwen3:14b}
+  - name: self-reflect-sql-only
+    roles: {"*": ollama:qwen3:14b}
+    scenarios: [reflection_sql]
+    scenario_params: {reflection_sql: {feedback: sql_only}}
+  - name: local-gen+gpt-critic
+    roles: {generator: ollama:qwen3:14b, writer: ollama:qwen3:14b, critic: openai:gpt-4.1-mini}

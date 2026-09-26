@@ -1,0 +1,54 @@
+{
+  "description": "Everything the report viewer needs for one run; export/import format between runtimes.",
+  "properties": {
+    "battles": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Battles",
+      "type": "array"
+    },
+    "run": {
+      "additionalProperties": true,
+      "title": "Run",
+      "type": "object"
+    },
+    "scores": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Scores",
+      "type": "array"
+    },
+    "summary": {
+      "additionalProperties": true,
+      "title": "Summary",
+      "type": "object"
+    },
+    "traces": {
+      "additionalProperties": true,
+      "title": "Traces",
+      "type": "object"
+    },
+    "trials": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Trials",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run",
+    "summary",
+    "trials",
+    "scores",
+    "battles",
+    "traces"
+  ],
+  "title": "RunBundle",
+  "type": "object"
+}

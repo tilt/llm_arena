@@ -1,0 +1,10 @@
+from api import *
+get_order(order_id: int) -> dict            # status, customer_email, delivered_on, items [{sku, qty, unit_price}], paid
+list_orders(customer_email: str) -> list[dict]
+get_product(sku: str) -> dict               # sku, name, price, stock
+list_products() -> list[dict]
+cancel_order(order_id: int) -> dict         # sets status 'cancelled' and restocks items
+issue_refund(order_id: int, amount: float, reason: str) -> dict
+restock(sku: str, quantity: int) -> dict    # adds quantity to stock
+send_message(customer_email: str, text: str) -> dict
+TODAY = '2026-05-14'

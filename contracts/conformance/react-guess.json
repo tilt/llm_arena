@@ -1,0 +1,58 @@
+{
+  "case": {
+    "id": "react-guess",
+    "params": {},
+    "replies": {
+      "agent": [
+        "Final Answer: Westmarch"
+      ]
+    },
+    "scenario": "react_multihop",
+    "task_id": "founder_country_selmworks"
+  },
+  "final": "Westmarch",
+  "requests": {
+    "agent": [
+      [
+        {
+          "content": "Solve the task step by step. In every reply write exactly one of:\nThought: <your reasoning about what to do next>\nAction: <tool name>\nAction Input: <JSON object of arguments>\nor, once you are certain:\nThought: <why you are done>\nFinal Answer: <the answer only>\nAfter each action you will receive an Observation. Never write an Observation yourself.\n\nTools:\n- search_articles(query: string): Search the encyclopedia; returns titles and snippets of the best matching articles.\n- read_article(title: string): Return the full text of the article with this exact title.\nThe encyclopedia describes a fictional world: do not rely on outside knowledge.",
+          "role": "system"
+        },
+        {
+          "content": "Task: In which country was the founder of Selmworks born?",
+          "role": "user"
+        }
+      ]
+    ]
+  },
+  "scores": {
+    "exact_match": {
+      "passed": false,
+      "value": 0.0
+    },
+    "f1": {
+      "passed": null,
+      "value": 0.0
+    },
+    "finished_cleanly": {
+      "passed": true,
+      "value": 1.0
+    },
+    "invalid_actions": {
+      "passed": true,
+      "value": 0.0
+    },
+    "premature_answer": {
+      "passed": false,
+      "value": 1.0
+    },
+    "steps": {
+      "passed": null,
+      "value": 1.0
+    },
+    "tool_calls": {
+      "passed": null,
+      "value": 0.0
+    }
+  }
+}

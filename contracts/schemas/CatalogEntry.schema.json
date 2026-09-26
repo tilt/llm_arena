@@ -1,0 +1,316 @@
+{
+  "$defs": {
+    "Capabilities": {
+      "description": "What a model can do; checked before a run so a bad role binding fails fast.",
+      "properties": {
+        "json_schema": {
+          "default": true,
+          "title": "Json Schema",
+          "type": "boolean"
+        },
+        "reasoning": {
+          "default": false,
+          "title": "Reasoning",
+          "type": "boolean"
+        },
+        "tools": {
+          "default": true,
+          "title": "Tools",
+          "type": "boolean"
+        },
+        "vision": {
+          "default": false,
+          "title": "Vision",
+          "type": "boolean"
+        }
+      },
+      "title": "Capabilities",
+      "type": "object"
+    },
+    "ModelSpec": {
+      "properties": {
+        "api_key_env": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Api Key Env"
+        },
+        "backend": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "openai",
+            "anthropic",
+            "http",
+            "aisuite"
+          ],
+          "title": "Backend",
+          "type": "string"
+        },
+        "base_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Base Url"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/Capabilities"
+        },
+        "concurrency": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Concurrency"
+        },
+        "extra_body": {
+          "additionalProperties": true,
+          "title": "Extra Body",
+          "type": "object"
+        },
+        "input_cost_per_mtok": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Cost Per Mtok"
+        },
+        "max_retries": {
+          "default": 3,
+          "title": "Max Retries",
+          "type": "integer"
+        },
+        "max_tokens": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Tokens"
+        },
+        "model": {
+          "description": "Model id as the server knows it",
+          "title": "Model",
+          "type": "string"
+        },
+        "name": {
+          "description": "Arena-wide alias, e.g. 'qwen3-14b@lmstudio'",
+          "title": "Name",
+          "type": "string"
+        },
+        "output_cost_per_mtok": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Cost Per Mtok"
+        },
+        "provider": {
+          "enum": [
+            "openai",
+            "anthropic",
+            "ollama",
+            "lmstudio",
+            "openai_compatible"
+          ],
+          "title": "Provider",
+          "type": "string"
+        },
+        "reasoning_effort": {
+          "anyOf": [
+            {
+              "enum": [
+                "minimal",
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reasoning Effort"
+        },
+        "temperature": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.2,
+          "title": "Temperature"
+        },
+        "timeout_s": {
+          "default": 300.0,
+          "title": "Timeout S",
+          "type": "number"
+        },
+        "tool_mode": {
+          "default": "native",
+          "enum": [
+            "native",
+            "json"
+          ],
+          "title": "Tool Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "provider",
+        "model"
+      ],
+      "title": "ModelSpec",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "context_length": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Context Length"
+    },
+    "input_cost_per_mtok": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Input Cost Per Mtok"
+    },
+    "loaded": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Loaded"
+    },
+    "output_cost_per_mtok": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Output Cost Per Mtok"
+    },
+    "parameters": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parameters"
+    },
+    "quantization": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Quantization"
+    },
+    "size_gb": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Size Gb"
+    },
+    "snapshot": {
+      "default": false,
+      "title": "Snapshot",
+      "type": "boolean"
+    },
+    "source": {
+      "enum": [
+        "ollama",
+        "lmstudio",
+        "openai",
+        "anthropic"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "spec": {
+      "$ref": "#/$defs/ModelSpec"
+    }
+  },
+  "required": [
+    "spec",
+    "source"
+  ],
+  "title": "CatalogEntry",
+  "type": "object"
+}

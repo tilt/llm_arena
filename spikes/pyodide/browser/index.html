@@ -1,0 +1,34 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>pending</title></head>
+<body><pre id="log"></pre>
+<script type="module">
+// Phase 0 spike, step 3: Pyodide in real browser Web Workers (engine worker + killable sandbox worker).
+const log = (line) => { document.getElementById("log").textContent += line + "\n"; };
+const t0 = performance.now();
+const secs = () => ((performance.now() - t0) / 1000).toFixed(1) + "s";
+
+function call(worker, message, timeoutMs) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => { worker.terminate(); resolve({ timedOut: true }); }, timeoutMs);
+    worker.onmessage = (event) => { clearTimeout(timer); resolve(event.data); };
+    worker.onerror = (event) => { clearTimeout(timer); resolve({ error: event.message }); };
+    worker.postMessage(message);
+  });
+}
+
+const engine = new Worker("engine_worker.js", { type: "module" });
+const ready = await call(engine, { cmd: "init" }, 180000);
+log(`engine ready: ${JSON.stringify(ready)} @ ${secs()}`);
+const results = await call(engine, { cmd: "run" }, 60000);
+log(`scenarios: ${JSON.stringify(results)} @ ${secs()}`);
+
+let sandbox = new Worker("sandbox_worker.js", { type: "module" });
+log(`sandbox init: ${JSON.stringify(await call(sandbox, { cmd: "init" }, 180000))} @ ${secs()}`);
+const chart = "import matplotlib.pyplot as plt\nfig, ax = plt.subplots()\nax.plot([1,2,3],[3,1,2], label='a')\nax.set_title('t'); ax.legend()\nplt.savefig('chart.png')";
+log(`chart: ${JSON.stringify(await call(sandbox, { cmd: "exec", code: chart }, 30000))} @ ${secs()}`);
+const loop = await call(sandbox, { cmd: "exec", code: "while True:\n    pass" }, 3000);
+log(`infinite loop: ${JSON.stringify(loop)} @ ${secs()}`);
+sandbox = new Worker("sandbox_worker.js", { type: "module" });  // a killed sandbox is simply replaced
+log(`sandbox restarted: ${JSON.stringify(await call(sandbox, { cmd: "init" }, 180000))} @ ${secs()}`);
+document.title = "done";
+</script></body></html>

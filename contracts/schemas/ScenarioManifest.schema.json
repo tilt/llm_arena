@@ -1,0 +1,195 @@
+{
+  "$defs": {
+    "ParamManifest": {
+      "properties": {
+        "choices": {
+          "anyOf": [
+            {
+              "items": {},
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Choices"
+        },
+        "default": {
+          "title": "Default"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "integer",
+            "number",
+            "boolean",
+            "string"
+          ],
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "default"
+      ],
+      "title": "ParamManifest",
+      "type": "object"
+    },
+    "RoleManifest": {
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "fallback": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "optional role: reuses this role's model when unbound",
+          "title": "Fallback"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "needs": {
+          "description": "capabilities the bound model must have",
+          "items": {
+            "type": "string"
+          },
+          "title": "Needs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "description"
+      ],
+      "title": "RoleManifest",
+      "type": "object"
+    },
+    "WikiLink": {
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "url"
+      ],
+      "title": "WikiLink",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "description": {
+      "title": "Description",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "pattern",
+        "benchmark"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "open_ended": {
+      "default": false,
+      "title": "Open Ended",
+      "type": "boolean"
+    },
+    "params": {
+      "items": {
+        "$ref": "#/$defs/ParamManifest"
+      },
+      "title": "Params",
+      "type": "array"
+    },
+    "pass_criteria": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Pass Criteria",
+      "type": "array"
+    },
+    "pattern": {
+      "title": "Pattern",
+      "type": "string"
+    },
+    "requires": {
+      "items": {
+        "enum": [
+          "sandbox",
+          "live_network",
+          "local_models"
+        ],
+        "type": "string"
+      },
+      "title": "Requires",
+      "type": "array"
+    },
+    "roles": {
+      "items": {
+        "$ref": "#/$defs/RoleManifest"
+      },
+      "title": "Roles",
+      "type": "array"
+    },
+    "tasks": {
+      "title": "Tasks",
+      "type": "integer"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "wiki": {
+      "items": {
+        "$ref": "#/$defs/WikiLink"
+      },
+      "title": "Wiki",
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "pattern",
+    "description",
+    "kind",
+    "roles",
+    "params",
+    "pass_criteria",
+    "tasks"
+  ],
+  "title": "ScenarioManifest",
+  "type": "object"
+}

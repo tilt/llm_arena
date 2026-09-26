@@ -1,0 +1,6 @@
+{"data": {"expect": {"messaged": ["ana.pereira@mail.test"], "order_status": {"1042": "cancelled"}, "refund_total": {}, "stock": {"PLT-DIN": 4, "VAS-TAL": 4}}}, "id": "cancel_processing", "prompt": "Ana Pereira (ana.pereira@mail.test) asks to cancel her order 1042.", "tags": []}
+{"data": {"expect": {"messaged": ["ines.moreau@mail.test"], "refund_total": {"1017": 18.0}}}, "id": "partial_damage_refund", "prompt": "Ines Moreau says one of the two mugs in order 1017 arrived broken. Handle it.", "tags": []}
+{"data": {"expect": {"messaged": ["rui.tanaka@mail.test"], "refund_total": {}}}, "id": "refund_outside_window", "prompt": "Rui Tanaka wants a full refund for order 1003.", "tags": []}
+{"data": {"expect": {"messaged": [], "refund_total": {}, "stock": {"MUG-TID": 20, "PLT-DIN": 20}}}, "id": "restock_out_of_stock", "prompt": "Restock every product that is out of stock to exactly 20 units.", "tags": []}
+{"data": {"expect": {"messaged": ["tobias.klein@mail.test"], "order_status": {"1050": "shipped"}, "refund_total": {}}}, "id": "cancel_shipped", "prompt": "Tobias Klein wants to cancel order 1050.", "tags": []}
+{"data": {"answer_number": 227.0, "expect": {"messaged": [], "refund_total": {}}}, "id": "count_customer_orders", "prompt": "How much has ana.pereira@mail.test paid across all her orders? Just answer, change nothing.", "tags": []}

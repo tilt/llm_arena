@@ -1,0 +1,195 @@
+[
+  {
+    "function": {
+      "description": "Current weather for a city.",
+      "name": "get_weather",
+      "parameters": {
+        "properties": {
+          "city": {
+            "type": "string"
+          },
+          "unit": {
+            "enum": [
+              "celsius",
+              "fahrenheit"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "city"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Convert an amount between ISO currencies.",
+      "name": "convert_currency",
+      "parameters": {
+        "properties": {
+          "amount": {
+            "type": "number"
+          },
+          "from_currency": {
+            "type": "string"
+          },
+          "to_currency": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "from_currency",
+          "to_currency"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Create a calendar event.",
+      "name": "create_event",
+      "parameters": {
+        "properties": {
+          "attendees": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "date": {
+            "description": "YYYY-MM-DD",
+            "type": "string"
+          },
+          "duration_minutes": {
+            "type": "integer"
+          },
+          "start_time": {
+            "description": "HH:MM, 24h",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "date",
+          "start_time"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Start a countdown timer.",
+      "name": "set_timer",
+      "parameters": {
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "minutes": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "minutes"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Tip amount for a bill.",
+      "name": "calculate_tip",
+      "parameters": {
+        "properties": {
+          "bill": {
+            "type": "number"
+          },
+          "percent": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "bill",
+          "percent"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Translate text.",
+      "name": "translate",
+      "parameters": {
+        "properties": {
+          "target_language": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "target_language"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Look up a shop order by id.",
+      "name": "lookup_order",
+      "parameters": {
+        "properties": {
+          "order_id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "order_id"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Send a text message.",
+      "name": "send_sms",
+      "parameters": {
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone",
+          "message"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  }
+]

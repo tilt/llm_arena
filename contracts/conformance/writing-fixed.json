@@ -1,0 +1,80 @@
+{
+  "case": {
+    "id": "writing-fixed",
+    "params": {},
+    "replies": {
+      "critic": [
+        "{\"verdict\": \"revise\", \"issues\": [\"use bullets\", \"mention all features\"]}"
+      ],
+      "writer": [
+        "Version 3.2 is great.",
+        "- Offline mode for notes and attachments\n- Search is 3x faster\n- New dark theme Dusk\n- Fixed: sync conflicts no longer duplicate notes"
+      ]
+    },
+    "scenario": "reflection_writing",
+    "task_id": "release_notes"
+  },
+  "final": "- Offline mode for notes and attachments\n- Search is 3x faster\n- New dark theme Dusk\n- Fixed: sync conflicts no longer duplicate notes",
+  "requests": {
+    "critic": [
+      [
+        {
+          "content": "You are an exacting editor. Check the draft against every requirement and fact. Accept only if nothing must change.",
+          "role": "system"
+        },
+        {
+          "content": "Brief:\nWrite release notes for version 3.2 of the Tern note-taking app as a bulleted list.\n\nFacts to use:\n- Offline mode for notes and attachments.\n- Search is now about 3x faster.\n- New dark theme 'Dusk'.\n- Fixed: sync conflicts duplicated notes.\n\nRequirements: 20-90 words; format: bullets; must mention: 'offline'; 'dusk'; '3x' or 'three times'; 'sync'; must not contain: 'revolutionary', 'best ever'.\n\nDraft:\nVersion 3.2 is great.\n\nRespond with a single JSON object that validates against this JSON schema (no prose, no code fences):\n{'properties': {'verdict': {'description': 'accept if no change is needed', 'enum': ['accept', 'revise'], 'title': 'Verdict', 'type': 'string'}, 'issues': {'description': 'Concrete, actionable problems; empty if none', 'items': {'type': 'string'}, 'title': 'Issues', 'type': 'array'}, 'summary': {'default': '', 'title': 'Summary', 'type': 'string'}}, 'required': ['verdict'], 'title': 'Critique', 'type': 'object'}",
+          "role": "user"
+        }
+      ]
+    ],
+    "writer": [
+      [
+        {
+          "content": "You are a professional writer. Return only the requested text, no preamble.",
+          "role": "system"
+        },
+        {
+          "content": "Write release notes for version 3.2 of the Tern note-taking app as a bulleted list.\n\nFacts to use:\n- Offline mode for notes and attachments.\n- Search is now about 3x faster.\n- New dark theme 'Dusk'.\n- Fixed: sync conflicts duplicated notes.\n\nRequirements: 20-90 words; format: bullets; must mention: 'offline'; 'dusk'; '3x' or 'three times'; 'sync'; must not contain: 'revolutionary', 'best ever'.",
+          "role": "user"
+        }
+      ],
+      [
+        {
+          "content": "You are a professional writer. Return only the requested text, no preamble.",
+          "role": "system"
+        },
+        {
+          "content": "Write release notes for version 3.2 of the Tern note-taking app as a bulleted list.\n\nFacts to use:\n- Offline mode for notes and attachments.\n- Search is now about 3x faster.\n- New dark theme 'Dusk'.\n- Fixed: sync conflicts duplicated notes.\n\nRequirements: 20-90 words; format: bullets; must mention: 'offline'; 'dusk'; '3x' or 'three times'; 'sync'; must not contain: 'revolutionary', 'best ever'.\n\nYour draft:\nVersion 3.2 is great.\n\nEditor's notes:\n- use bullets\n- mention all features\n\nRewrite the text.",
+          "role": "user"
+        }
+      ]
+    ]
+  },
+  "scores": {
+    "constraints_ok": {
+      "passed": true,
+      "value": 1.0
+    },
+    "critic_fn": {
+      "passed": null,
+      "value": 0.0
+    },
+    "critic_fp": {
+      "passed": null,
+      "value": 0.0
+    },
+    "critic_tp": {
+      "passed": null,
+      "value": 1.0
+    },
+    "draft_constraints_ok": {
+      "passed": false,
+      "value": 0.0
+    },
+    "regressed": {
+      "passed": null,
+      "value": 0.0
+    }
+  }
+}

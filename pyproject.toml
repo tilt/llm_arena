@@ -1,0 +1,113 @@
+[project]
+name = "llm-arena"
+version = "0.1.0"
+description = "Evaluation arena for local (Ollama, LM Studio) and remote (OpenAI) language models on benchmarks and agentic AI patterns."
+readme = "README.md"
+requires-python = ">=3.12"
+# The base install is the portable engine: exactly what loads in Pyodide (browser) as well.
+dependencies = [
+    "pydantic>=2.8",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+# Everything the CLI and the local app need: SDK clients, HTTP, storage, reports, sandbox libraries.
+server = [
+    "openai>=1.60",
+    "anthropic>=0.60",
+    "tenacity>=9.0",
+    "httpx>=0.27",
+    "duckdb>=1.1",
+    "jinja2>=3.1",
+    "plotly>=5.24",
+    "typer>=0.12",
+    "rich>=13.8",
+    "python-dotenv>=1.0",
+    "matplotlib>=3.9",  # available to model-written code in the sandbox
+    "pandas>=2.2",
+]
+aisuite = ["aisuite>=0.1.7"]
+benchmarks = ["huggingface-hub>=0.25"]
+mock-server = ["fastapi>=0.115", "uvicorn>=0.30"]
+live = ["tavily-python>=0.5", "arxiv>=2.1"]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.7",
+    "mypy>=1.13",
+    "types-PyYAML",
+    "import-linter>=2.1",
+    "fastapi>=0.115",
+]
+
+[project.scripts]
+arena = "llm_arena.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/llm_arena"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+# ruff format owns line length; E501 would only flag long prose/fixture string literals it never splits.
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+packages = ["llm_arena"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["aisuite.*", "plotly.*", "huggingface_hub.*", "tavily.*", "arxiv.*", "matplotlib.*", "pyodide.*", "js"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = ["live: needs a running model server or API key (opt-in: pytest -m live)"]
+addopts = "-m 'not live'"
+
+# Architecture contracts (run by `make validate`). The engine must stay loadable in Pyodide and
+# portable to other runtimes: every I/O-bound or SDK import lives in llm_arena.adapters.
+[tool.importlinter]
+root_package = "llm_arena"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Engine is pure: no adapters, CLI, SDKs, network, storage or process libraries"
+type = "forbidden"
+source_modules = [
+    "llm_arena.core", "llm_arena.llm", "llm_arena.tools", "llm_arena.mocks", "llm_arena.sandbox",
+    "llm_arena.patterns", "llm_arena.scenarios", "llm_arena.benchmarks", "llm_arena.eval",
+    "llm_arena.runner", "llm_arena.report", "llm_arena.service", "llm_arena.conformance", "llm_arena.contracts",
+]
+forbidden_modules = [
+    "llm_arena.adapters", "llm_arena.cli",
+    "duckdb", "httpx", "openai", "anthropic", "tenacity", "typer", "rich", "fastapi", "uvicorn", "jinja2",
+    "plotly", "huggingface_hub", "aisuite", "tavily", "arxiv", "dotenv", "matplotlib", "pandas",
+]
+
+[[tool.importlinter.contracts]]
+name = "LLM utilities are independent of the arena (reusable on their own)"
+type = "forbidden"
+source_modules = ["llm_arena.llm"]
+forbidden_modules = [
+    "llm_arena.core", "llm_arena.tools", "llm_arena.mocks", "llm_arena.sandbox", "llm_arena.patterns",
+    "llm_arena.scenarios", "llm_arena.benchmarks", "llm_arena.eval", "llm_arena.runner", "llm_arena.report",
+]
+
+[[tool.importlinter.contracts]]
+name = "Browser adapters never depend on server adapters"
+type = "forbidden"
+source_modules = ["llm_arena.adapters.browser"]
+forbidden_modules = ["llm_arena.adapters.server"]

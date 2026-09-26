@@ -1,0 +1,221 @@
+{
+  "$defs": {
+    "BudgetExceeded": {
+      "properties": {
+        "limit_usd": {
+          "title": "Limit Usd",
+          "type": "number"
+        },
+        "spent_usd": {
+          "title": "Spent Usd",
+          "type": "number"
+        },
+        "type": {
+          "const": "budget_exceeded",
+          "default": "budget_exceeded",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "spent_usd",
+        "limit_usd"
+      ],
+      "title": "BudgetExceeded",
+      "type": "object"
+    },
+    "RunFinished": {
+      "properties": {
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "spent_usd": {
+          "title": "Spent Usd",
+          "type": "number"
+        },
+        "stopped_early": {
+          "title": "Stopped Early",
+          "type": "boolean"
+        },
+        "type": {
+          "const": "run_finished",
+          "default": "run_finished",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "spent_usd",
+        "stopped_early"
+      ],
+      "title": "RunFinished",
+      "type": "object"
+    },
+    "RunStarted": {
+      "properties": {
+        "pending": {
+          "title": "Pending",
+          "type": "integer"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "type": {
+          "const": "run_started",
+          "default": "run_started",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "total",
+        "pending"
+      ],
+      "title": "RunStarted",
+      "type": "object"
+    },
+    "TrialFinished": {
+      "properties": {
+        "config": {
+          "title": "Config",
+          "type": "string"
+        },
+        "cost_usd": {
+          "title": "Cost Usd",
+          "type": "number"
+        },
+        "done": {
+          "title": "Done",
+          "type": "integer"
+        },
+        "duration_s": {
+          "title": "Duration S",
+          "type": "number"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "repeat": {
+          "title": "Repeat",
+          "type": "integer"
+        },
+        "scenario": {
+          "title": "Scenario",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "trial_id": {
+          "title": "Trial Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "trial_finished",
+          "default": "trial_finished",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trial_id",
+        "scenario",
+        "config",
+        "task_id",
+        "repeat",
+        "status",
+        "passed",
+        "duration_s",
+        "cost_usd",
+        "done",
+        "total"
+      ],
+      "title": "TrialFinished",
+      "type": "object"
+    },
+    "TrialStarted": {
+      "properties": {
+        "config": {
+          "title": "Config",
+          "type": "string"
+        },
+        "repeat": {
+          "title": "Repeat",
+          "type": "integer"
+        },
+        "scenario": {
+          "title": "Scenario",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "trial_id": {
+          "title": "Trial Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "trial_started",
+          "default": "trial_started",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trial_id",
+        "scenario",
+        "config",
+        "task_id",
+        "repeat"
+      ],
+      "title": "TrialStarted",
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "budget_exceeded": "#/$defs/BudgetExceeded",
+      "run_finished": "#/$defs/RunFinished",
+      "run_started": "#/$defs/RunStarted",
+      "trial_finished": "#/$defs/TrialFinished",
+      "trial_started": "#/$defs/TrialStarted"
+    },
+    "propertyName": "type"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/RunStarted"
+    },
+    {
+      "$ref": "#/$defs/TrialStarted"
+    },
+    {
+      "$ref": "#/$defs/TrialFinished"
+    },
+    {
+      "$ref": "#/$defs/BudgetExceeded"
+    },
+    {
+      "$ref": "#/$defs/RunFinished"
+    }
+  ]
+}

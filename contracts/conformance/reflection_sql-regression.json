@@ -1,0 +1,94 @@
+{
+  "case": {
+    "id": "reflection_sql-regression",
+    "params": {
+      "feedback": "sql_only"
+    },
+    "replies": {
+      "critic": [
+        "{\"verdict\": \"revise\", \"issues\": [\"filter by city\"]}"
+      ],
+      "generator": [
+        "```sql\nSELECT COUNT(*) FROM rentals r JOIN stations s ON s.station_id = r.start_station_id WHERE s.city = 'Harborview' AND r.started_at >= '2026-03-01' AND r.started_at < '2026-04-01'\n```",
+        "```sql\nSELECT COUNT(*) FROM rentals WHERE started_at LIKE '2026-03%'\n```"
+      ]
+    },
+    "scenario": "reflection_sql",
+    "task_id": "harborview_march_rentals"
+  },
+  "final": "SELECT COUNT(*) FROM rentals WHERE started_at LIKE '2026-03%'",
+  "requests": {
+    "critic": [
+      [
+        {
+          "content": "You review SQL written by a colleague. Check it answers the question exactly, respects the schema's units and sign conventions, and filters the right rows. Say 'accept' only if it is correct as written.",
+          "role": "system"
+        },
+        {
+          "content": "Schema:\nCREATE TABLE stations (\n    station_id INTEGER PRIMARY KEY,\n    name TEXT NOT NULL,\n    city TEXT NOT NULL\n);\nCREATE TABLE bikes (\n    bike_id INTEGER PRIMARY KEY,\n    model TEXT NOT NULL,\n    category TEXT NOT NULL,          -- 'city', 'e-bike', 'cargo'\n    home_station_id INTEGER REFERENCES stations(station_id)\n);\nCREATE TABLE customers (\n    customer_id INTEGER PRIMARY KEY,\n    name TEXT NOT NULL,\n    joined_on TEXT NOT NULL          -- ISO date\n);\nCREATE TABLE rentals (\n    rental_id INTEGER PRIMARY KEY,\n    bike_id INTEGER REFERENCES bikes(bike_id),\n    customer_id INTEGER REFERENCES customers(customer_id),\n    start_station_id INTEGER REFERENCES stations(station_id),\n    end_station_id INTEGER REFERENCES stations(station_id),\n    started_at TEXT NOT NULL,        -- ISO timestamp\n    ended_at TEXT NOT NULL\n);\nCREATE TABLE ledger (\n    entry_id INTEGER PRIMARY KEY,\n    rental_id INTEGER REFERENCES rentals(rental_id),\n    entry_type TEXT NOT NULL,        -- 'rental_fee', 'refund', 'damage_fee', 'deposit', 'deposit_return'\n    amount_cents INTEGER NOT NULL,   -- refunds and deposit returns are negative\n    booked_at TEXT NOT NULL\n);\n\nQuestion: How many rentals started at stations in Harborview during March 2026?\n\nSQL:\nSELECT COUNT(*) FROM rentals r JOIN stations s ON s.station_id = r.start_station_id WHERE s.city = 'Harborview' AND r.started_at >= '2026-03-01' AND r.started_at < '2026-04-01'\n\nRespond with a single JSON object that validates against this JSON schema (no prose, no code fences):\n{'properties': {'verdict': {'description': 'accept if no change is needed', 'enum': ['accept', 'revise'], 'title': 'Verdict', 'type': 'string'}, 'issues': {'description': 'Concrete, actionable problems; empty if none', 'items': {'type': 'string'}, 'title': 'Issues', 'type': 'array'}, 'summary': {'default': '', 'title': 'Summary', 'type': 'string'}}, 'required': ['verdict'], 'title': 'Critique', 'type': 'object'}",
+          "role": "user"
+        }
+      ]
+    ],
+    "generator": [
+      [
+        {
+          "content": "You write SQLite queries. Study the schema comments carefully. Return one query in a ```sql block.",
+          "role": "system"
+        },
+        {
+          "content": "Schema:\nCREATE TABLE stations (\n    station_id INTEGER PRIMARY KEY,\n    name TEXT NOT NULL,\n    city TEXT NOT NULL\n);\nCREATE TABLE bikes (\n    bike_id INTEGER PRIMARY KEY,\n    model TEXT NOT NULL,\n    category TEXT NOT NULL,          -- 'city', 'e-bike', 'cargo'\n    home_station_id INTEGER REFERENCES stations(station_id)\n);\nCREATE TABLE customers (\n    customer_id INTEGER PRIMARY KEY,\n    name TEXT NOT NULL,\n    joined_on TEXT NOT NULL          -- ISO date\n);\nCREATE TABLE rentals (\n    rental_id INTEGER PRIMARY KEY,\n    bike_id INTEGER REFERENCES bikes(bike_id),\n    customer_id INTEGER REFERENCES customers(customer_id),\n    start_station_id INTEGER REFERENCES stations(station_id),\n    end_station_id INTEGER REFERENCES stations(station_id),\n    started_at TEXT NOT NULL,        -- ISO timestamp\n    ended_at TEXT NOT NULL\n);\nCREATE TABLE ledger (\n    entry_id INTEGER PRIMARY KEY,\n    rental_id INTEGER REFERENCES rentals(rental_id),\n    entry_type TEXT NOT NULL,        -- 'rental_fee', 'refund', 'damage_fee', 'deposit', 'deposit_return'\n    amount_cents INTEGER NOT NULL,   -- refunds and deposit returns are negative\n    booked_at TEXT NOT NULL\n);\n\nQuestion: How many rentals started at stations in Harborview during March 2026?",
+          "role": "user"
+        }
+      ],
+      [
+        {
+          "content": "You write SQLite queries. Study the schema comments carefully. Return one query in a ```sql block.",
+          "role": "system"
+        },
+        {
+          "content": "Schema:\nCREATE TABLE stations (\n    station_id INTEGER PRIMARY KEY,\n    name TEXT NOT NULL,\n    city TEXT NOT NULL\n);\nCREATE TABLE bikes (\n    bike_id INTEGER PRIMARY KEY,\n    model TEXT NOT NULL,\n    category TEXT NOT NULL,          -- 'city', 'e-bike', 'cargo'\n    home_station_id INTEGER REFERENCES stations(station_id)\n);\nCREATE TABLE customers (\n    customer_id INTEGER PRIMARY KEY,\n    name TEXT NOT NULL,\n    joined_on TEXT NOT NULL          -- ISO date\n);\nCREATE TABLE rentals (\n    rental_id INTEGER PRIMARY KEY,\n    bike_id INTEGER REFERENCES bikes(bike_id),\n    customer_id INTEGER REFERENCES customers(customer_id),\n    start_station_id INTEGER REFERENCES stations(station_id),\n    end_station_id INTEGER REFERENCES stations(station_id),\n    started_at TEXT NOT NULL,        -- ISO timestamp\n    ended_at TEXT NOT NULL\n);\nCREATE TABLE ledger (\n    entry_id INTEGER PRIMARY KEY,\n    rental_id INTEGER REFERENCES rentals(rental_id),\n    entry_type TEXT NOT NULL,        -- 'rental_fee', 'refund', 'damage_fee', 'deposit', 'deposit_return'\n    amount_cents INTEGER NOT NULL,   -- refunds and deposit returns are negative\n    booked_at TEXT NOT NULL\n);\n\nQuestion: How many rentals started at stations in Harborview during March 2026?\n\nPrevious SQL:\nSELECT COUNT(*) FROM rentals r JOIN stations s ON s.station_id = r.start_station_id WHERE s.city = 'Harborview' AND r.started_at >= '2026-03-01' AND r.started_at < '2026-04-01'\n\nResult:\nCOUNT(*)\n47\n\nReviewer feedback:\n- filter by city\n\nWrite the corrected query.",
+          "role": "user"
+        }
+      ]
+    ]
+  },
+  "scores": {
+    "critic_fn": {
+      "passed": null,
+      "value": 0.0
+    },
+    "critic_fp": {
+      "passed": null,
+      "value": 1.0
+    },
+    "critic_tp": {
+      "passed": null,
+      "value": 0.0
+    },
+    "critic_verdict_correct": {
+      "passed": false,
+      "value": 0.0
+    },
+    "draft_correct": {
+      "passed": true,
+      "value": 1.0
+    },
+    "draft_executes": {
+      "passed": true,
+      "value": 1.0
+    },
+    "final_correct": {
+      "passed": false,
+      "value": 0.0
+    },
+    "regressed": {
+      "passed": false,
+      "value": 1.0
+    },
+    "sql_attempts": {
+      "passed": null,
+      "value": 2.0
+    }
+  }
+}

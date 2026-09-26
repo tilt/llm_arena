@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.env
+runs/
+data/cache/
+*.duckdb
+*.duckdb.wal
+.DS_Store
+spikes/**/node_modules/
+spikes/**/dist/
+spikes/**/package-lock.json

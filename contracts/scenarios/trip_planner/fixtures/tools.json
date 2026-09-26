@@ -1,0 +1,154 @@
+[
+  {
+    "function": {
+      "description": "Find flights on a date. Prices are per person in EUR; times are local.",
+      "name": "search_flights",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "date": {
+            "description": "YYYY-MM-DD",
+            "type": "string"
+          },
+          "destination": {
+            "description": "City name or code",
+            "type": "string"
+          },
+          "origin": {
+            "description": "City name or code, e.g. Ostreva / OST",
+            "type": "string"
+          }
+        },
+        "required": [
+          "origin",
+          "destination",
+          "date"
+        ],
+        "type": "object"
+      }
+    },
+    "permission": "read",
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Book a flight by id. Returns a booking id, or an error if the flight is unavailable.",
+      "name": "book_flight",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "flight_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "flight_id"
+        ],
+        "type": "object"
+      }
+    },
+    "permission": "write",
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Find hotels in a city with total price for the stay and distances to landmarks (km).",
+      "name": "search_hotels",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "check_in": {
+            "description": "YYYY-MM-DD",
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "nights": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "city",
+          "check_in",
+          "nights"
+        ],
+        "type": "object"
+      }
+    },
+    "permission": "read",
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Book a hotel stay. Returns a booking id.",
+      "name": "book_hotel",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "check_in": {
+            "type": "string"
+          },
+          "hotel_id": {
+            "type": "string"
+          },
+          "nights": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hotel_id",
+          "check_in",
+          "nights"
+        ],
+        "type": "object"
+      }
+    },
+    "permission": "write",
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "List the traveller's calendar entries between two dates (inclusive).",
+      "name": "get_calendar",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "end_date": {
+            "type": "string"
+          },
+          "start_date": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ],
+        "type": "object"
+      }
+    },
+    "permission": "read",
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Cancel a confirmed booking.",
+      "name": "cancel_booking",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "booking_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "booking_id"
+        ],
+        "type": "object"
+      }
+    },
+    "permission": "destructive",
+    "type": "function"
+  }
+]

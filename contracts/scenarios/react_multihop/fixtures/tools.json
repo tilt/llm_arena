@@ -1,0 +1,40 @@
+[
+  {
+    "function": {
+      "description": "Search the encyclopedia; returns titles and snippets of the best matching articles.",
+      "name": "search_articles",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Return the full text of the article with this exact title.",
+      "name": "read_article",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  }
+]

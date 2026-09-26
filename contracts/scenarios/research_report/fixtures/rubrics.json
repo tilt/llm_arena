@@ -1,0 +1,28 @@
+[
+  {
+    "criteria": [
+      {
+        "description": "Every factual claim is supported by a cited source; no invented figures.",
+        "name": "groundedness",
+        "weight": 1.0
+      },
+      {
+        "description": "Answers the question with the key facts (numbers, dates, actors).",
+        "name": "coverage",
+        "weight": 1.0
+      },
+      {
+        "description": "Prefers authoritative sources and flags or ignores dubious ones.",
+        "name": "source_judgement",
+        "weight": 1.0
+      },
+      {
+        "description": "Concise, well organised, readable by a non-specialist.",
+        "name": "clarity",
+        "weight": 1.0
+      }
+    ],
+    "name": "report_quality",
+    "pass_threshold": 0.7
+  }
+]

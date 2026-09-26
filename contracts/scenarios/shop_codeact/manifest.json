@@ -1,0 +1,58 @@
+{
+  "description": "Customer service by writing Python against a shop API in a sandbox; graded by final DB state.",
+  "id": "shop_codeact",
+  "kind": "pattern",
+  "open_ended": false,
+  "params": [
+    {
+      "choices": null,
+      "default": 6,
+      "description": "",
+      "name": "max_steps",
+      "type": "integer"
+    },
+    {
+      "choices": null,
+      "default": 20,
+      "description": "",
+      "name": "timeout_s",
+      "type": "integer"
+    }
+  ],
+  "pass_criteria": [
+    "state_correct",
+    "policy_ok"
+  ],
+  "pattern": "code_execution",
+  "requires": [
+    "sandbox"
+  ],
+  "roles": [
+    {
+      "description": "writes and runs Python against the shop API",
+      "fallback": null,
+      "name": "agent",
+      "needs": []
+    }
+  ],
+  "tasks": 6,
+  "title": "Customer service via code actions",
+  "wiki": [
+    {
+      "title": "Code as an action",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/agent-loops#code-as-an-action"
+    },
+    {
+      "title": "Agent evaluation",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/agent-evaluation"
+    },
+    {
+      "title": "Evaluation harnesses",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/evaluation-harnesses"
+    },
+    {
+      "title": "LLM-as-judge",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/llm-as-judge"
+    }
+  ]
+}

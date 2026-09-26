@@ -1,0 +1,16 @@
+{"data": {"answer": "Calvoria", "hops": 3}, "id": "founder_country_selmworks", "prompt": "In which country was the founder of Selmworks born?", "tags": ["hops:3"]}
+{"data": {"answer": "Ember", "hops": 2}, "id": "hq_river_selmworks", "prompt": "Which river flows through the city where Selmworks has its headquarters?", "tags": ["hops:2"]}
+{"data": {"answer": "Norrisk", "hops": 3}, "id": "founder_country_kestrel_optics", "prompt": "In which country was the founder of Kestrel Optics born?", "tags": ["hops:3"]}
+{"data": {"answer": "Oskel", "hops": 2}, "id": "hq_river_kestrel_optics", "prompt": "Which river flows through the city where Kestrel Optics has its headquarters?", "tags": ["hops:2"]}
+{"data": {"answer": "Calvoria", "hops": 3}, "id": "founder_country_havel_and_daughters", "prompt": "In which country was the founder of Havel & Daughters born?", "tags": ["hops:3"]}
+{"data": {"answer": "Selm", "hops": 2}, "id": "hq_river_havel_and_daughters", "prompt": "Which river flows through the city where Havel & Daughters has its headquarters?", "tags": ["hops:2"]}
+{"data": {"answer": "Westmarch", "hops": 3}, "id": "founder_country_arkwright_dyes", "prompt": "In which country was the founder of Arkwright Dyes born?", "tags": ["hops:3"]}
+{"data": {"answer": "Tavy", "hops": 2}, "id": "hq_river_arkwright_dyes", "prompt": "Which river flows through the city where Arkwright Dyes has its headquarters?", "tags": ["hops:2"]}
+{"data": {"answer": "Ilse Varga", "hops": 2}, "id": "inventor_mentor_osk_interferometer", "prompt": "Who mentored the inventor of the Osk interferometer?", "tags": ["hops:2"]}
+{"data": {"answer": "Mirela Osk", "hops": 2}, "id": "inventor_mentor_renn_projection", "prompt": "Who mentored the inventor of the Renn projection?", "tags": ["hops:2"]}
+{"data": {"answer": "Agathe Renn", "hops": 2}, "id": "inventor_mentor_lindqvist_truss", "prompt": "Who mentored the inventor of the Lindqvist truss?", "tags": ["hops:2"]}
+{"data": {"answer": "412,000", "hops": 4, "numeric": 412000}, "id": "capital_pop_benedikt_salo", "prompt": "What is the population of the capital of the country where Benedikt Salo was born?", "tags": ["hops:4"]}
+{"data": {"answer": "288,000", "hops": 4, "numeric": 288000}, "id": "capital_pop_agathe_renn", "prompt": "What is the population of the capital of the country where Agathe Renn was born?", "tags": ["hops:4"]}
+{"data": {"answer": "233,000", "hops": 4, "numeric": 233000}, "id": "capital_pop_caspar_lindqvist", "prompt": "What is the population of the capital of the country where Caspar Lindqvist was born?", "tags": ["hops:4"]}
+{"data": {"answer": "412,000", "hops": 4, "numeric": 412000}, "id": "capital_pop_noor_havel", "prompt": "What is the population of the capital of the country where Noor Havel was born?", "tags": ["hops:4"]}
+{"data": {"answer": "744", "hops": 3, "numeric": 744}, "id": "age_gap", "prompt": "How many years after Ostreva was founded was the founder of Havel & Daughters born?", "tags": ["hops:3"]}

@@ -1,0 +1,54 @@
+{
+  "description": "Mailbox chores via tools; graded by final mailbox state and tool hygiene.",
+  "id": "email_assistant",
+  "kind": "pattern",
+  "open_ended": false,
+  "params": [
+    {
+      "choices": null,
+      "default": 10,
+      "description": "",
+      "name": "max_turns",
+      "type": "integer"
+    }
+  ],
+  "pass_criteria": [
+    "state_correct",
+    "no_collateral",
+    "answer_correct"
+  ],
+  "pattern": "tool_use",
+  "requires": [],
+  "roles": [
+    {
+      "description": "the tool-using assistant (native or JSON tool mode)",
+      "fallback": null,
+      "name": "agent",
+      "needs": []
+    }
+  ],
+  "tasks": 10,
+  "title": "Email assistant (tool use)",
+  "wiki": [
+    {
+      "title": "Tool use and function calling",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/tool-use-and-function-calling"
+    },
+    {
+      "title": "Tool routing",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/tool-routing"
+    },
+    {
+      "title": "Agent evaluation",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/agent-evaluation"
+    },
+    {
+      "title": "Evaluation harnesses",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/evaluation-harnesses"
+    },
+    {
+      "title": "LLM-as-judge",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/llm-as-judge"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "trend-1",
+    "meta": {
+      "tier": "high"
+    },
+    "published": "2026-03-10",
+    "text": "Searches for 'ultralight tent' rose 64% year on year; buyers aged 25-34 lead the shift and most want shelters under 1 kg.",
+    "title": "Outdoor retail report 2026: the ultralight overnighter",
+    "url": "https://outdoor-retail-institute.test/2026"
+  },
+  {
+    "id": "trend-2",
+    "meta": {
+      "tier": "high"
+    },
+    "published": "2026-02-01",
+    "text": "58% of surveyed hikers say a repair programme makes them more likely to buy a product; the effect is strongest for tents and jackets.",
+    "title": "Survey: repairability sways gear buyers",
+    "url": "https://calvoria-academy.test/gear-survey"
+  },
+  {
+    "id": "trend-3",
+    "meta": {
+      "tier": "medium"
+    },
+    "published": "2025-11-12",
+    "text": "Demand for waterproof commuter backpacks grew 22% in Westmarch cities last autumn.",
+    "title": "Commuters want rain-ready packs",
+    "url": "https://westmarch-daily.test/commuter-packs"
+  },
+  {
+    "id": "trend-4",
+    "meta": {
+      "tier": "low"
+    },
+    "published": "2026-04-01",
+    "text": "Neon outdoor gear is up 300% this summer, everyone says so!",
+    "title": "NEON IS BACK and it's HUGE",
+    "url": "https://greentechbuzz.test/neon"
+  }
+]

@@ -1,0 +1,79 @@
+{
+  "description": "Constrained trip booking with an injected sold-out failure; plan-and-execute vs single tool loop.",
+  "id": "trip_planner",
+  "kind": "pattern",
+  "open_ended": false,
+  "params": [
+    {
+      "choices": [
+        "plan_execute",
+        "single_loop"
+      ],
+      "default": "plan_execute",
+      "description": "",
+      "name": "mode",
+      "type": "string"
+    },
+    {
+      "choices": null,
+      "default": 2,
+      "description": "",
+      "name": "max_replans",
+      "type": "integer"
+    },
+    {
+      "choices": null,
+      "default": 6,
+      "description": "",
+      "name": "max_step_turns",
+      "type": "integer"
+    },
+    {
+      "choices": null,
+      "default": 16,
+      "description": "",
+      "name": "max_turns",
+      "type": "integer"
+    }
+  ],
+  "pass_criteria": [
+    "constraints_satisfied",
+    "no_extra_bookings"
+  ],
+  "pattern": "planning",
+  "requires": [],
+  "roles": [
+    {
+      "description": "writes and repairs the plan, writes the final summary",
+      "fallback": null,
+      "name": "planner",
+      "needs": []
+    },
+    {
+      "description": "executes plan steps with the booking tools",
+      "fallback": "planner",
+      "name": "executor",
+      "needs": []
+    }
+  ],
+  "tasks": 3,
+  "title": "Trip planning with replanning",
+  "wiki": [
+    {
+      "title": "Planning",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/planning"
+    },
+    {
+      "title": "Agent evaluation",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/agent-evaluation"
+    },
+    {
+      "title": "Evaluation harnesses",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/evaluation-harnesses"
+    },
+    {
+      "title": "LLM-as-judge",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/llm-as-judge"
+    }
+  ]
+}

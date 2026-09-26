@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM Arena Report</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface-1: #fcfcfb; --surface-2: #f3f2ee;
+  --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #6f6d68;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --series-1: #2a78d6; --good: #006300; --critical: #b52f2f; --warn-bg: #fdf3dc;
+  --seq: "#cde2fb,#9ec5f4,#6da7ec,#3987e5,#256abf,#184f95,#0d366b";
+  --ink-on-low: #0b0b0b; --ink-on-high: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface-1: #1a1a19; --surface-2: #232321;
+    --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #9a988f;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --series-1: #3987e5; --good: #0ca30c; --critical: #e66767; --warn-bg: #3a2f14;
+    --seq: "#1d2a3a,#104281,#184f95,#1c5cab,#2a78d6,#5598e7,#9ec5f4";
+    --ink-on-low: #ffffff; --ink-on-high: #0b0b0b;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface-1: #1a1a19; --surface-2: #232321;
+  --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #9a988f;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --series-1: #3987e5; --good: #0ca30c; --critical: #e66767; --warn-bg: #3a2f14;
+  --seq: "#1d2a3a,#104281,#184f95,#1c5cab,#2a78d6,#5598e7,#9ec5f4";
+  --ink-on-low: #ffffff; --ink-on-high: #0b0b0b;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--text-primary);
+       font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1180px; margin: 0 auto; padding: 32px 16px 80px; }
+header h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.01em; }
+.meta { color: var(--text-secondary); font-size: 14px; }
+h2 { font-size: 20px; margin: 48px 0 8px; }
+h3 { font-size: 16px; margin: 28px 0 8px; }
+p.lead { color: var(--text-secondary); margin: 0 0 16px; max-width: 75ch; }
+nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 8px; }
+nav a { color: var(--text-secondary); text-decoration: none; font-size: 13px; padding: 4px 10px;
+        border: 1px solid var(--border); border-radius: 999px; background: var(--surface-1); }
+nav a:hover { color: var(--text-primary); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 24px; }
+.tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.tile .label { color: var(--text-secondary); font-size: 13px; }
+.tile .value { font-size: 28px; font-weight: 600; margin-top: 2px; }
+.tile .sub { color: var(--text-muted); font-size: 12px; }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-top: 12px; }
+.chart { width: 100%; min-height: 260px; }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { color: var(--text-secondary); font-weight: 600; white-space: nowrap; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pass { color: var(--good); font-weight: 600; }
+.fail { color: var(--critical); font-weight: 600; }
+.muted { color: var(--text-muted); }
+.pill { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--surface-2);
+        color: var(--text-secondary); margin-right: 4px; }
+.note { background: var(--warn-bg); border-radius: 8px; padding: 8px 12px; font-size: 13px; margin-top: 8px; }
+details { border-bottom: 1px solid var(--grid); }
+details > summary { cursor: pointer; padding: 8px 4px; list-style-position: inside; font-size: 13px; }
+details .body { padding: 4px 8px 16px; }
+pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2); border-radius: 6px; padding: 8px;
+      font-size: 12px; margin: 4px 0; max-height: 280px; overflow: auto; }
+.span-head { font-size: 12px; color: var(--text-secondary); margin-top: 10px; }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+.filters select, .filters input { font: inherit; font-size: 13px; padding: 4px 8px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary); }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>LLM Arena Report</h1>
+  <div class="meta">{{ s.name }} · run <code>{{ s.run_id }}</code> · {{ s.created_at }}
+    {% if overall.judge %} · judge <code>{{ overall.judge }}</code>{% endif %}</div>
+  <nav>
+    <a href="#overview">Overview</a>
+    {% for sc in s.scenarios %}<a href="#sc-{{ sc }}">{{ sc }}</a>{% endfor %}
+    {% if s.ratings %}<a href="#arena">Arena ratings</a>{% endif %}
+    <a href="#traces">Traces</a>
+  </nav>
+</header>
+
+<section class="tiles" aria-label="Run totals">
+  <div class="tile"><div class="label">Trials</div><div class="value">{{ overall.trials }}</div>
+    <div class="sub">{{ overall.errors }} errors/timeouts</div></div>
+  <div class="tile"><div class="label">Overall pass rate</div><div class="value">{{ overall.pass_rate | pct }}</div>
+    <div class="sub">all scenarios and configs</div></div>
+  <div class="tile"><div class="label">Model tokens</div><div class="value">{{ "{:,}".format(overall.tokens) }}</div>
+    <div class="sub">prompt + completion</div></div>
+  <div class="tile"><div class="label">Model cost</div><div class="value">${{ overall.cost | num(2) }}</div>
+    <div class="sub">judge: ${{ overall.judge_cost | num(2) }}</div></div>
+  <div class="tile"><div class="label">Arena battles</div><div class="value">{{ s.battles }}</div>
+    <div class="sub">pairwise, position-swapped</div></div>
+</section>
+
+<h2 id="overview">Overview</h2>
+<p class="lead">Pass rate per configuration and scenario. A trial passes only when all of its scenario's pass criteria
+  hold. Those criteria cover both safety and quality checks, for example correct state <em>and</em> no collateral damage.</p>
+<div class="card"><div id="heatmap" class="chart" role="img" aria-label="Heatmap of pass rate by configuration and scenario"></div></div>
+<div class="card table-wrap">
+  <table>
+    <thead><tr><th>Config</th>{% for sc in s.scenarios %}<th class="n">{{ sc }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for cfg in s.config_names %}<tr><td>{{ cfg }}</td>
+      {% for sc in s.scenarios %}{% set c = (s.configs | selectattr("config", "equalto", cfg) | selectattr("scenario", "equalto", sc) | first) %}
+      <td class="n">{% if c %}{{ c.pass_rate | pct }}{% else %}<span class="muted">–</span>{% endif %}</td>{% endfor %}
+    </tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h3>Quality vs. token spend</h3>
+<p class="lead">Mean pass rate across scenarios plotted against mean tokens per trial. Local models cost $0, so tokens
+  are used as the budget axis. Upper-left is better.</p>
+<div class="card"><div id="scatter" class="chart" role="img" aria-label="Scatter of pass rate against tokens per trial"></div></div>
+
+{% for sc in s.scenarios %}
+{% set members = s.configs | selectattr("scenario", "equalto", sc) | list %}
+<h2 id="sc-{{ sc }}">{{ sc }} <span class="pill">{{ members[0].pattern }}</span></h2>
+<div class="card"><div id="bars-{{ loop.index }}" class="chart" data-scenario="{{ sc }}" role="img"
+     aria-label="Pass rate with 95% confidence interval per configuration"></div></div>
+<div class="card table-wrap">
+  <table>
+    <thead><tr><th>Config</th><th>Roles</th><th class="n">Pass rate [95% CI]</th><th class="n">pass^k</th>
+      <th class="n">pass@k</th><th class="n">Tasks×k</th><th class="n">Tokens/trial</th><th class="n">$/trial</th>
+      <th class="n">p50 / p95 s</th><th class="n">Errors</th></tr></thead>
+    <tbody>
+    {% for c in members | sort(attribute="pass_rate", reverse=True) %}
+      <tr><td><strong>{{ c.config }}</strong></td>
+        <td>{% for role, model in c.roles.items() %}<span class="pill">{{ role }}: {{ model }}</span>{% endfor %}</td>
+        <td class="n">{{ c.pass_rate | pct }} <span class="muted">[{{ c.ci_low | pct }}–{{ c.ci_high | pct }}]</span></td>
+        <td class="n">{{ c.pass_hat_k | pct }}</td><td class="n">{{ c.pass_at_k | pct }}</td>
+        <td class="n">{{ c.tasks }}×{{ c.repeats }}</td><td class="n">{{ c.mean_tokens | num(0) }}</td>
+        <td class="n">{{ c.mean_cost_usd | num(4) }}</td>
+        <td class="n">{{ c.latency_p50_s | num(1) }} / {{ c.latency_p95_s | num(1) }}</td>
+        <td class="n">{% if c.errors %}<span class="fail">{{ c.errors }}</span>{% else %}0{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h3>End-to-end metrics</h3>
+{% set e2e_names = members | map(attribute="e2e_means") | map("list") | sum(start=[]) | unique | sort | list %}
+<div class="card table-wrap"><table>
+  <thead><tr><th>Config</th>{% for m in e2e_names %}<th class="n">{{ m }}</th>{% endfor %}</tr></thead>
+  <tbody>{% for c in members %}<tr><td>{{ c.config }}</td>
+    {% for m in e2e_names %}<td class="n">{{ c.e2e_means.get(m) | num(2) }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+</table></div>
+
+<h3>Step-level (component) metrics</h3>
+<p class="lead">Each pipeline step is scored separately, reading the trace, so a regression can be traced to the step that
+  caused it. Rates are between 0 and 1. Counts appear in the table only.</p>
+<div class="card"><div id="steps-{{ loop.index }}" class="chart" data-scenario="{{ sc }}" role="img"
+     aria-label="Heatmap of step-level metrics per configuration"></div></div>
+{% set step_names = members | map(attribute="step_means") | map("list") | sum(start=[]) | unique | sort | list %}
+{% set derived_names = members | map(attribute="derived") | map("list") | sum(start=[]) | unique | sort | list %}
+<div class="card table-wrap"><table>
+  <thead><tr><th>Config</th>{% for m in step_names + derived_names %}<th class="n">{{ m }}</th>{% endfor %}</tr></thead>
+  <tbody>{% for c in members %}<tr><td>{{ c.config }}</td>
+    {% for m in step_names %}<td class="n">{{ c.step_means.get(m) | num(2) }}</td>{% endfor %}
+    {% for m in derived_names %}<td class="n">{{ c.derived.get(m) | num(2) }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+</table></div>
+{% set tests = s.paired_tests | selectattr("scenario", "equalto", sc) | list %}
+{% if tests %}
+<h3>Is the leader significantly better?</h3>
+<div class="card table-wrap"><table>
+  <thead><tr><th>Leader</th><th>vs.</th><th class="n">Δ pass rate</th><th class="n">p (paired permutation)</th><th class="n">Tasks</th></tr></thead>
+  <tbody>{% for t in tests %}<tr><td>{{ t.best }}</td><td>{{ t.other }}</td><td class="n">{{ t.difference | pct }}</td>
+    <td class="n">{% if t.p_value < 0.05 %}<span class="pass">{{ t.p_value | num(3) }}</span>{% else %}{{ t.p_value | num(3) }}{% endif %}</td>
+    <td class="n">{{ t.tasks }}</td></tr>{% endfor %}</tbody>
+</table>
+{% if tests | selectattr("tasks", "lt", 20) | list %}<div class="note">Fewer than 20 shared tasks: treat these differences as
+  indicative only. Raise <code>limit</code> or <code>repeats</code> for firmer conclusions.</div>{% endif %}
+</div>
+{% endif %}
+{% endfor %}
+
+{% if s.ratings %}
+<h2 id="arena">Arena ratings</h2>
+<p class="lead">Bradley–Terry ratings (Elo scale, centred on 1000) from pairwise judge battles on open-ended scenarios.
+  Each pair is judged twice with the answers in swapped positions. When the two verdicts disagree, the battle counts as a
+  tie.</p>
+<div class="card table-wrap"><table>
+  <thead><tr><th>Scope</th><th>Ranking</th></tr></thead>
+  <tbody>{% for scope, ratings in s.ratings.items() %}<tr><td>{{ scope }}</td><td>
+    {% for cfg, r in ratings | dictsort(by="value", reverse=True) %}<span class="pill">{{ cfg }} {{ r | num(0) }}</span>{% endfor %}
+  </td></tr>{% endfor %}</tbody>
+</table></div>
+{% endif %}
+
+<h2 id="traces">Trace explorer</h2>
+<p class="lead">Each trial's scores and its full step trace. LLM calls show only the last two messages sent. Long values
+  are clipped.</p>
+<div class="filters">
+  <select id="f-scenario" aria-label="Filter by scenario"><option value="">All scenarios</option>
+    {% for sc in s.scenarios %}<option>{{ sc }}</option>{% endfor %}</select>
+  <select id="f-config" aria-label="Filter by config"><option value="">All configs</option>
+    {% for c in s.config_names %}<option>{{ c }}</option>{% endfor %}</select>
+  <select id="f-status" aria-label="Filter by outcome"><option value="">All outcomes</option>
+    <option value="pass">Passed</option><option value="fail">Failed</option></select>
+</div>
+<div class="card" id="trace-list">
+{% for t in traces %}
+<details data-scenario="{{ t.scenario }}" data-config="{{ t.config }}" data-status="{{ 'pass' if t.passed else 'fail' }}">
+  <summary><span class="{{ 'pass' if t.passed else 'fail' }}">{{ '✓ pass' if t.passed else '✗ fail' }}</span>
+    · {{ t.scenario }} · <strong>{{ t.config }}</strong> · {{ t.task_id }}{% if t.repeat %} (rep {{ t.repeat }}){% endif %}
+    <span class="muted">· {{ t.duration_s | num(1) }}s · {{ (t.prompt_tokens + t.completion_tokens) }} tok · {{ t.llm_calls }} calls</span></summary>
+  <div class="body">
+    {% if t.error %}<pre class="fail">{{ t.error }}</pre>{% endif %}
+    <div class="table-wrap"><table><thead><tr><th>Score</th><th>Level</th><th class="n">Value</th><th>Rationale</th></tr></thead><tbody>
+    {% for sc_ in t.scores %}<tr><td>{{ sc_.name }}</td><td>{{ sc_.level }}</td>
+      <td class="n">{% if sc_.passed is true %}<span class="pass">{{ sc_.value | num(2) }} ✓</span>{% elif sc_.passed is false %}<span class="fail">{{ sc_.value | num(2) }} ✗</span>{% else %}{{ sc_.value | num(2) }}{% endif %}</td>
+      <td>{{ sc_.rationale }}</td></tr>{% endfor %}
+    </tbody></table></div>
+    <div class="span-head">Final output</div><pre>{{ t.final }}</pre>
+    {% for sp in t.spans %}
+      <div class="span-head">{{ loop.index }}. <strong>{{ sp.kind }}</strong> · {{ sp.name }}{% if sp.model %} · {{ sp.model }}{% endif %}
+        · {{ sp.duration_s | num(2) }}s{% if sp.prompt_tokens %} · {{ sp.prompt_tokens }}+{{ sp.completion_tokens }} tok{% endif %}
+        {% if sp.error %}<span class="fail">· {{ sp.error }}</span>{% endif %}</div>
+      {% if sp.input %}<pre>{{ sp.input }}</pre>{% endif %}
+      {% if sp.output %}<pre>→ {{ sp.output }}</pre>{% endif %}
+      {% if sp.attrs and sp.attrs != "{}" %}<pre class="muted">{{ sp.attrs }}</pre>{% endif %}
+    {% endfor %}
+  </div>
+</details>
+{% endfor %}
+{% if traces | length < overall.trials %}<p class="muted">Showing the first {{ traces | length }} trials. All traces are in
+  <code>traces/</code>.</p>{% endif %}
+</div>
+</main>
+
+{% if plotly_js %}<script>{{ plotly_js | safe }}</script>{% else %}<script src="{{ plotly_cdn }}"></script>{% endif %}
+<script>
+const DATA = {{ chart_data | safe }};
+function tokens() {
+  const css = getComputedStyle(document.documentElement);
+  const v = (name) => css.getPropertyValue(name).trim();
+  return { surface: v("--surface-1"), text: v("--text-primary"), text2: v("--text-secondary"), muted: v("--text-muted"),
+           grid: v("--grid"), axis: v("--axis"), series: v("--series-1"),
+           seq: v("--seq").replace(/"/g, "").split(","), inkLow: v("--ink-on-low"), inkHigh: v("--ink-on-high") };
+}
+// Cell labels as annotations so each label's ink can flip with the cell's lightness.
+function cellLabels(t, z, x, y, fmt) {
+  const out = [];
+  z.forEach((row, i) => row.forEach((v, j) => {
+    if (v === null) return;
+    out.push({ x: x[j], y: y[i], text: fmt(v), showarrow: false, font: { size: 12, color: v > 0.55 ? t.inkHigh : t.inkLow } });
+  }));
+  return out;
+}
+function baseLayout(t, extra) {
+  return Object.assign({
+    paper_bgcolor: t.surface, plot_bgcolor: t.surface,
+    font: { family: "system-ui, -apple-system, Segoe UI, sans-serif", size: 12, color: t.text2 },
+    margin: { l: 150, r: 20, t: 10, b: 40 },
+    hoverlabel: { bgcolor: t.surface, bordercolor: t.axis, font: { color: t.text } },
+  }, extra);
+}
+function axis(t, extra) {
+  return Object.assign({ gridcolor: t.grid, linecolor: t.axis, zerolinecolor: t.axis, tickfont: { color: t.muted } }, extra);
+}
+function scale(t) { return t.seq.map((c, i) => [i / (t.seq.length - 1), c]); }
+const CONFIG = { displayModeBar: false, responsive: true };
+
+function draw() {
+  const t = tokens();
+  const h = DATA.heatmap;
+  Plotly.react("heatmap", [{
+    type: "heatmap", z: h.values, x: h.scenarios, y: h.configs, zmin: 0, zmax: 1, colorscale: scale(t),
+    xgap: 2, ygap: 2, hoverongaps: false,
+    hovertemplate: "%{y} · %{x}<br>pass rate %{z:.0%}<extra></extra>",
+    colorbar: { tickformat: ".0%", outlinewidth: 0, tickfont: { color: t.muted } },
+  }], baseLayout(t, { height: 90 + 38 * h.configs.length, xaxis: axis(t, { side: "top" }), yaxis: axis(t, { automargin: true }),
+                      annotations: cellLabels(t, h.values, h.scenarios, h.configs, v => Math.round(v * 100) + "%"),
+                      margin: { l: 150, r: 20, t: 40, b: 10 } }), CONFIG);
+
+  Plotly.react("scatter", [{
+    type: "scatter", mode: "markers+text", x: DATA.scatter.map(p => p.tokens), y: DATA.scatter.map(p => p.pass_rate),
+    text: DATA.scatter.map(p => p.config), textposition: "top center", textfont: { color: t.text2 },
+    marker: { size: 11, color: t.series, line: { width: 2, color: t.surface } },
+    hovertemplate: "%{text}<br>%{x:,.0f} tokens/trial<br>pass rate %{y:.0%}<extra></extra>",
+  }], baseLayout(t, { height: 340, margin: { l: 60, r: 20, t: 20, b: 50 },
+      xaxis: axis(t, { title: { text: "Mean tokens per trial", font: { color: t.text2 } } }),
+      yaxis: axis(t, { title: { text: "Mean pass rate", font: { color: t.text2 } }, tickformat: ".0%", range: [0, 1.05] }) }), CONFIG);
+
+  document.querySelectorAll("[id^=bars-]").forEach(el => {
+    const d = DATA.scenarios[el.dataset.scenario].bars;
+    Plotly.react(el, [{
+      type: "bar", orientation: "h", y: d.map(b => b.config), x: d.map(b => b.rate), marker: { color: t.series },
+      error_x: { type: "data", symmetric: false, array: d.map(b => b.high - b.rate), arrayminus: d.map(b => b.rate - b.low),
+                 color: t.text2, thickness: 1.5, width: 4 },
+      hovertemplate: "%{y}<br>pass rate %{x:.0%}<extra></extra>",
+    }], baseLayout(t, { height: 60 + 34 * d.length, bargap: 0.35, margin: { l: 150, r: 20, t: 10, b: 40 },
+        xaxis: axis(t, { range: [0, 1], tickformat: ".0%" }), yaxis: axis(t, { automargin: true }) }), CONFIG);
+  });
+
+  document.querySelectorAll("[id^=steps-]").forEach(el => {
+    const d = DATA.scenarios[el.dataset.scenario].step;
+    if (!d.metrics.length) { el.parentElement.style.display = "none"; return; }
+    Plotly.react(el, [{
+      type: "heatmap", z: d.values, x: d.metrics, y: d.configs, zmin: 0, zmax: 1, colorscale: scale(t), xgap: 2, ygap: 2,
+      hoverongaps: false,
+      hovertemplate: "%{y} · %{x}: %{z:.2f}<extra></extra>", colorbar: { outlinewidth: 0, tickfont: { color: t.muted } },
+    }], baseLayout(t, { height: 110 + 36 * d.configs.length, xaxis: axis(t, { side: "top", tickangle: -30 }),
+        annotations: cellLabels(t, d.values, d.metrics, d.configs, v => v.toFixed(2)),
+        yaxis: axis(t, { automargin: true }), margin: { l: 150, r: 20, t: 90, b: 10 } }), CONFIG);
+  });
+}
+draw();
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
+new MutationObserver(draw).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+const filters = ["scenario", "config", "status"].map(k => document.getElementById("f-" + k));
+filters.forEach(f => f.addEventListener("change", () => {
+  document.querySelectorAll("#trace-list details").forEach(d => {
+    const ok = ["scenario", "config", "status"].every((k, i) => !filters[i].value || d.dataset[k] === filters[i].value);
+    d.style.display = ok ? "" : "none";
+  });
+}));
+</script>
+</body>
+</html>

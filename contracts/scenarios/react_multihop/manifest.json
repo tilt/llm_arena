@@ -1,0 +1,59 @@
+{
+  "description": "Multi-hop QA over a fictional encyclopedia via Thought/Action/Observation.",
+  "id": "react_multihop",
+  "kind": "pattern",
+  "open_ended": false,
+  "params": [
+    {
+      "choices": [
+        "react",
+        "act",
+        "cot"
+      ],
+      "default": "react",
+      "description": "",
+      "name": "variant",
+      "type": "string"
+    },
+    {
+      "choices": null,
+      "default": 10,
+      "description": "",
+      "name": "max_steps",
+      "type": "integer"
+    }
+  ],
+  "pass_criteria": [
+    "exact_match"
+  ],
+  "pattern": "react",
+  "requires": [],
+  "roles": [
+    {
+      "description": "reasons and acts with text-protocol tools",
+      "fallback": null,
+      "name": "agent",
+      "needs": []
+    }
+  ],
+  "tasks": 16,
+  "title": "Multi-hop QA with ReAct",
+  "wiki": [
+    {
+      "title": "ReAct: reason, act, observe",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/agent-loops#react-reason-act-observe"
+    },
+    {
+      "title": "Agent evaluation",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/agent-evaluation"
+    },
+    {
+      "title": "Evaluation harnesses",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/evaluation-harnesses"
+    },
+    {
+      "title": "LLM-as-judge",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/llm-as-judge"
+    }
+  ]
+}

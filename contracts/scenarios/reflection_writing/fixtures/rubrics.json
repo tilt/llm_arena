@@ -1,0 +1,23 @@
+[
+  {
+    "criteria": [
+      {
+        "description": "States the given facts correctly and adds no invented facts.",
+        "name": "accuracy",
+        "weight": 1.0
+      },
+      {
+        "description": "Easy to read for the intended audience; well structured.",
+        "name": "clarity",
+        "weight": 1.0
+      },
+      {
+        "description": "Tone fits the medium (website FAQ, status page, release notes, email).",
+        "name": "tone",
+        "weight": 1.0
+      }
+    ],
+    "name": "writing_quality",
+    "pass_threshold": 0.7
+  }
+]

@@ -1,0 +1,23 @@
+[
+  {
+    "criteria": [
+      {
+        "description": "The chart shows exactly what the task asked for, with plausible values.",
+        "name": "faithful",
+        "weight": 1.0
+      },
+      {
+        "description": "Labels, ticks and legend are readable and do not overlap.",
+        "name": "legible",
+        "weight": 1.0
+      },
+      {
+        "description": "Title and axis labels explain what is shown, including units.",
+        "name": "informative",
+        "weight": 1.0
+      }
+    ],
+    "name": "chart_quality",
+    "pass_threshold": 0.7
+  }
+]
