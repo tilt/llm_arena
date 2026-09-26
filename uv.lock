@@ -1097,7 +1097,6 @@ benchmarks = [
     { name = "huggingface-hub" },
 ]
 dev = [
-    { name = "fastapi" },
     { name = "import-linter" },
     { name = "mypy" },
     { name = "pytest" },
@@ -1109,13 +1108,10 @@ live = [
     { name = "arxiv" },
     { name = "tavily-python" },
 ]
-mock-server = [
-    { name = "fastapi" },
-    { name = "uvicorn" },
-]
 server = [
     { name = "anthropic" },
     { name = "duckdb" },
+    { name = "fastapi" },
     { name = "httpx" },
     { name = "jinja2" },
     { name = "matplotlib" },
@@ -1126,6 +1122,7 @@ server = [
     { name = "rich" },
     { name = "tenacity" },
     { name = "typer" },
+    { name = "uvicorn" },
 ]
 
 [package.metadata]
@@ -1134,8 +1131,7 @@ requires-dist = [
     { name = "anthropic", marker = "extra == 'server'", specifier = ">=0.60" },
     { name = "arxiv", marker = "extra == 'live'", specifier = ">=2.1" },
     { name = "duckdb", marker = "extra == 'server'", specifier = ">=1.1" },
-    { name = "fastapi", marker = "extra == 'dev'", specifier = ">=0.115" },
-    { name = "fastapi", marker = "extra == 'mock-server'", specifier = ">=0.115" },
+    { name = "fastapi", marker = "extra == 'server'", specifier = ">=0.115" },
     { name = "httpx", marker = "extra == 'server'", specifier = ">=0.27" },
     { name = "huggingface-hub", marker = "extra == 'benchmarks'", specifier = ">=0.25" },
     { name = "import-linter", marker = "extra == 'dev'", specifier = ">=2.1" },
@@ -1156,9 +1152,9 @@ requires-dist = [
     { name = "tenacity", marker = "extra == 'server'", specifier = ">=9.0" },
     { name = "typer", marker = "extra == 'server'", specifier = ">=0.12" },
     { name = "types-pyyaml", marker = "extra == 'dev'" },
-    { name = "uvicorn", marker = "extra == 'mock-server'", specifier = ">=0.30" },
+    { name = "uvicorn", marker = "extra == 'server'", specifier = ">=0.30" },
 ]
-provides-extras = ["server", "aisuite", "benchmarks", "mock-server", "live", "dev"]
+provides-extras = ["server", "aisuite", "benchmarks", "live", "dev"]
 
 [[package]]
 name = "lxml"

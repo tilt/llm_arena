@@ -248,12 +248,48 @@ def judge_calibrate(
 
 @app.command("mock-email")
 def mock_email(port: int = 8025) -> None:
-    """Serve the seeded mock mailbox over HTTP (extra `mock-server`) for demos and manual testing."""
+    """Serve the seeded mock mailbox over HTTP (extra `server`) for demos and manual testing."""
     import uvicorn
 
     from llm_arena.adapters.server.email_http import create_app
 
     uvicorn.run(create_app(), host="127.0.0.1", port=port)
+
+
+@app.command()
+def ui(
+    port: Annotated[int, typer.Option(help="Port on 127.0.0.1")] = 8765,
+    runs_dir: Annotated[Path, typer.Option(help="Where runs are stored")] = Path("runs"),
+    static: Annotated[Path | None, typer.Option(help="Built web UI directory (default: web/dist or bundled)")] = None,
+    open_browser: Annotated[bool, typer.Option("--open/--no-open", help="Open the browser")] = True,
+    models_file: ModelsFile = DEFAULT_MODELS,
+) -> None:
+    """Start the local app: web UI + API over the discovered local and remote models (127.0.0.1 only)."""
+    import threading
+    import webbrowser
+
+    import uvicorn
+
+    from llm_arena.adapters.server.duckdb_store import DuckDBStore
+    from llm_arena.adapters.server.runtime import server_runtime
+    from llm_arena.server.app import create_app
+    from llm_arena.service import ArenaService
+
+    service = ArenaService(
+        server_runtime(), store_factory=lambda run_id: DuckDBStore(runs_dir / run_id), model_specs=_specs(models_file)
+    )
+    static_dir = static or next((d for d in (Path("web/dist"), _bundled_web()) if (d / "index.html").exists()), None)
+    url = f"http://127.0.0.1:{port}"
+    console.print(f"LLM Arena at [link={url}]{url}[/link]  (runs in {runs_dir}/, Ctrl+C to stop)")
+    if open_browser:
+        threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+    uvicorn.run(
+        create_app(service, runs_dir=runs_dir, static_dir=static_dir), host="127.0.0.1", port=port, log_level="warning"
+    )
+
+
+def _bundled_web() -> Path:
+    return Path(__file__).parent / "server" / "web"
 
 
 @app.command()

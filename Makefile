@@ -1,7 +1,7 @@
 SHELL := /bin/sh
 PYTHON_VERSION ?= 3.12
 
-.PHONY: help install format validate lint typecheck test test-live smoke report models contracts clean
+.PHONY: help install format validate lint typecheck test test-live smoke report models contracts ui clean
 
 help:
 	@printf "Targets:\n"
@@ -13,6 +13,7 @@ help:
 	@printf "  make models      list and ping configured models\n"
 	@printf "  make smoke       run the smoke experiment and build its report\n"
 	@printf "  make contracts   regenerate JSON Schemas, scenario data and conformance vectors\n"
+	@printf "  make ui          start the local app on http://127.0.0.1:8765\n"
 
 install:
 	uv sync --all-extras --python $(PYTHON_VERSION)
@@ -38,6 +39,9 @@ test: validate
 
 test-live:
 	uv run pytest -q -m live
+
+ui:
+	uv run arena ui
 
 contracts:
 	uv run arena contracts

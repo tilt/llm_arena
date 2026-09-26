@@ -1,0 +1,224 @@
+{
+  "$defs": {
+    "ArenaConfig": {
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "judge": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Judge"
+        },
+        "max_pairs_per_task": {
+          "default": 10,
+          "title": "Max Pairs Per Task",
+          "type": "integer"
+        }
+      },
+      "title": "ArenaConfig",
+      "type": "object"
+    },
+    "ExperimentConfig": {
+      "properties": {
+        "arena": {
+          "$ref": "#/$defs/ArenaConfig"
+        },
+        "configs": {
+          "items": {
+            "$ref": "#/$defs/PipelineConfig"
+          },
+          "title": "Configs",
+          "type": "array"
+        },
+        "judge": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Judge"
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "max tasks per scenario",
+          "title": "Limit"
+        },
+        "max_cost_usd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "stop the run once model spend reaches this limit",
+          "title": "Max Cost Usd"
+        },
+        "max_parallel_trials": {
+          "default": 4,
+          "title": "Max Parallel Trials",
+          "type": "integer"
+        },
+        "models_file": {
+          "default": "configs/models.yaml",
+          "title": "Models File",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "repeats": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Repeats",
+          "type": "integer"
+        },
+        "scenarios": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Scenarios",
+          "type": "array"
+        },
+        "seed": {
+          "default": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "task_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Ids"
+        },
+        "trial_timeout_s": {
+          "default": 900.0,
+          "title": "Trial Timeout S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "scenarios",
+        "configs"
+      ],
+      "title": "ExperimentConfig",
+      "type": "object"
+    },
+    "PipelineConfig": {
+      "description": "One contestant: a name, a role → model binding, and pattern parameters.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "description": "pattern params, applied to every scenario that knows the key",
+          "title": "Params",
+          "type": "object"
+        },
+        "roles": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "role -> model alias or 'provider:model'",
+          "title": "Roles",
+          "type": "object"
+        },
+        "scenario_params": {
+          "additionalProperties": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "description": "per-scenario overrides",
+          "title": "Scenario Params",
+          "type": "object"
+        },
+        "scenarios": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "restrict to these scenarios",
+          "title": "Scenarios"
+        }
+      },
+      "required": [
+        "name",
+        "roles"
+      ],
+      "title": "PipelineConfig",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "experiment": {
+      "$ref": "#/$defs/ExperimentConfig"
+    },
+    "live": {
+      "default": false,
+      "title": "Live",
+      "type": "boolean"
+    },
+    "run_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Run Id"
+    }
+  },
+  "required": [
+    "experiment"
+  ],
+  "title": "StartRun",
+  "type": "object"
+}

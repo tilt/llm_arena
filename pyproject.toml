@@ -25,10 +25,11 @@ server = [
     "python-dotenv>=1.0",
     "matplotlib>=3.9",  # available to model-written code in the sandbox
     "pandas>=2.2",
+    "fastapi>=0.115",  # local app (`arena ui`) and the mock mailbox server
+    "uvicorn>=0.30",
 ]
 aisuite = ["aisuite>=0.1.7"]
 benchmarks = ["huggingface-hub>=0.25"]
-mock-server = ["fastapi>=0.115", "uvicorn>=0.30"]
 live = ["tavily-python>=0.5", "arxiv>=2.1"]
 dev = [
     "pytest>=8.3",
@@ -37,7 +38,6 @@ dev = [
     "mypy>=1.13",
     "types-PyYAML",
     "import-linter>=2.1",
-    "fastapi>=0.115",
 ]
 
 [project.scripts]
@@ -89,10 +89,10 @@ type = "forbidden"
 source_modules = [
     "llm_arena.core", "llm_arena.llm", "llm_arena.tools", "llm_arena.mocks", "llm_arena.sandbox",
     "llm_arena.patterns", "llm_arena.scenarios", "llm_arena.benchmarks", "llm_arena.eval",
-    "llm_arena.runner", "llm_arena.report", "llm_arena.service", "llm_arena.conformance", "llm_arena.contracts",
+    "llm_arena.runner", "llm_arena.report", "llm_arena.service", "llm_arena.conformance", "llm_arena.contracts", "llm_arena.api",
 ]
 forbidden_modules = [
-    "llm_arena.adapters", "llm_arena.cli",
+    "llm_arena.adapters", "llm_arena.cli", "llm_arena.server",
     "duckdb", "httpx", "openai", "anthropic", "tenacity", "typer", "rich", "fastapi", "uvicorn", "jinja2",
     "plotly", "huggingface_hub", "aisuite", "tavily", "arxiv", "dotenv", "matplotlib", "pandas",
 ]

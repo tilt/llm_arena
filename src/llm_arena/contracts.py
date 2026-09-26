@@ -13,6 +13,7 @@ from typing import Any
 
 from pydantic import TypeAdapter
 
+from llm_arena.api import RunListing, RunStartedResponse, RuntimeResponse, SetKey, StartRun
 from llm_arena.conformance import CASES, needs_sandbox, record
 from llm_arena.core.task import Task
 from llm_arena.core.trace import Trace
@@ -38,6 +39,11 @@ SCHEMA_TYPES: dict[str, Any] = {
     "RunBundle": RunBundle,
     "RuntimeInfo": RuntimeInfo,
     "Estimate": Estimate,
+    "StartRun": StartRun,
+    "RunStartedResponse": RunStartedResponse,
+    "RunListing": RunListing,
+    "RuntimeResponse": RuntimeResponse,
+    "SetKey": SetKey,
 }
 
 

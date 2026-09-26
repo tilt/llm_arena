@@ -1,7 +1,7 @@
 # Architecture
 
-One Python engine drives three front ends: the CLI, the local app (FastAPI, planned), and the browser (Pyodide on GitHub
-Pages, planned). The engine is pure. Everything environment-specific enters through **ports** and is implemented by
+One Python engine drives three front ends: the CLI, the local app (`llm_arena.server`, FastAPI + SSE), and the browser
+(Pyodide on GitHub Pages, planned). The engine is pure. Everything environment-specific enters through **ports** and is implemented by
 **adapters**. What other runtimes consume is exported as **contracts**.
 
 ```
@@ -41,6 +41,8 @@ The base install (pydantic + pyyaml) is exactly what the engine needs, and it lo
 | `RunEvent` | `runner/events.py` | Progress events. The CLI draws a progress bar, the app streams SSE, the worker posts messages. |
 | `BudgetGuard` | `runner/budget.py` | `max_cost_usd`: charges every call and stops the run at the limit. |
 | `Scenario` + manifest | `scenarios/base.py`, `scenarios/manifest.py` | Tasks, pipeline, evaluators, roles with capability needs, params with choices, requirements, and wiki links. |
+| API models | `api.py` | Request/response models of the app API (StartRun, RunListing, RuntimeResponse, SetKey), exported as schemas. |
+| Local app | `server/{app,channels,keys}.py` | FastAPI over ArenaService; per-run event channels with replay; session key store that never returns keys. |
 | `ArenaService` | `service.py` | `list_scenarios`, `catalog`, `runtime_info`, `estimate`, `start_run`/`wait`/`cancel`, `run_bundle`. |
 | `Trace` / `Span` | `core/trace.py` | Nested spans. Step evaluators read them. |
 

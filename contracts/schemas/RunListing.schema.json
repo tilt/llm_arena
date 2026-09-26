@@ -1,0 +1,43 @@
+{
+  "properties": {
+    "active": {
+      "title": "Active",
+      "type": "boolean"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    },
+    "errors": {
+      "title": "Errors",
+      "type": "integer"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "passed": {
+      "title": "Passed",
+      "type": "integer"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "trials": {
+      "title": "Trials",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id",
+    "name",
+    "created_at",
+    "trials",
+    "passed",
+    "errors",
+    "active"
+  ],
+  "title": "RunListing",
+  "type": "object"
+}

@@ -1,4 +1,4 @@
-"""Optional HTTP façade over the mock mailbox (extra `mock-server`), for demos and manual testing.
+"""Optional HTTP façade over the mock mailbox (extra `server`), for demos and manual testing.
 
 The arena itself calls the mailbox in-process; this server exposes the same tools as REST
 routes so other agent frameworks can be pointed at a realistic, resettable email backend.

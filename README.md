@@ -37,6 +37,30 @@ Other entry points:
 - `arena run … --docker` runs model-written code in Docker (`--network none`).
 - `max_cost_usd` in an experiment stops the run at a spend limit.
 
+## Local app
+
+`make ui` (or `uv run arena ui`) starts the app on http://127.0.0.1:8765. It provides:
+- the discovered models
+- scenarios with wiki links
+- cost estimates
+- runs with live progress (Server-Sent Events)
+- reports
+
+Details:
+- **Keys** are read from `.env` on the server. You can also set a key for the current session in the app; it is held in
+  server memory only. The API reports only whether a key is configured, never the key.
+- **Access** is limited to 127.0.0.1 and localhost origins.
+- **API:** the endpoints mirror `ArenaService`, and their JSON Schemas are in `contracts/schemas` (see `/docs` for the
+  OpenAPI view):
+
+  ```
+  GET  /api/runtime   GET /api/scenarios   GET /api/models   PUT|DELETE /api/keys/{provider}
+  POST /api/estimate  POST /api/runs       GET /api/runs     GET /api/runs/{id}/events (SSE)
+  POST /api/runs/{id}/cancel               GET /api/runs/{id}/bundle   GET /api/runs/{id}/report
+  ```
+
+The web UI (Svelte) is the next phase. Until it is built, `/` shows a placeholder with links to the API.
+
 ## What is in the arena
 
 | Scenario | Pattern | Environment (all seeded / mocked) | Pass criteria |
