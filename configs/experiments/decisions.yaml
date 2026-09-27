@@ -1,0 +1,31 @@
+# Control policies: who makes the agent's control decisions (next action, task complete, needs approval)?
+# Same agent model everywhere; only the decision maker changes. Tune thresholds with `split: dev`,
+# then report with `split: test`. Jev configs need TYPESAFE_API_KEY and the local app or CLI.
+name: decisions
+scenarios: [support_desk, email_assistant]
+split: dev
+repeats: 2
+configs:
+  - name: agent-decides               # baseline: the agent LLM decides everything in its own loop
+    roles: {"*": ollama:qwen3:14b}
+  - name: agent+llm-review            # baseline loop; a small LLM only reviews the finished trace
+    roles: {"*": ollama:qwen3:14b, decider: ollama:qwen3:4b}
+    decisions: {policy: llm, control: review}
+  - name: llm-gate                    # agent loop; a small LLM gates risky actions
+    roles: {"*": ollama:qwen3:14b, decider: ollama:qwen3:4b}
+    decisions: {policy: llm, control: gate}
+  - name: rules-gate                  # agent loop; codified rules gate risky actions (abstain → human)
+    roles: {"*": ollama:qwen3:14b}
+    decisions: {policy: rules, control: gate}
+  - name: llm-controls                # the policy picks each next tool and decides completion
+    roles: {"*": ollama:qwen3:14b, decider: ollama:qwen3:4b}
+    decisions: {policy: llm, control: policy}
+  - name: cascade-controls            # rules first, small LLM next, big LLM for uncertain answers
+    roles: {"*": ollama:qwen3:14b, decider: ollama:qwen3:4b, escalation: ollama:qwen3:14b}
+    decisions: {policy: cascade, control: policy, primary: llm, fallback: llm, threshold: 0.8}
+  # - name: jev-controls              # needs TYPESAFE_API_KEY (early access)
+  #   roles: {"*": ollama:qwen3:14b}
+  #   decisions: {policy: jev, control: policy}
+  # - name: rules+jev→llm             # cheap decisions from Jev, uncertain ones from an LLM
+  #   roles: {"*": ollama:qwen3:14b, escalation: ollama:qwen3:14b}
+  #   decisions: {policy: cascade, control: policy, primary: jev, fallback: llm, threshold: 0.85}

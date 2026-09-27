@@ -12,6 +12,11 @@
 | Judge rubric | per-criterion 1–5 scores, normalised to 0–1, weighted; skipped criteria score the minimum | `eval/judge.py` |
 | Judge calibration | raw agreement + Cohen's κ against hand labels; κ < 0.6 flagged | `eval/calibration.py` |
 | Arena rating | Bradley–Terry (MM algorithm, ties = ½ win, small prior) on Elo scale around 1000 | `bradley_terry` |
+| Decision accuracy | per config × decision point × question: share of labeled, non-abstained answers equal to the ground truth | `decisions/records.py` |
+| Brier / log loss | mean squared error of the answer's probabilities vs the one-hot label; −log P(label), clipped at 1e-6 | `decisions/records.py` |
+| Missed / false alarms | yes/no questions: P(pred false \| label true) and P(pred true \| label false). For approval and review questions, *missed* is the false-safe rate and *false alarms* are needless human escalations | `decisions/records.py` |
+| Calibration | five P(true) bins: mean predicted probability vs observed share of true labels | `decisions/records.py` |
+| Decision latency / cost | p50/p95 per decision request; LLM stages cost their tokens, Jev its input tokens ($0.042 / M) | `decisions/records.py` |
 | Cost | tokens × price table (override per model); local models 0 $, latency still reported | `llm/pricing.py` |
 
 ## Interpreting results
@@ -21,5 +26,8 @@
 - **Agentic scenarios need repeats.** Use `repeats ≥ 3`. pass^k often separates configurations that tie on pass rate.
 - **Compare against a budget-matched baseline** before crediting a pattern. The arena has these switches:
   `reflection_rounds: 0`, `mode: single_loop`, `mode: single_agent`, `variant: cot`.
+- **Tune decision thresholds on `split: dev`, report on `split: test`.** Otherwise the cascade threshold is fitted to
+  the tasks it is scored on. LLM probabilities are verbalised estimates: check the calibration bins before trusting a
+  threshold.
 - **A score belongs to a model–harness pair.** The same model can score differently in native and JSON tool mode, or
   through the OpenAI SDK and aisuite.

@@ -65,6 +65,28 @@ config with `params` or `scenario_params`.
   processing, a 30-day refund window, refunds no higher than the amount paid.
 - **E2E:** `state_correct` and `policy_ok`.
 
+## support_desk: control policies in a tool loop
+- **Environment:** the ceramics shop as typed tools (orders, products, messages, refunds, cancellations, restocking),
+  in memory, so every action can be gated. It needs no sandbox and runs in the browser too.
+- **Tasks:** 24, generated from six request templates × orders (damaged items, returns, cancellations, goodwill
+  requests, status questions, inflated claims). A fixed hash assigns each task to `dev` or `test`. The expected
+  effects are derived from the store policy, so the oracle, the completion check and the grader agree.
+- **Who decides** (`decisions` on a config; without it the agent decides everything):
+  - `control: policy`: the policy picks each next tool (or finish) and judges completion; the agent only fills in
+    arguments and writes the reply.
+  - `control: gate`: the agent loop runs as usual; the policy decides which state-changing actions a human must
+    approve.
+  - `control: review`: the agent loop runs unchanged; the policy only reviews the finished trace.
+- **Human approver:** an oracle that approves exactly the actions that comply with policy and the request. A violating
+  action that was not sent for approval runs anyway (false-safe).
+- **Policies:** `llm` (role `decider`), `rules` (codified checks that abstain on anything needing the request's meaning;
+  abstaining on approval means asking the human), `cascade` (rules → primary → fallback below a confidence threshold;
+  role `escalation`), `jev` (TypeSafe's decision model; local app and CLI only).
+- **E2E:** `state_correct`, `customer_informed`, `policy_compliant`; step score `human_reviews`. Decision quality is
+  reported separately (see metrics).
+- `email_assistant` accepts the same policies: its oracle flags moves, deletions and messages the request did not ask
+  for, and its rule always sends deletions to the human.
+
 ## trip_planner: planning with an injected failure
 - **Mock services:** flights, hotels and a calendar. Some flights are sold out at booking time.
 - **Modes:** `mode: plan_execute` (planner + executor with a validator, repair and replanning) or `single_loop`

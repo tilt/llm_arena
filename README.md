@@ -104,6 +104,7 @@ To serve browser mode locally: `make web` (builds the engine wheel into `web/pub
 | `research_report` | tool use + reflection | BM25 corpus with sources in quality tiers and planted misinformation | fact recall, no misinformation, valid citations |
 | `react_multihop` | ReAct (vs Act-only / CoT-only) | encyclopedia of a fictional world | exact match |
 | `shop_codeact` | code as action | shop DB + Python API in a sandbox | final DB state + store policy |
+| `support_desk` | control policies: who picks the next action, decides completion, gates risky actions | shop tools, oracle human approver, dev/test split | final state + store policy + customer informed; decision quality |
 | `trip_planner` | plan-and-execute with replanning (vs a single loop) | flights, hotels, calendar; a flight sells out when booked | hard constraints checked by code |
 | `launch_brief` | orchestrator + workers with typed handoffs (vs a single agent) | product catalog + trend reports | correct product, tagline, no misinformation |
 | `gsm8k`, `mmlu_pro`, `ifeval`, `humaneval`, `mbpp` | classic benchmarks | public subsets at pinned revisions | per benchmark |
@@ -116,6 +117,26 @@ Metrics, reports and ranking:
 - Aggregates are pass rate with a bootstrap CI, pass^k, pass@k, a paired permutation test against the leader, tokens,
   cost, and p50/p95 latency.
 - Open-ended scenarios also get pairwise judge battles, run with swapped positions and ranked with Bradley–Terry.
+
+## Control policies
+
+Most agents let the LLM make every control decision inside its loop. The arena can swap those decisions out and
+score each one against ground truth. The decisions are: which tool next, is the task complete, must a human approve
+this action, and does the finished run need review. A config chooses the decision maker:
+
+```yaml
+configs:
+  - name: agent-decides                       # baseline
+    roles: {"*": ollama:qwen3:14b}
+  - name: cascade-controls
+    roles: {"*": ollama:qwen3:14b, decider: ollama:qwen3:4b, escalation: ollama:qwen3:14b}
+    decisions: {policy: cascade, control: policy, threshold: 0.8}   # llm | rules | cascade | jev
+```
+
+The report compares task success, cost and latency across configs, and adds per-decision accuracy, calibration
+(Brier, log loss, bins), false-safe approvals and needless escalations. Tune thresholds on `split: dev`, report on
+`split: test`. See `configs/experiments/decisions.yaml`. Jev (TypeSafe) needs `TYPESAFE_API_KEY` and works in the
+local app and CLI; its API does not allow browser calls.
 
 ## Configuring models and experiments
 
