@@ -14,7 +14,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-SpanKind = Literal["llm_call", "tool_call", "code_exec", "handoff", "plan", "critique", "step", "judge"]
+SpanKind = Literal["llm_call", "tool_call", "code_exec", "handoff", "plan", "critique", "step", "judge", "decision"]
 
 
 class Span(BaseModel):
@@ -77,11 +77,12 @@ class Trace(BaseModel):
 
     def totals(self) -> dict[str, float]:
         llm_spans = self.select("llm_call")
+        external = sum(s.attrs.get("external_cost_usd", 0.0) for s in self.select("decision"))
         return {
             "llm_calls": len(llm_spans),
             "tool_calls": len(self.select("tool_call")),
             "prompt_tokens": sum(s.prompt_tokens for s in llm_spans),
             "completion_tokens": sum(s.completion_tokens for s in llm_spans),
-            "cost_usd": sum(s.cost_usd for s in llm_spans),
+            "cost_usd": sum(s.cost_usd for s in llm_spans) + external,  # + non-LLM decision services (Jev)
             "llm_latency_s": sum(s.duration_s for s in llm_spans),
         }

@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from llm_arena.core.trace import Trace
+from llm_arena.decisions.records import decision_rows
 from llm_arena.eval.base import Score
 from llm_arena.runner.ports import RunData, TrialRecord
 
@@ -54,6 +55,7 @@ class MemoryStore:
         self.scores: dict[str, list[dict[str, Any]]] = {}
         self.battles: list[dict[str, Any]] = []
         self.traces: dict[str, dict[str, Any]] = {}
+        self.decisions: dict[str, list[dict[str, Any]]] = {}
 
     def start_run(self, run_id: str, name: str, config_json: str) -> None:
         self.run = self.run or {"run_id": run_id, "name": name, "created_at": "", "config_json": config_json}
@@ -67,6 +69,9 @@ class MemoryStore:
         self.trials[record.trial_id] = trial_row(run_id, record)
         self.scores[record.trial_id] = [{"trial_id": record.trial_id, **score.model_dump()} for score in scores]
         self.traces[record.trial_id] = json.loads(json.dumps(trace_payload(record, scores, trace, extra), default=str))
+        self.decisions[record.trial_id] = decision_rows(
+            self.traces[record.trial_id]["spans"], self.trials[record.trial_id]
+        )
 
     def finals_for_battles(self, scenario: str) -> list[tuple[str, str, str]]:
         rows = [
@@ -98,6 +103,10 @@ class MemoryStore:
             trials=sorted(self.trials.values(), key=lambda r: (r["scenario"], r["config"], r["task_id"], r["repeat"])),
             scores=[score for scores in self.scores.values() for score in scores],
             battles=list(self.battles),
+            decisions=sorted(
+                (r for rows in self.decisions.values() for r in rows),
+                key=lambda r: (r["trial_id"], r["span"], r["question"]),
+            ),
         )
 
     def load_trace(self, trial_id: str) -> dict[str, Any] | None:

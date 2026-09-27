@@ -1,5 +1,6 @@
 {
   "case": {
+    "decisions": null,
     "id": "launch-single-agent",
     "params": {
       "mode": "single_agent"
@@ -16,6 +17,7 @@
     "scenario": "launch_brief",
     "task_id": "summer_launch"
   },
+  "decisions": [],
   "final": "## Recommended product\nRidgeline UL1 tent (FS-TENT-UL1)\nTagline: Under a kilo, over the ridge.",
   "requests": {
     "orchestrator": [

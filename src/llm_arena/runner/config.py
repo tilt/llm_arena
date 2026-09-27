@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, Field, model_validator
 
 from llm_arena.core.errors import ConfigError
+from llm_arena.decisions.config import DecisionConfig
 
 
 class PipelineConfig(BaseModel):
@@ -21,6 +22,9 @@ class PipelineConfig(BaseModel):
     )
     scenario_params: dict[str, dict[str, Any]] = Field(default_factory=dict, description="per-scenario overrides")
     scenarios: list[str] | None = Field(default=None, description="restrict to these scenarios")
+    decisions: DecisionConfig | None = Field(
+        default=None, description="control policy for scenarios that support one; None: the agent decides"
+    )
 
     def params_for(self, scenario: str, known: set[str]) -> dict[str, Any]:
         shared = {key: value for key, value in self.params.items() if key in known}
@@ -41,6 +45,9 @@ class ExperimentConfig(BaseModel):
     repeats: int = Field(default=1, ge=1)
     limit: int | None = Field(default=None, description="max tasks per scenario")
     task_ids: list[str] | None = None
+    split: Literal["all", "dev", "test"] = Field(
+        default="all", description="tasks of this split only (tasks without a split are always included)"
+    )
     judge: str | None = None
     arena: ArenaConfig = Field(default_factory=ArenaConfig)
     max_parallel_trials: int = 4

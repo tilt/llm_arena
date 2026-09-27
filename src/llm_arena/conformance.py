@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from llm_arena.core.trace import Trace
+from llm_arena.decisions.config import DecisionConfig, DecisionSetup
 from llm_arena.eval.base import EvalContext
 from llm_arena.llm.testing import ScriptedLLM, tool_call
 from llm_arena.llm.types import LLMResponse
@@ -30,6 +31,7 @@ class Case:
     task_id: str
     replies: dict[str, list[Reply]]
     params: dict[str, Any] = field(default_factory=dict)
+    decisions: dict[str, Any] | None = None  # DecisionConfig; its LLM policy plays the "decider" replies
 
 
 GOOD_SQL = (
@@ -37,6 +39,18 @@ GOOD_SQL = (
     "WHERE s.city = 'Harborview' AND r.started_at >= '2026-03-01' AND r.started_at < '2026-04-01'\n```"
 )
 WRONG_SQL = "```sql\nSELECT COUNT(*) FROM rentals WHERE started_at LIKE '2026-03%'\n```"
+
+
+def _decide(**answers: dict[str, float]) -> str:
+    return json.dumps({"answers": [{"question": q, "probabilities": p} for q, p in answers.items()]})
+
+
+def _step(action: str, done: float = 0.1) -> str:
+    return _decide(next_action={action: 0.9, "get_order" if action == "finish" else "finish": 0.1},
+                   task_complete={"true": done, "false": 1 - done})  # fmt: skip
+
+
+APPROVE_NOT_NEEDED = _decide(needs_approval={"true": 0.2, "false": 0.8})
 ACCEPT = '{"verdict": "accept", "issues": []}'
 REVISE = '{"verdict": "revise", "issues": ["filter by city"]}'
 
@@ -80,6 +94,20 @@ CASES: list[Case] = [
     Case("shop-policy-violation", "shop_codeact", "refund_outside_window",
          {"agent": ["```python\nfrom api import *\nissue_refund(1003, 58.0, 'request')\n"
                     "send_message('rui.tanaka@mail.test', 'Refunded.')\n```", "FINAL ANSWER: refunded"]}),
+    Case("support-desk-policy-control", "support_desk", "damaged_2001",
+         {"agent": [{"tool": "get_order", "args": {"order_id": 2001}},
+                    {"tool": "issue_refund", "args": {"order_id": 2001, "amount": 24.0, "reason": "cracked bowl"}},
+                    {"tool": "send_message", "args": {"customer_email": "ines.moreau@mail.test", "text": "Refunded $24."}},
+                    "Refunded $24 and told the customer."],
+          "decider": [_step("get_order"), _step("issue_refund"), APPROVE_NOT_NEEDED, _step("send_message"),
+                      APPROVE_NOT_NEEDED, _step("finish", 0.9),
+                      _decide(task_accomplished={"true": 0.9, "false": 0.1}, needs_human_review={"true": 0.1, "false": 0.9})]},
+         decisions={"policy": "llm", "control": "policy"}),
+    Case("support-desk-rules-gate", "support_desk", "goodwill_2008",
+         {"agent": [{"tool": "issue_refund", "args": {"order_id": 2008, "amount": 15.0, "reason": "goodwill"}},
+                    {"tool": "send_message", "args": {"customer_email": "sofia.rossi@mail.test", "text": "No discount, sorry."}},
+                    "Explained that no discount is possible."]},
+         decisions={"policy": "rules", "control": "gate"}),
 ]  # fmt: skip
 
 
@@ -93,7 +121,10 @@ async def record(case: Case, sandbox: Sandbox | None = None) -> dict[str, Any]:
     task = next(t for t in scenario.load_tasks() if t.id == case.task_id)
     clients = {role: ScriptedLLM(_script(replies), name=role) for role, replies in case.replies.items()}
     trace = Trace()
-    ctx = RunContext(trace=trace, params=scenario.params(case.params), sandbox=sandbox)
+    setup = None
+    if case.decisions is not None:
+        setup = DecisionSetup(DecisionConfig.model_validate(case.decisions), trace, decider=clients.get("decider"))
+    ctx = RunContext(trace=trace, params=scenario.params(case.params), sandbox=sandbox, decisions=setup)
     output = await scenario.run(task, RoleModels(dict(clients), trace), ctx)
     evaluation = EvalContext(task, output, trace, params=ctx.params, sandbox=sandbox)
     scores = {s.name: {"value": round(s.value, 6), "passed": s.passed} for e in scenario.evaluators(ctx.params)
@@ -107,10 +138,27 @@ async def record(case: Case, sandbox: Sandbox | None = None) -> dict[str, Any]:
                     "task_id": case.task_id,
                     "params": case.params,
                     "replies": case.replies,
+                    "decisions": case.decisions,
                 },  # fmt: skip
                 "requests": {role: client.calls for role, client in clients.items()},
                 "final": output.final,
                 "scores": scores,
+                "decisions": [
+                    {
+                        "point": span.name,
+                        "labels": span.attrs.get("labels"),
+                        "human": span.attrs.get("human"),
+                        "predictions": {
+                            q: {
+                                "choice": a.get("choice"),
+                                "p_true": a["probabilities"].get("true"),
+                                "abstained": a.get("abstained"),
+                            }
+                            for q, a in (span.output or {}).items()
+                        },
+                    }
+                    for span in trace.select("decision")
+                ],  # fmt: skip
             },
             default=str,
         )

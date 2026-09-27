@@ -1,0 +1,226 @@
+[
+  {
+    "customer_email": "ines.moreau@mail.test",
+    "days_since_delivery": 6,
+    "delivered_on": "2026-05-08",
+    "items": [
+      {
+        "qty": 2,
+        "sku": "MUG-ASH",
+        "unit_price": 18.0
+      },
+      {
+        "qty": 1,
+        "sku": "BWL-RICE",
+        "unit_price": 24.0
+      }
+    ],
+    "order_id": 2001,
+    "ordered_on": "2026-05-02",
+    "paid": 60.0,
+    "refunded_so_far": 0.0,
+    "status": "delivered"
+  },
+  {
+    "customer_email": "rui.tanaka@mail.test",
+    "days_since_delivery": 69,
+    "delivered_on": "2026-03-06",
+    "items": [
+      {
+        "qty": 1,
+        "sku": "TPT-SML",
+        "unit_price": 58.0
+      }
+    ],
+    "order_id": 2002,
+    "ordered_on": "2026-02-28",
+    "paid": 58.0,
+    "refunded_so_far": 0.0,
+    "status": "delivered"
+  },
+  {
+    "customer_email": "ana.pereira@mail.test",
+    "days_since_delivery": null,
+    "delivered_on": null,
+    "items": [
+      {
+        "qty": 4,
+        "sku": "PLT-DIN",
+        "unit_price": 32.0
+      },
+      {
+        "qty": 1,
+        "sku": "VAS-TAL",
+        "unit_price": 45.0
+      }
+    ],
+    "order_id": 2003,
+    "ordered_on": "2026-05-13",
+    "paid": 173.0,
+    "refunded_so_far": 0.0,
+    "status": "processing"
+  },
+  {
+    "customer_email": "tobias.klein@mail.test",
+    "days_since_delivery": null,
+    "delivered_on": null,
+    "items": [
+      {
+        "qty": 2,
+        "sku": "BWL-RICE",
+        "unit_price": 24.0
+      }
+    ],
+    "order_id": 2004,
+    "ordered_on": "2026-05-10",
+    "paid": 48.0,
+    "refunded_so_far": 0.0,
+    "status": "shipped"
+  },
+  {
+    "customer_email": "mei.chen@mail.test",
+    "days_since_delivery": 29,
+    "delivered_on": "2026-04-15",
+    "items": [
+      {
+        "qty": 2,
+        "sku": "VAS-TAL",
+        "unit_price": 45.0
+      }
+    ],
+    "order_id": 2005,
+    "ordered_on": "2026-04-10",
+    "paid": 90.0,
+    "refunded_so_far": 0.0,
+    "status": "delivered"
+  },
+  {
+    "customer_email": "omar.haddad@mail.test",
+    "days_since_delivery": 31,
+    "delivered_on": "2026-04-13",
+    "items": [
+      {
+        "qty": 4,
+        "sku": "MUG-TID",
+        "unit_price": 18.0
+      }
+    ],
+    "order_id": 2006,
+    "ordered_on": "2026-04-08",
+    "paid": 72.0,
+    "refunded_so_far": 0.0,
+    "status": "delivered"
+  },
+  {
+    "customer_email": "lena.fischer@mail.test",
+    "days_since_delivery": null,
+    "delivered_on": null,
+    "items": [
+      {
+        "qty": 1,
+        "sku": "TPT-SML",
+        "unit_price": 58.0
+      },
+      {
+        "qty": 2,
+        "sku": "MUG-ASH",
+        "unit_price": 18.0
+      }
+    ],
+    "order_id": 2007,
+    "ordered_on": "2026-05-12",
+    "paid": 94.0,
+    "refunded_so_far": 0.0,
+    "status": "processing"
+  },
+  {
+    "customer_email": "sofia.rossi@mail.test",
+    "days_since_delivery": 24,
+    "delivered_on": "2026-04-20",
+    "items": [
+      {
+        "qty": 6,
+        "sku": "PLT-DIN",
+        "unit_price": 32.0
+      }
+    ],
+    "order_id": 2008,
+    "ordered_on": "2026-04-16",
+    "paid": 192.0,
+    "refunded_so_far": 0.0,
+    "status": "delivered"
+  },
+  {
+    "customer_email": "kwame.mensah@mail.test",
+    "days_since_delivery": null,
+    "delivered_on": null,
+    "items": [
+      {
+        "qty": 1,
+        "sku": "VAS-TAL",
+        "unit_price": 45.0
+      }
+    ],
+    "order_id": 2009,
+    "ordered_on": "2026-05-11",
+    "paid": 45.0,
+    "refunded_so_far": 0.0,
+    "status": "shipped"
+  },
+  {
+    "customer_email": "elif.yilmaz@mail.test",
+    "days_since_delivery": 5,
+    "delivered_on": "2026-05-09",
+    "items": [
+      {
+        "qty": 4,
+        "sku": "BWL-RICE",
+        "unit_price": 24.0
+      },
+      {
+        "qty": 2,
+        "sku": "MUG-TID",
+        "unit_price": 18.0
+      }
+    ],
+    "order_id": 2010,
+    "ordered_on": "2026-05-05",
+    "paid": 132.0,
+    "refunded_so_far": 24.0,
+    "status": "delivered"
+  },
+  {
+    "customer_email": "jonas.berg@mail.test",
+    "days_since_delivery": null,
+    "delivered_on": null,
+    "items": [
+      {
+        "qty": 1,
+        "sku": "MUG-ASH",
+        "unit_price": 18.0
+      }
+    ],
+    "order_id": 2011,
+    "ordered_on": "2026-05-01",
+    "paid": 18.0,
+    "refunded_so_far": 0.0,
+    "status": "cancelled"
+  },
+  {
+    "customer_email": "priya.nair@mail.test",
+    "days_since_delivery": 50,
+    "delivered_on": "2026-03-25",
+    "items": [
+      {
+        "qty": 2,
+        "sku": "PLT-DIN",
+        "unit_price": 32.0
+      }
+    ],
+    "order_id": 2012,
+    "ordered_on": "2026-03-20",
+    "paid": 64.0,
+    "refunded_so_far": 0.0,
+    "status": "delivered"
+  }
+]

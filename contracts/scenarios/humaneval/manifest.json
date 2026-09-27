@@ -27,6 +27,7 @@
       "needs": []
     }
   ],
+  "supports_decisions": false,
   "tasks": 60,
   "title": "HumanEval (code)",
   "wiki": [

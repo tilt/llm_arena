@@ -1,0 +1,79 @@
+{
+  "description": "Refunds, cancellations and inquiries via tools. Next action, completion and approval of risky actions come from the agent or from a control policy; every decision is scored against ground truth.",
+  "id": "support_desk",
+  "kind": "pattern",
+  "open_ended": false,
+  "params": [
+    {
+      "choices": null,
+      "default": 10,
+      "description": "",
+      "name": "max_turns",
+      "type": "integer"
+    }
+  ],
+  "pass_criteria": [
+    "state_correct",
+    "customer_informed",
+    "policy_compliant"
+  ],
+  "pattern": "tool_use+control",
+  "requires": [],
+  "roles": [
+    {
+      "description": "the tool-using support agent",
+      "fallback": null,
+      "name": "agent",
+      "needs": []
+    },
+    {
+      "description": "control policy LLM (policy: llm / cascade)",
+      "fallback": "agent",
+      "name": "decider",
+      "needs": [
+        "json_schema"
+      ]
+    },
+    {
+      "description": "cascade fallback LLM for uncertain decisions",
+      "fallback": "decider",
+      "name": "escalation",
+      "needs": [
+        "json_schema"
+      ]
+    }
+  ],
+  "supports_decisions": true,
+  "tasks": 24,
+  "title": "Support desk (control policies)",
+  "wiki": [
+    {
+      "title": "Tool use and function calling",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/tool-use-and-function-calling"
+    },
+    {
+      "title": "Guardrails",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/guardrails"
+    },
+    {
+      "title": "Tool routing",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/tool-routing"
+    },
+    {
+      "title": "Cost and latency optimization",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/cost-and-latency-optimization"
+    },
+    {
+      "title": "Agent evaluation",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/agent-evaluation"
+    },
+    {
+      "title": "Evaluation harnesses",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/evaluation-harnesses"
+    },
+    {
+      "title": "LLM-as-judge",
+      "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/llm-as-judge"
+    }
+  ]
+}

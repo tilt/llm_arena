@@ -65,6 +65,7 @@
       "needs": []
     }
   ],
+  "supports_decisions": false,
   "tasks": 2,
   "title": "Product launch team (multi-agent)",
   "wiki": [

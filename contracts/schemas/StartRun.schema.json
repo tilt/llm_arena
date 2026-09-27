@@ -28,6 +28,95 @@
       "title": "ArenaConfig",
       "type": "object"
     },
+    "DecisionConfig": {
+      "description": "Control policy of a pipeline config. Without it the agent decides everything inside its own loop.",
+      "properties": {
+        "control": {
+          "default": "policy",
+          "description": "policy: the policy picks each next tool, judges completion and gates state-changing actions; gate: the agent loop runs as usual and the policy only gates state-changing actions; review: the agent runs unchanged and the policy only reviews the finished trace",
+          "enum": [
+            "policy",
+            "gate",
+            "review"
+          ],
+          "title": "Control",
+          "type": "string"
+        },
+        "fallback": {
+          "anyOf": [
+            {
+              "enum": [
+                "llm",
+                "jev"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "llm",
+          "description": "cascade: stage for uncertain answers (None: no stage)",
+          "title": "Fallback"
+        },
+        "hard_rules": {
+          "default": true,
+          "description": "cascade: the scenario's rules answer first where they apply",
+          "title": "Hard Rules",
+          "type": "boolean"
+        },
+        "jev_model": {
+          "default": "jev-latest",
+          "title": "Jev Model",
+          "type": "string"
+        },
+        "policy": {
+          "default": "llm",
+          "enum": [
+            "llm",
+            "rules",
+            "cascade",
+            "jev"
+          ],
+          "title": "Policy",
+          "type": "string"
+        },
+        "primary": {
+          "default": "llm",
+          "description": "cascade: first stage",
+          "enum": [
+            "llm",
+            "jev"
+          ],
+          "title": "Primary",
+          "type": "string"
+        },
+        "review": {
+          "default": true,
+          "description": "classify the finished trace (task done? needs human review?)",
+          "title": "Review",
+          "type": "boolean"
+        },
+        "threshold": {
+          "default": 0.8,
+          "description": "cascade: escalate below this confidence",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Threshold",
+          "type": "number"
+        },
+        "thresholds": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "per-question thresholds",
+          "title": "Thresholds",
+          "type": "object"
+        }
+      },
+      "title": "DecisionConfig",
+      "type": "object"
+    },
     "ExperimentConfig": {
       "properties": {
         "arena": {
@@ -110,6 +199,17 @@
           "title": "Seed",
           "type": "integer"
         },
+        "split": {
+          "default": "all",
+          "description": "tasks of this split only (tasks without a split are always included)",
+          "enum": [
+            "all",
+            "dev",
+            "test"
+          ],
+          "title": "Split",
+          "type": "string"
+        },
         "task_ids": {
           "anyOf": [
             {
@@ -142,6 +242,18 @@
     "PipelineConfig": {
       "description": "One contestant: a name, a role → model binding, and pattern parameters.",
       "properties": {
+        "decisions": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DecisionConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "control policy for scenarios that support one; None: the agent decides"
+        },
         "name": {
           "title": "Name",
           "type": "string"

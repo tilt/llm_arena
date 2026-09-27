@@ -9,6 +9,7 @@ from llm_arena.scenarios import (
     reflection_writing,
     research_report,
     shop_codeact,
+    support_desk,
     trip_planner,
 )
 
@@ -21,5 +22,6 @@ __all__ = [
     "reflection_writing",
     "research_report",
     "shop_codeact",
+    "support_desk",
     "trip_planner",
 ]

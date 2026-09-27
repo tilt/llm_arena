@@ -9,7 +9,7 @@ from __future__ import annotations
 import inspect
 import json
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, Protocol
 
 from pydantic import ValidationError
 
@@ -17,7 +17,7 @@ from llm_arena.core.trace import Trace
 from llm_arena.llm.types import ToolCall
 from llm_arena.tools.registry import Permission, ToolRegistry
 
-ErrorKind = Literal["unknown_tool", "invalid_args", "forbidden", "runtime"]
+ErrorKind = Literal["unknown_tool", "invalid_args", "forbidden", "runtime", "rejected"]  # rejected: by a human approver
 MAX_RESULT_CHARS = 6000
 
 
@@ -27,6 +27,14 @@ class ToolOutcome:
     ok: bool
     error_kind: ErrorKind | None = None
     value: Any = None
+
+
+class Executor(Protocol):
+    """What a tool loop needs: the offered tools and a way to run a call (ToolExecutor, or a gated wrapper)."""
+
+    registry: ToolRegistry
+
+    async def execute(self, call: ToolCall) -> ToolOutcome: ...
 
 
 class ToolExecutor:

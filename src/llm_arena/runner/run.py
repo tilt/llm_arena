@@ -21,6 +21,7 @@ from typing import Any
 
 from llm_arena.core.errors import ConfigError
 from llm_arena.core.trace import Trace
+from llm_arena.decisions.config import DECIDER_ROLE, ESCALATION_ROLE, DecisionSetup
 from llm_arena.eval.base import EvalContext, Score, Task, TrialOutput
 from llm_arena.eval.judge import judge_pairwise
 from llm_arena.llm.cache import cache_salt
@@ -119,6 +120,8 @@ class ExperimentRunner:
             for config in self.experiment.configs:
                 if config.scenarios is not None and scenario_name not in config.scenarios:
                     continue
+                if config.decisions is not None and not scenario.supports_decisions:
+                    raise ConfigError(f"{config.name}: scenario {scenario_name!r} does not support a control policy")
                 bindings = scenario.check_roles(self._bind(scenario, config))
                 params = scenario.params(config.params_for(scenario_name, set(scenario.default_params)))
                 trials += [
@@ -131,6 +134,8 @@ class ExperimentRunner:
     def _select_tasks(self, tasks: list[Task]) -> list[Task]:
         if self.experiment.task_ids:
             tasks = [task for task in tasks if task.id in set(self.experiment.task_ids)]
+        if self.experiment.split != "all":
+            tasks = [task for task in tasks if task.data.get("split", self.experiment.split) == self.experiment.split]
         return tasks[: self.experiment.limit] if self.experiment.limit else tasks
 
     def _bind(self, scenario: Scenario, config: PipelineConfig) -> dict[str, ModelSpec]:
@@ -173,6 +178,14 @@ class ExperimentRunner:
                 raise
             except Exception as exc:
                 raise ConfigError(f"{spec.name}: {exc}") from exc
+        for config in {trial.config.name: trial.config for trial in trials}.values():
+            if config.decisions is not None and config.decisions.uses_jev():
+                if self.runtime.jev is None:
+                    raise ConfigError(f"{config.name}: Jev is not available in this runtime ({self.runtime.name})")
+                try:
+                    self.runtime.jev(config.decisions.jev_model)
+                except Exception as exc:
+                    raise ConfigError(f"{config.name}: {exc}") from exc
         self._planned = trials
         return trials
 
@@ -227,7 +240,7 @@ class ExperimentRunner:
         models = RoleModels({role: self._client(model) for role, model in spec.bindings.items()}, trace)
         ctx = RunContext(
             trace=trace, params=spec.params, live=self.live, seed=self.experiment.seed + spec.repeat,
-            sandbox=self.runtime.sandbox, live_search=self.runtime.live_search,
+            sandbox=self.runtime.sandbox, live_search=self.runtime.live_search, decisions=self._decisions(spec, trace),
         )  # fmt: skip
         try:
             output = await asyncio.wait_for(spec.scenario.run(spec.task, models, ctx), self.experiment.trial_timeout_s)
@@ -270,6 +283,16 @@ class ExperimentRunner:
         }
         store.save_trial(self.run_id, record, scores, trace, extra)
         return record
+
+    def _decisions(self, spec: TrialSpec, trace: Trace) -> DecisionSetup | None:
+        config = spec.config.decisions
+        if config is None:
+            return None
+        clients = {role: TracedLLM(self._client(model), trace, role) for role, model in spec.bindings.items()}
+        return DecisionSetup(
+            config=config, trace=trace, decider=clients.get(DECIDER_ROLE), escalation=clients.get(ESCALATION_ROLE),
+            jev=self.runtime.jev, budget=self.budget,
+        )  # fmt: skip
 
     async def _evaluate(self, spec: TrialSpec, output: TrialOutput, trace: Trace, judge_trace: Trace) -> list[Score]:
         judge = TracedLLM(self._client(self.judge_spec), judge_trace, "judge") if self.judge_spec else None

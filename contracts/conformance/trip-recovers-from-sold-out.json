@@ -1,5 +1,6 @@
 {
   "case": {
+    "decisions": null,
     "id": "trip-recovers-from-sold-out",
     "params": {
       "mode": "single_loop"
@@ -32,6 +33,7 @@
     "scenario": "trip_planner",
     "task_id": "varrel_morning"
   },
+  "decisions": [],
   "final": "Booked NR414.",
   "requests": {
     "planner": [

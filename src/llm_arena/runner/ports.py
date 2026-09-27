@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from llm_arena.core.trace import Trace
+from llm_arena.decisions.config import JevFactory
 from llm_arena.eval.base import Score
 from llm_arena.llm.catalog import Catalog
 from llm_arena.llm.client import LLMClient
@@ -48,6 +49,7 @@ class RunData:
     trials: list[dict[str, Any]] = field(default_factory=list)
     scores: list[dict[str, Any]] = field(default_factory=list)
     battles: list[dict[str, Any]] = field(default_factory=list)
+    decisions: list[dict[str, Any]] = field(default_factory=list)  # one row per control decision × question
 
 
 class RunStore(Protocol):
@@ -78,4 +80,5 @@ class Runtime:
     discover: Callable[[], Awaitable[Catalog]] | None = None
     sandbox: Sandbox | None = None
     live_search: Callable[[str], SearchBackend] | None = None
+    jev: JevFactory | None = None  # TypeSafe's Jev decision model; None where it cannot be reached (browser)
     name: str = "server"

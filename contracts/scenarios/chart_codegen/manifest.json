@@ -50,6 +50,7 @@
       ]
     }
   ],
+  "supports_decisions": false,
   "tasks": 4,
   "title": "Chart code with a vision critic",
   "wiki": [

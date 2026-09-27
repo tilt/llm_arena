@@ -1,0 +1,160 @@
+[
+  {
+    "function": {
+      "description": "Look up an order: status, dates, items, amount paid and refunds so far.",
+      "name": "get_order",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "order_id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "order_id"
+        ],
+        "type": "object"
+      }
+    },
+    "permission": "read",
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "List a customer's orders.",
+      "name": "list_orders",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "customer_email": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "customer_email"
+        ],
+        "type": "object"
+      }
+    },
+    "permission": "read",
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Look up a product: name, price and stock.",
+      "name": "get_product",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "sku": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sku"
+        ],
+        "type": "object"
+      }
+    },
+    "permission": "read",
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Send a message to a customer.",
+      "name": "send_message",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "customer_email": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "customer_email",
+          "text"
+        ],
+        "type": "object"
+      }
+    },
+    "permission": "write",
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Add units of a product to the stock.",
+      "name": "restock",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "quantity": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "sku": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sku",
+          "quantity"
+        ],
+        "type": "object"
+      }
+    },
+    "permission": "write",
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Refund money to the customer of an order. Irreversible.",
+      "name": "issue_refund",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "exclusiveMinimum": 0,
+            "type": "number"
+          },
+          "order_id": {
+            "type": "integer"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_id",
+          "amount",
+          "reason"
+        ],
+        "type": "object"
+      }
+    },
+    "permission": "destructive",
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Cancel an order and restock its items. Irreversible.",
+      "name": "cancel_order",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "order_id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "order_id"
+        ],
+        "type": "object"
+      }
+    },
+    "permission": "destructive",
+    "type": "function"
+  }
+]

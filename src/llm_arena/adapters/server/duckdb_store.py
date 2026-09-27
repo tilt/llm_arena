@@ -17,6 +17,7 @@ from typing import Any
 import duckdb
 
 from llm_arena.core.trace import Trace
+from llm_arena.decisions.records import DECISION_COLUMNS, decision_rows
 from llm_arena.eval.base import Score
 from llm_arena.runner.memory_store import trace_payload, trial_row
 from llm_arena.runner.ports import RunData, TrialRecord
@@ -39,6 +40,12 @@ CREATE TABLE IF NOT EXISTS trials (
 );
 CREATE TABLE IF NOT EXISTS scores (
     trial_id TEXT, name TEXT, level TEXT, value DOUBLE, passed BOOLEAN, rationale TEXT
+);
+CREATE TABLE IF NOT EXISTS decisions (
+    trial_id TEXT, scenario TEXT, config TEXT, task_id TEXT, repeat INTEGER, span INTEGER, point TEXT, question TEXT,
+    qtype TEXT, policy TEXT, source TEXT, prediction TEXT, label TEXT, p_true DOUBLE, p_label DOUBLE,
+    confidence DOUBLE, correct BOOLEAN, brier DOUBLE, escalated BOOLEAN, abstained BOOLEAN, human TEXT,
+    latency_s DOUBLE, cost_usd DOUBLE
 );
 CREATE TABLE IF NOT EXISTS battles (
     scenario TEXT, task_id TEXT, config_a TEXT, config_b TEXT, winner TEXT, rationale TEXT
@@ -76,9 +83,12 @@ class DuckDBStore:
         self, run_id: str, record: TrialRecord, scores: list[Score], trace: Trace, extra: dict[str, Any]
     ) -> None:
         row = trial_row(run_id, record)
+        payload = trace_payload(record, scores, trace, extra)
+        decisions = decision_rows(json.loads(json.dumps(payload["spans"], default=str)), row)
         with self._db() as db:
             # Resuming reruns failed trials: drop any earlier attempt first.
             db.execute("DELETE FROM scores WHERE trial_id = ?", [record.trial_id])
+            db.execute("DELETE FROM decisions WHERE trial_id = ?", [record.trial_id])
             db.execute("DELETE FROM trials WHERE trial_id = ?", [record.trial_id])
             placeholders = ", ".join("?" for _ in _TRIAL_COLUMNS)
             db.execute(f"INSERT INTO trials VALUES ({placeholders})", [row[column] for column in _TRIAL_COLUMNS])
@@ -87,7 +97,12 @@ class DuckDBStore:
                     "INSERT INTO scores VALUES (?, ?, ?, ?, ?, ?)",
                     [[record.trial_id, s.name, s.level, s.value, s.passed, s.rationale] for s in scores],
                 )
-        payload = trace_payload(record, scores, trace, extra)
+            if decisions:
+                marks = ", ".join("?" for _ in DECISION_COLUMNS)
+                db.executemany(
+                    f"INSERT INTO decisions ({', '.join(DECISION_COLUMNS)}) VALUES ({marks})",
+                    [[r[c] for c in DECISION_COLUMNS] for r in decisions],
+                )
         (self.run_dir / "traces" / f"{record.trial_id}.json").write_text(
             json.dumps(payload, default=str, ensure_ascii=False, indent=1), encoding="utf-8"
         )
@@ -122,6 +137,7 @@ class DuckDBStore:
                 trials=_rows(db, "SELECT * FROM trials ORDER BY scenario, config, task_id, repeat"),
                 scores=_rows(db, "SELECT * FROM scores"),
                 battles=_rows(db, "SELECT * FROM battles"),
+                decisions=_rows(db, "SELECT * FROM decisions ORDER BY trial_id, span, question"),
             )
 
     def load_trace(self, trial_id: str) -> dict[str, Any] | None:

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { app, refresh } from "../lib/app.svelte";
 
-  const labels: Record<string, string> = { openai: "OpenAI", anthropic: "Anthropic", tavily: "Tavily (live search)" };
+  const labels: Record<string, string> = { openai: "OpenAI", anthropic: "Anthropic", typesafe: "TypeSafe (Jev)", tavily: "Tavily (live search)" };
   let drafts = $state<Record<string, string>>({});
   let busy = $state("");
   let remember = $state(false);

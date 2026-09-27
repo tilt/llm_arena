@@ -170,6 +170,27 @@ pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2
     {% for m in step_names %}<td class="n">{{ c.step_means.get(m) | num(2) }}</td>{% endfor %}
     {% for m in derived_names %}<td class="n">{{ c.derived.get(m) | num(2) }}</td>{% endfor %}</tr>{% endfor %}</tbody>
 </table></div>
+{% set decisions = s.decisions | selectattr("scenario", "equalto", sc) | list %}
+{% if decisions %}
+<h3>Decision quality (control policies)</h3>
+<p class="lead">Each control decision scored against ground truth. <em>Missed</em> on approval/review questions = a
+  violation went through unchecked (false-safe); <em>false alarms</em> = needless human escalations. Brier and log loss:
+  lower is better.</p>
+<div class="card table-wrap"><table>
+  <thead><tr><th>Config</th><th>Policy</th><th>Decision</th><th class="n">n (labeled)</th><th class="n">Accuracy</th>
+    <th class="n">Brier</th><th class="n">Log loss</th><th class="n">Missed</th><th class="n">False alarms</th>
+    <th class="n">Escalated</th><th class="n">Abstained</th><th class="n">Human reviews</th><th class="n">p50 / p95 ms</th>
+    <th class="n">Cost</th><th>Calibration</th></tr></thead>
+  <tbody>{% for d in decisions %}<tr><td>{{ d.config }}</td><td>{{ d.policy }}</td><td>{{ d.point }} · {{ d.question }}</td>
+    <td class="n">{{ d.n }} ({{ d.labeled }})</td><td class="n">{{ d.accuracy | pct }}</td><td class="n">{{ d.brier | num(3) }}</td>
+    <td class="n">{{ d.log_loss | num(3) }}</td><td class="n">{{ d.missed_rate | pct }}</td><td class="n">{{ d.false_alarm_rate | pct }}</td>
+    <td class="n">{{ d.escalation_rate | pct }}</td><td class="n">{{ d.abstain_rate | pct }}</td><td class="n">{{ d.human_reviews }}</td>
+    <td class="n">{{ (d.latency_p50_s * 1000) | num(0) }} / {{ (d.latency_p95_s * 1000) | num(0) }}</td>
+    <td class="n">${{ d.cost_usd | num(4) }}</td>
+    <td>{% for b in d.calibration %}{{ b.mean_p | pct }}→{{ b.observed | pct }} (n={{ b.n }}){% if not loop.last %}, {% endif %}{% endfor %}</td>
+  </tr>{% endfor %}</tbody>
+</table></div>
+{% endif %}
 {% set tests = s.paired_tests | selectattr("scenario", "equalto", sc) | list %}
 {% if tests %}
 <h3>Is the leader significantly better?</h3>

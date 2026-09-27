@@ -9,6 +9,14 @@
           "title": "Configs",
           "type": "array"
         },
+        "decisions": {
+          "description": "control-policy decision quality",
+          "items": {
+            "$ref": "#/$defs/DecisionSummary"
+          },
+          "title": "Decisions",
+          "type": "array"
+        },
         "paired_tests": {
           "items": {
             "$ref": "#/$defs/PairedTest"
@@ -34,6 +42,41 @@
         "ratings"
       ],
       "title": "BundleSummary",
+      "type": "object"
+    },
+    "CalibrationBin": {
+      "properties": {
+        "high": {
+          "title": "High",
+          "type": "number"
+        },
+        "low": {
+          "title": "Low",
+          "type": "number"
+        },
+        "mean_p": {
+          "description": "mean predicted P(true)",
+          "title": "Mean P",
+          "type": "number"
+        },
+        "n": {
+          "title": "N",
+          "type": "integer"
+        },
+        "observed": {
+          "description": "share of true labels",
+          "title": "Observed",
+          "type": "number"
+        }
+      },
+      "required": [
+        "low",
+        "high",
+        "n",
+        "mean_p",
+        "observed"
+      ],
+      "title": "CalibrationBin",
       "type": "object"
     },
     "ConfigSummary": {
@@ -165,6 +208,153 @@
       "title": "ConfigSummary",
       "type": "object"
     },
+    "DecisionSummary": {
+      "properties": {
+        "abstain_rate": {
+          "title": "Abstain Rate",
+          "type": "number"
+        },
+        "accuracy": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Accuracy"
+        },
+        "brier": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Brier"
+        },
+        "calibration": {
+          "items": {
+            "$ref": "#/$defs/CalibrationBin"
+          },
+          "title": "Calibration",
+          "type": "array"
+        },
+        "config": {
+          "title": "Config",
+          "type": "string"
+        },
+        "cost_usd": {
+          "title": "Cost Usd",
+          "type": "number"
+        },
+        "escalation_rate": {
+          "title": "Escalation Rate",
+          "type": "number"
+        },
+        "false_alarm_rate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "noul: P(pred true | label false); approval: unnecessary escalations",
+          "title": "False Alarm Rate"
+        },
+        "human_reviews": {
+          "title": "Human Reviews",
+          "type": "integer"
+        },
+        "labeled": {
+          "title": "Labeled",
+          "type": "integer"
+        },
+        "latency_p50_s": {
+          "title": "Latency P50 S",
+          "type": "number"
+        },
+        "latency_p95_s": {
+          "title": "Latency P95 S",
+          "type": "number"
+        },
+        "log_loss": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Log Loss"
+        },
+        "missed_rate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "noul: P(pred false | label true); approval/review: false-safe",
+          "title": "Missed Rate"
+        },
+        "n": {
+          "title": "N",
+          "type": "integer"
+        },
+        "point": {
+          "title": "Point",
+          "type": "string"
+        },
+        "policy": {
+          "title": "Policy",
+          "type": "string"
+        },
+        "qtype": {
+          "title": "Qtype",
+          "type": "string"
+        },
+        "question": {
+          "title": "Question",
+          "type": "string"
+        },
+        "scenario": {
+          "title": "Scenario",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scenario",
+        "config",
+        "policy",
+        "point",
+        "question",
+        "qtype",
+        "n",
+        "labeled",
+        "accuracy",
+        "brier",
+        "log_loss",
+        "missed_rate",
+        "false_alarm_rate",
+        "escalation_rate",
+        "abstain_rate",
+        "human_reviews",
+        "latency_p50_s",
+        "latency_p95_s",
+        "cost_usd"
+      ],
+      "title": "DecisionSummary",
+      "type": "object"
+    },
     "PairedTest": {
       "properties": {
         "best": {
@@ -212,6 +402,15 @@
         "type": "object"
       },
       "title": "Battles",
+      "type": "array"
+    },
+    "decisions": {
+      "description": "one row per control decision × question",
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Decisions",
       "type": "array"
     },
     "run": {

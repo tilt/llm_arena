@@ -1,5 +1,6 @@
 {
   "case": {
+    "decisions": null,
     "id": "writing-fixed",
     "params": {},
     "replies": {
@@ -14,6 +15,7 @@
     "scenario": "reflection_writing",
     "task_id": "release_notes"
   },
+  "decisions": [],
   "final": "- Offline mode for notes and attachments\n- Search is 3x faster\n- New dark theme Dusk\n- Fixed: sync conflicts no longer duplicate notes",
   "requests": {
     "critic": [

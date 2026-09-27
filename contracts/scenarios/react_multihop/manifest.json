@@ -36,6 +36,7 @@
       "needs": []
     }
   ],
+  "supports_decisions": false,
   "tasks": 16,
   "title": "Multi-hop QA with ReAct",
   "wiki": [

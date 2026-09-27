@@ -57,6 +57,7 @@
       "needs": []
     }
   ],
+  "supports_decisions": false,
   "tasks": 4,
   "title": "Research report with sources",
   "wiki": [

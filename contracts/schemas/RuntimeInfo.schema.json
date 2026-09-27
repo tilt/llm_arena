@@ -1,5 +1,11 @@
 {
   "properties": {
+    "jev": {
+      "default": "available",
+      "description": "TypeSafe's Jev decision model: 'available' or why not",
+      "title": "Jev",
+      "type": "string"
+    },
     "live_search": {
       "title": "Live Search",
       "type": "boolean"

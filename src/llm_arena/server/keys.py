@@ -11,7 +11,12 @@ import os
 
 from llm_arena.api import KeySource
 
-KEY_ENV = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY", "tavily": "TAVILY_API_KEY"}
+KEY_ENV = {
+    "openai": "OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+    "typesafe": "TYPESAFE_API_KEY",  # Jev decision model
+    "tavily": "TAVILY_API_KEY",
+}
 
 
 class KeyStore:

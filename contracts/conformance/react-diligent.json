@@ -1,5 +1,6 @@
 {
   "case": {
+    "decisions": null,
     "id": "react-diligent",
     "params": {},
     "replies": {
@@ -13,6 +14,7 @@
     "scenario": "react_multihop",
     "task_id": "founder_country_selmworks"
   },
+  "decisions": [],
   "final": "Calvoria",
   "requests": {
     "agent": [

@@ -8,6 +8,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any
 
+from llm_arena.decisions.records import DecisionSummary, summarize_decisions
 from llm_arena.eval.metrics import (
     bootstrap_ci,
     bradley_terry,
@@ -68,6 +69,7 @@ class RunSummary:
     battles: int
     trials: list[dict[str, Any]]
     scores: dict[str, list[dict[str, Any]]]  # trial_id -> scores
+    decisions: list[DecisionSummary] = field(default_factory=list)  # control-policy quality, when configs use one
 
     @property
     def scenarios(self) -> list[str]:
@@ -98,6 +100,7 @@ def summarize(data: RunData) -> RunSummary:
         battles=len(data.battles),
         trials=data.trials,
         scores=dict(scores),
+        decisions=summarize_decisions(data.decisions),
     )
 
 

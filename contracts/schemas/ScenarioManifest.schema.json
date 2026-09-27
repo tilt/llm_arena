@@ -163,6 +163,12 @@
       "title": "Roles",
       "type": "array"
     },
+    "supports_decisions": {
+      "default": false,
+      "description": "accepts a control policy (config.decisions)",
+      "title": "Supports Decisions",
+      "type": "boolean"
+    },
     "tasks": {
       "title": "Tasks",
       "type": "integer"

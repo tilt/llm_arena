@@ -11,13 +11,14 @@ const manifest = (id: string, roles: ScenarioManifest["roles"], requires: Scenar
 const MANIFESTS = [
   manifest("reflection_sql", [{ name: "generator", description: "" }, { name: "critic", description: "", fallback: "generator" }]),
   manifest("chart_codegen", [{ name: "generator", description: "" }, { name: "critic", description: "", needs: ["vision"] }], ["sandbox"]),
+  { ...manifest("support_desk", [{ name: "agent", description: "" }, { name: "decider", description: "", fallback: "agent" }]), supports_decisions: true },
 ];
 const model = (ref: string, vision: boolean): CatalogItem =>
   ({ ref, source: "openai", spec: { name: ref, provider: "openai", model: ref, capabilities: { vision } } }) as CatalogItem;
 
 const state = (over: Partial<BuilderState> = {}): BuilderState => ({
   name: "exp", scenarios: ["reflection_sql"], configs: [{ ...emptyConfig(0), roles: { "*": "openai:gpt-4.1-nano" } }],
-  repeats: 1, limit: null, judge: "", arena: false, maxCostUsd: null, ...over,
+  repeats: 1, limit: null, judge: "", arena: false, maxCostUsd: null, split: "all", ...over,
 });
 
 describe("role slots", () => {
@@ -51,12 +52,31 @@ describe("validation", () => {
 describe("experiment output", () => {
   it("produces the config the CLI runs", () => {
     const draft = state({ limit: 3, judge: "openai:gpt-4.1-mini", arena: true, maxCostUsd: 2,
-      configs: [{ name: "c", roles: { "*": "m", critic: "" }, scenarioParams: { reflection_sql: { feedback: "sql_only" }, chart_codegen: { x: 1 } } }] });
+      configs: [{ name: "c", roles: { "*": "m", critic: "" }, scenarioParams: { reflection_sql: { feedback: "sql_only" }, chart_codegen: { x: 1 } }, decisions: null }] });
     const experiment = toExperiment(draft);
     expect(experiment).toEqual({
       name: "exp", scenarios: ["reflection_sql"], repeats: 1, limit: 3, judge: "openai:gpt-4.1-mini", arena: { enabled: true },
       max_cost_usd: 2, configs: [{ name: "c", roles: { "*": "m" }, scenario_params: { reflection_sql: { feedback: "sql_only" } } }],
     });
     expect(parse(toYaml(experiment))).toEqual(experiment);
+  });
+});
+
+describe("control policies", () => {
+  const withPolicy = (policy: "llm" | "jev") =>
+    state({ scenarios: ["reflection_sql", "support_desk"], split: "test",
+      configs: [{ ...emptyConfig(0), name: "p", roles: { "*": "m" }, decisions: { policy, control: "gate" } }] });
+
+  it("restricts a policy config to the scenarios that support one", () => {
+    const experiment = toExperiment(withPolicy("llm"), MANIFESTS);
+    expect(experiment.configs[0]).toEqual({ name: "p", roles: { "*": "m" }, decisions: { policy: "llm", control: "gate" }, scenarios: ["support_desk"] });
+    expect(experiment.split).toBe("test");
+  });
+
+  it("reports unsupported selections and an unavailable Jev", () => {
+    const none = state({ configs: [{ ...emptyConfig(0), roles: { "*": "m" }, decisions: { policy: "rules" } }] });
+    expect(validate(none, MANIFESTS, true).some((e) => e.includes("supports a control policy"))).toBe(true);
+    expect(validate(withPolicy("jev"), MANIFESTS, true, "no CORS").some((e) => e.includes("Jev is unavailable"))).toBe(true);
+    expect(validate(withPolicy("llm"), MANIFESTS, true, "no CORS")).toEqual([]);
   });
 });

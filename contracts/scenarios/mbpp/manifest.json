@@ -27,6 +27,7 @@
       "needs": []
     }
   ],
+  "supports_decisions": false,
   "tasks": 60,
   "title": "MBPP (code)",
   "wiki": [

@@ -2,15 +2,15 @@
   import ModelSelect from "../components/ModelSelect.svelte";
   import { app } from "../lib/app.svelte";
   import {
-    DEFAULT_ROLE, EVALUATION_PAGES, defaultRoleNeeds, eligibleModels, emptyConfig, roleSlots, toExperiment, toYaml, validate,
-    type BuilderState,
+    CONTROLS, DEFAULT_ROLE, EVALUATION_PAGES, POLICIES, controllableScenarios, defaultRoleNeeds, eligibleModels, emptyConfig,
+    roleSlots, toExperiment, toYaml, usesJev, validate, type BuilderState, type ConfigDraft,
   } from "../lib/builder";
   import type { Estimate, ParamManifest } from "../lib/contracts";
   import { usd } from "../lib/format";
   import { go } from "../lib/router.svelte";
 
   let draft = $state<BuilderState>({
-    name: "my-experiment", scenarios: [], configs: [emptyConfig(0)], repeats: 1, limit: 3, judge: "", arena: false, maxCostUsd: 1,
+    name: "my-experiment", scenarios: [], configs: [emptyConfig(0)], repeats: 1, limit: 3, judge: "", arena: false, maxCostUsd: 1, split: "all",
   });
   let estimate = $state<Estimate | null>(null);
   let busy = $state(false);
@@ -22,7 +22,15 @@
   const slots = $derived(roleSlots(app.scenarios, draft.scenarios));
   const selected = $derived(app.scenarios.filter((s) => draft.scenarios.includes(s.id)));
   const openEnded = $derived(selected.some((s) => s.open_ended));
-  const errors = $derived(validate(draft, app.scenarios, sandbox));
+  const jevStatus = $derived(app.runtime?.jev ?? "available");
+  const errors = $derived(validate(draft, app.scenarios, sandbox, jevStatus));
+  const controllable = $derived(controllableScenarios(draft, app.scenarios));
+  const hasSplits = $derived(controllable.length > 0);
+  const experiment = () => toExperiment(draft, app.scenarios);
+
+  function setPolicy(config: ConfigDraft, value: string) {
+    config.decisions = value ? { ...(config.decisions ?? { control: "policy", threshold: 0.8 }), policy: value as never } : null;
+  }
 
   function toggleScenario(id: string) {
     draft.scenarios = draft.scenarios.includes(id) ? draft.scenarios.filter((s) => s !== id) : [...draft.scenarios, id];
@@ -49,7 +57,7 @@
     busy = true;
     message = "";
     try {
-      estimate = await app.backend.estimate(toExperiment(draft));
+      estimate = await app.backend.estimate(experiment());
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);
     } finally {
@@ -60,7 +68,7 @@
     if (!app.backend) return;
     busy = true;
     try {
-      const runId = await app.backend.startRun({ experiment: toExperiment(draft), live });
+      const runId = await app.backend.startRun({ experiment: experiment(), live });
       go(`/runs/${encodeURIComponent(runId)}`);
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);
@@ -68,7 +76,7 @@
     }
   }
   function downloadYaml() {
-    const blob = new Blob([toYaml(toExperiment(draft))], { type: "text/yaml" });
+    const blob = new Blob([toYaml(experiment())], { type: "text/yaml" });
     const link = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `${draft.name || "experiment"}.yaml` });
     link.click();
     URL.revokeObjectURL(link.href);
@@ -125,6 +133,36 @@
         </div>
       {/each}
     </div>
+    {#if controllable.length}
+      <div class="params control">
+        <span class="muted">Control policy ({controllable.join(", ")}):</span>
+        <label class="param">policy
+          <select value={config.decisions?.policy ?? ""} onchange={(e) => setPolicy(config, e.currentTarget.value)}>
+            <option value="">none (the agent decides)</option>
+            {#each POLICIES as p (p.value)}<option value={p.value} disabled={p.value === "jev" && jevStatus !== "available"}>{p.label}</option>{/each}
+          </select>
+        </label>
+        {#if config.decisions}
+          <label class="param">mode
+            <select bind:value={config.decisions.control}>
+              {#each CONTROLS as c (c.value)}<option value={c.value}>{c.label}</option>{/each}
+            </select>
+          </label>
+          {#if config.decisions.policy === "cascade"}
+            <label class="param">primary
+              <select bind:value={config.decisions.primary}><option value="llm">LLM (decider)</option><option value="jev" disabled={jevStatus !== "available"}>Jev</option></select>
+            </label>
+            <label class="param">fallback
+              <select bind:value={config.decisions.fallback}><option value="llm">LLM (escalation)</option><option value="jev" disabled={jevStatus !== "available"}>Jev</option><option value={null}>none</option></select>
+            </label>
+            <label class="param">escalate below<input type="number" min="0" max="1" step="0.05" bind:value={config.decisions.threshold} /></label>
+          {/if}
+          {#if usesJev(config.decisions) || jevStatus !== "available"}
+            <span class="muted jev">Jev: {jevStatus}</span>
+          {/if}
+        {/if}
+      </div>
+    {/if}
     {#each selected.filter((s) => s.params.some((p) => p.choices || p.type === "boolean" || p.name.includes("rounds"))) as s (s.id)}
       <div class="params">
         <span class="muted">{s.title}:</span>
@@ -151,6 +189,13 @@
 <section class="card settings">
   <label>Repeats per task (pass^k)<input type="number" min="1" max="10" bind:value={draft.repeats} /></label>
   <label>Tasks per scenario (empty = all)<input type="number" min="1" bind:value={draft.limit} /></label>
+  {#if hasSplits}
+    <label>Task split
+      <select bind:value={draft.split}>
+        <option value="all">all tasks</option><option value="dev">dev (tune thresholds)</option><option value="test">test (report)</option>
+      </select>
+    </label>
+  {/if}
   <label>Spend limit (USD)<input type="number" min="0" step="0.5" bind:value={draft.maxCostUsd} /></label>
   <label>Judge model (rubric scores{openEnded ? ", arena" : ""})
     <ModelSelect bind:value={draft.judge} options={catalog} empty="no judge" label="Judge model" /></label>
@@ -191,6 +236,8 @@
   .params { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 10px; font-size: 13px; }
   .param { display: flex; gap: 6px; align-items: center; }
   .param input[type="number"] { width: 70px; }
+  .control { padding-top: 8px; border-top: 1px solid var(--border); }
+  .jev { font-size: 12px; }
   .settings { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
   .settings label { display: flex; flex-direction: column; gap: 4px; }
   .settings label.inline { flex-direction: row; align-items: center; }

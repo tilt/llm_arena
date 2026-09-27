@@ -3,7 +3,7 @@
 import { stringify } from "yaml";
 
 import type { CatalogItem } from "./backend";
-import type { ExperimentConfig, ScenarioManifest } from "./contracts";
+import type { DecisionConfig, ExperimentConfig, ScenarioManifest } from "./contracts";
 
 export const DEFAULT_ROLE = "*";
 
@@ -25,6 +25,26 @@ export interface ConfigDraft {
   /** role -> model ref; DEFAULT_ROLE binds every role that is not set explicitly */
   roles: Record<string, string>;
   scenarioParams: Record<string, Record<string, unknown>>;
+  /** control policy for scenarios that support one; null = the agent decides everything */
+  decisions: DecisionConfig | null;
+}
+
+export const POLICIES: { value: NonNullable<DecisionConfig["policy"]>; label: string }[] = [
+  { value: "llm", label: "LLM (structured output)" },
+  { value: "rules", label: "Rules" },
+  { value: "cascade", label: "Cascade (rules → primary → fallback)" },
+  { value: "jev", label: "Jev (TypeSafe)" },
+];
+
+export const CONTROLS: { value: NonNullable<DecisionConfig["control"]>; label: string }[] = [
+  { value: "policy", label: "policy decides next action, completion and approvals" },
+  { value: "gate", label: "agent loop; policy gates risky actions" },
+  { value: "review", label: "agent loop; policy reviews the trace" },
+];
+
+export function usesJev(decisions: DecisionConfig | null): boolean {
+  if (!decisions) return false;
+  return decisions.policy === "jev" || (decisions.policy === "cascade" && (decisions.primary === "jev" || decisions.fallback === "jev"));
 }
 
 export interface BuilderState {
@@ -37,10 +57,12 @@ export interface BuilderState {
   judge: string;
   arena: boolean;
   maxCostUsd: number | null;
+  /** task split for scenarios that define one (dev for tuning thresholds, test for reporting) */
+  split: "all" | "dev" | "test";
 }
 
 export function emptyConfig(index: number): ConfigDraft {
-  return { name: `config-${index + 1}`, roles: { [DEFAULT_ROLE]: "" }, scenarioParams: {} };
+  return { name: `config-${index + 1}`, roles: { [DEFAULT_ROLE]: "" }, scenarioParams: {}, decisions: null };
 }
 
 /** Union of roles over the selected scenarios; capability needs are merged. */
@@ -67,7 +89,9 @@ export function defaultRoleNeeds(slots: RoleSlot[], config: ConfigDraft): string
   return [...new Set(slots.filter((s) => !s.optional && !config.roles[s.name]).flatMap((s) => s.needs))].sort();
 }
 
-export function validate(state: BuilderState, manifests: ScenarioManifest[], runtimeHasSandbox: boolean): string[] {
+export function validate(
+  state: BuilderState, manifests: ScenarioManifest[], runtimeHasSandbox: boolean, jevStatus = "available",
+): string[] {
   const errors: string[] = [];
   if (!state.name.trim()) errors.push("Give the experiment a name.");
   if (state.scenarios.length === 0) errors.push("Select at least one scenario.");
@@ -87,10 +111,20 @@ export function validate(state: BuilderState, manifests: ScenarioManifest[], run
     if (needSandbox.length) errors.push(`This runtime cannot execute code: remove ${needSandbox.map((m) => m.id).join(", ")}.`);
   }
   if (state.arena && !state.judge) errors.push("Arena battles need a judge model.");
+  const controllable = controllableScenarios(state, manifests);
+  for (const config of state.configs.filter((c) => c.decisions)) {
+    if (!controllable.length) errors.push(`${config.name}: none of the selected scenarios supports a control policy.`);
+    if (usesJev(config.decisions) && jevStatus !== "available") errors.push(`${config.name}: Jev is unavailable (${jevStatus}).`);
+  }
   return errors;
 }
 
-export function toExperiment(state: BuilderState): ExperimentConfig {
+export function controllableScenarios(state: BuilderState, manifests: ScenarioManifest[]): string[] {
+  return manifests.filter((m) => state.scenarios.includes(m.id) && m.supports_decisions).map((m) => m.id);
+}
+
+export function toExperiment(state: BuilderState, manifests: ScenarioManifest[] = []): ExperimentConfig {
+  const controllable = controllableScenarios(state, manifests);
   const experiment: ExperimentConfig = {
     name: state.name.trim(),
     scenarios: [...state.scenarios],
@@ -100,13 +134,20 @@ export function toExperiment(state: BuilderState): ExperimentConfig {
       const scenarioParams = Object.fromEntries(
         Object.entries(config.scenarioParams).filter(([id, params]) => state.scenarios.includes(id) && Object.keys(params).length),
       );
-      return { name: config.name.trim(), roles, ...(Object.keys(scenarioParams).length ? { scenario_params: scenarioParams } : {}) };
+      return {
+        name: config.name.trim(),
+        roles,
+        ...(Object.keys(scenarioParams).length ? { scenario_params: scenarioParams } : {}),
+        // A control policy applies only where a scenario supports one, so such a config runs only those scenarios.
+        ...(config.decisions ? { decisions: { ...config.decisions }, scenarios: controllable } : {}),
+      };
     }),
   };
   if (state.limit) experiment.limit = state.limit;
   if (state.judge) experiment.judge = state.judge;
   if (state.arena) experiment.arena = { enabled: true };
   if (state.maxCostUsd) experiment.max_cost_usd = state.maxCostUsd;
+  if (state.split !== "all") experiment.split = state.split;
   return experiment;
 }
 

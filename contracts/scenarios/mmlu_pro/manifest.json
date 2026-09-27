@@ -25,6 +25,7 @@
       "needs": []
     }
   ],
+  "supports_decisions": false,
   "tasks": 140,
   "title": "MMLU-Pro (knowledge)",
   "wiki": [

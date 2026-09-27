@@ -122,6 +122,10 @@ export interface ExperimentConfig {
   repeats?: number;
   scenarios: string[];
   seed?: number;
+  /**
+   * tasks of this split only (tasks without a split are always included)
+   */
+  split?: "all" | "dev" | "test";
   task_ids?: string[] | null;
   trial_timeout_s?: number;
 }
@@ -141,6 +145,10 @@ export interface ArenaConfig {
  * via the `definition` "PipelineConfig".
  */
 export interface PipelineConfig {
+  /**
+   * control policy for scenarios that support one; None: the agent decides
+   */
+  decisions?: DecisionConfig | null;
   name: string;
   /**
    * pattern params, applied to every scenario that knows the key
@@ -170,6 +178,46 @@ export interface PipelineConfig {
   scenarios?: string[] | null;
 }
 /**
+ * Control policy of a pipeline config. Without it the agent decides everything inside its own loop.
+ *
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "DecisionConfig".
+ */
+export interface DecisionConfig {
+  /**
+   * policy: the policy picks each next tool, judges completion and gates state-changing actions; gate: the agent loop runs as usual and the policy only gates state-changing actions; review: the agent runs unchanged and the policy only reviews the finished trace
+   */
+  control?: "policy" | "gate" | "review";
+  /**
+   * cascade: stage for uncertain answers (None: no stage)
+   */
+  fallback?: ("llm" | "jev") | null;
+  /**
+   * cascade: the scenario's rules answer first where they apply
+   */
+  hard_rules?: boolean;
+  jev_model?: string;
+  policy?: "llm" | "rules" | "cascade" | "jev";
+  /**
+   * cascade: first stage
+   */
+  primary?: "llm" | "jev";
+  /**
+   * classify the finished trace (task done? needs human review?)
+   */
+  review?: boolean;
+  /**
+   * cascade: escalate below this confidence
+   */
+  threshold?: number;
+  /**
+   * per-question thresholds
+   */
+  thresholds?: {
+    [k: string]: number | undefined;
+  };
+}
+/**
  * Everything the report viewer needs for one run; export/import format between runtimes.
  *
  * This interface was referenced by `Contracts`'s JSON-Schema
@@ -177,6 +225,12 @@ export interface PipelineConfig {
  */
 export interface RunBundle {
   battles: {
+    [k: string]: unknown | undefined;
+  }[];
+  /**
+   * one row per control decision × question
+   */
+  decisions?: {
     [k: string]: unknown | undefined;
   }[];
   run: {
@@ -199,6 +253,10 @@ export interface RunBundle {
  */
 export interface BundleSummary {
   configs: ConfigSummary[];
+  /**
+   * control-policy decision quality
+   */
+  decisions?: DecisionSummary[];
   paired_tests: PairedTest[];
   /**
    * scope ('overall' or scenario) -> config -> rating
@@ -248,6 +306,55 @@ export interface ConfigSummary {
   };
   tasks: number;
   trials: number;
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "DecisionSummary".
+ */
+export interface DecisionSummary {
+  abstain_rate: number;
+  accuracy: number | null;
+  brier: number | null;
+  calibration?: CalibrationBin[];
+  config: string;
+  cost_usd: number;
+  escalation_rate: number;
+  /**
+   * noul: P(pred true | label false); approval: unnecessary escalations
+   */
+  false_alarm_rate: number | null;
+  human_reviews: number;
+  labeled: number;
+  latency_p50_s: number;
+  latency_p95_s: number;
+  log_loss: number | null;
+  /**
+   * noul: P(pred false | label true); approval/review: false-safe
+   */
+  missed_rate: number | null;
+  n: number;
+  point: string;
+  policy: string;
+  qtype: string;
+  question: string;
+  scenario: string;
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "CalibrationBin".
+ */
+export interface CalibrationBin {
+  high: number;
+  low: number;
+  /**
+   * mean predicted P(true)
+   */
+  mean_p: number;
+  n: number;
+  /**
+   * share of true labels
+   */
+  observed: number;
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema
@@ -345,6 +452,10 @@ export interface RunStartedResponse {
  * via the `definition` "RuntimeInfo".
  */
 export interface RuntimeInfo {
+  /**
+   * TypeSafe's Jev decision model: 'available' or why not
+   */
+  jev?: string;
   live_search: boolean;
   /**
    * provider -> 'available' or why not (never key material)
@@ -360,6 +471,10 @@ export interface RuntimeInfo {
  * via the `definition` "RuntimeResponse".
  */
 export interface RuntimeResponse {
+  /**
+   * TypeSafe's Jev decision model: 'available' or why not
+   */
+  jev?: string;
   keys: {
     [k: string]: "env" | "session" | "missing" | undefined;
   };
@@ -387,6 +502,10 @@ export interface ScenarioManifest {
   pattern: string;
   requires?: ("sandbox" | "live_network" | "local_models")[];
   roles: RoleManifest[];
+  /**
+   * accepts a control policy (config.decisions)
+   */
+  supports_decisions?: boolean;
   tasks: number;
   title: string;
   wiki?: WikiLink[];
@@ -487,7 +606,7 @@ export interface Span {
   input?: {
     [k: string]: unknown | undefined;
   };
-  kind: "llm_call" | "tool_call" | "code_exec" | "handoff" | "plan" | "critique" | "step" | "judge";
+  kind: "llm_call" | "tool_call" | "code_exec" | "handoff" | "plan" | "critique" | "step" | "judge" | "decision";
   model?: string | null;
   name: string;
   output?: {

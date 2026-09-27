@@ -8,7 +8,7 @@ from typing import Literal
 from llm_arena.llm.client import LLMClient
 from llm_arena.llm.tool_mode import tool_result_message
 from llm_arena.llm.types import Message
-from llm_arena.tools.executor import ToolExecutor
+from llm_arena.tools.executor import Executor
 
 StopReason = Literal["final", "max_turns"]
 
@@ -22,7 +22,7 @@ class LoopResult:
 
 
 async def run_tool_loop(
-    llm: LLMClient, messages: list[Message], executor: ToolExecutor, *, max_turns: int = 8
+    llm: LLMClient, messages: list[Message], executor: Executor, *, max_turns: int = 8
 ) -> LoopResult:
     history = list(messages)
     schemas = executor.registry.schemas() or None

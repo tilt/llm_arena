@@ -17,6 +17,7 @@ from typing import Any, ClassVar, Literal
 
 from llm_arena.core.errors import CapabilityError, ConfigError
 from llm_arena.core.trace import Trace
+from llm_arena.decisions.config import DecisionSetup
 from llm_arena.eval.base import Evaluator, Task, TrialOutput
 from llm_arena.llm.spec import ModelSpec
 from llm_arena.mocks.search import SearchBackend
@@ -60,6 +61,7 @@ class RunContext:
     seed: int = 0
     sandbox: Sandbox | None = None  # runtime-provided: subprocess/Docker on the server, a worker in the browser
     live_search: Callable[[str], SearchBackend] | None = None  # backend name -> live search (server, --live)
+    decisions: DecisionSetup | None = None  # the config's control policy; None: the agent decides everything
     scratch: dict[str, Any] = field(default_factory=dict)
 
     def require_sandbox(self) -> Sandbox:
@@ -85,6 +87,7 @@ class Scenario(ABC):
     requires: ClassVar[frozenset[Requirement]] = frozenset()
     param_choices: ClassVar[dict[str, list[Any]]] = {}
     tokens_per_trial: ClassVar[int] = 3000  # rough prompt+completion estimate for cost previews
+    supports_decisions: ClassVar[bool] = False  # accepts a control policy (PipelineConfig.decisions)
 
     @abstractmethod
     def load_tasks(self) -> list[Task]: ...
@@ -124,6 +127,7 @@ class Scenario(ABC):
             pass_criteria=list(self.pass_criteria),
             requires=sorted(self.requires),
             open_ended=self.open_ended,
+            supports_decisions=self.supports_decisions,
             tasks=self.task_count(),
             wiki=list({link.url: link for link in [*PATTERN_LINKS.get(self.pattern, []), *EVALUATION_LINKS]}.values()),
         )

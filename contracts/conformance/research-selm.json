@@ -1,5 +1,6 @@
 {
   "case": {
+    "decisions": null,
     "id": "research-selm",
     "params": {},
     "replies": {
@@ -28,6 +29,7 @@
     "scenario": "research_report",
     "task_id": "selm_tidal"
   },
+  "decisions": [],
   "final": "The Selm pilot (12 MW) was commissioned in 2024 by the Ostreva Energy Cooperative and reached a 38 percent capacity factor [selm_tidal-1].",
   "requests": {
     "researcher": [

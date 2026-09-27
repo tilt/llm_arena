@@ -47,7 +47,8 @@
             "plan",
             "critique",
             "step",
-            "judge"
+            "judge",
+            "decision"
           ],
           "title": "Kind",
           "type": "string"

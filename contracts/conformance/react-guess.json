@@ -1,5 +1,6 @@
 {
   "case": {
+    "decisions": null,
     "id": "react-guess",
     "params": {},
     "replies": {
@@ -10,6 +11,7 @@
     "scenario": "react_multihop",
     "task_id": "founder_country_selmworks"
   },
+  "decisions": [],
   "final": "Westmarch",
   "requests": {
     "agent": [

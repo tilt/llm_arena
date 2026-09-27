@@ -1,5 +1,6 @@
 {
   "case": {
+    "decisions": null,
     "id": "shop-policy-violation",
     "params": {},
     "replies": {
@@ -11,6 +12,7 @@
     "scenario": "shop_codeact",
     "task_id": "refund_outside_window"
   },
+  "decisions": [],
   "final": "refunded",
   "requests": {
     "agent": [

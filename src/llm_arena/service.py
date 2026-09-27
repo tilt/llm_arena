@@ -14,6 +14,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from llm_arena.decisions.records import DecisionSummary
 from llm_arena.llm.catalog import Catalog
 from llm_arena.llm.pricing import known_price, price_per_mtok
 from llm_arena.llm.spec import ModelSpec
@@ -33,6 +34,7 @@ class RuntimeInfo(BaseModel):
     sandbox: bool
     live_search: bool
     providers: dict[str, str] = Field(description="provider -> 'available' or why not (never key material)")
+    jev: str = Field(default="available", description="TypeSafe's Jev decision model: 'available' or why not")
 
 
 class Estimate(BaseModel):
@@ -48,6 +50,7 @@ class BundleSummary(BaseModel):
     configs: list[ConfigSummary]
     paired_tests: list[PairedTest]
     ratings: dict[str, dict[str, float]] = Field(description="scope ('overall' or scenario) -> config -> rating")
+    decisions: list[DecisionSummary] = Field(default_factory=list, description="control-policy decision quality")
 
 
 class RunBundle(BaseModel):
@@ -58,6 +61,7 @@ class RunBundle(BaseModel):
     trials: list[dict[str, Any]]
     scores: list[dict[str, Any]]
     battles: list[dict[str, Any]]
+    decisions: list[dict[str, Any]] = Field(default_factory=list, description="one row per control decision × question")
     traces: dict[str, Any]
 
 
@@ -95,7 +99,17 @@ class ArenaService:
             sandbox=self.runtime.sandbox is not None,
             live_search=self.runtime.live_search is not None,
             providers=providers,
+            jev=self._jev_status(),
         )
+
+    def _jev_status(self) -> str:
+        if self.runtime.jev is None:
+            return "not available here: TypeSafe's API does not allow browser (cross-origin) calls; use the local app"
+        try:
+            self.runtime.jev("jev-latest")
+        except Exception as exc:
+            return str(exc)
+        return "available"
 
     # ---- planning -------------------------------------------------------------------------
     async def estimate(self, experiment: ExperimentConfig) -> Estimate:
@@ -149,10 +163,16 @@ class ArenaService:
         traces = {trial["trial_id"]: store.load_trace(trial["trial_id"]) for trial in data.trials[:max_traces]}
         return RunBundle(
             run=data.run,
-            summary=BundleSummary(configs=summary.configs, paired_tests=summary.paired_tests, ratings=summary.ratings),
+            summary=BundleSummary(
+                configs=summary.configs,
+                paired_tests=summary.paired_tests,
+                ratings=summary.ratings,
+                decisions=summary.decisions,
+            ),  # fmt: skip
             trials=data.trials,
             scores=data.scores,
             battles=data.battles,
+            decisions=data.decisions,
             traces=traces,
         )
 

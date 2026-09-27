@@ -25,8 +25,25 @@
       "fallback": null,
       "name": "agent",
       "needs": []
+    },
+    {
+      "description": "control policy LLM (policy: llm / cascade)",
+      "fallback": "agent",
+      "name": "decider",
+      "needs": [
+        "json_schema"
+      ]
+    },
+    {
+      "description": "cascade fallback LLM",
+      "fallback": "decider",
+      "name": "escalation",
+      "needs": [
+        "json_schema"
+      ]
     }
   ],
+  "supports_decisions": true,
   "tasks": 10,
   "title": "Email assistant (tool use)",
   "wiki": [

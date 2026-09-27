@@ -47,6 +47,12 @@ PATTERN_LINKS: dict[str, list[WikiLink]] = {
         wiki("agent-loops#code-as-an-action", "Code as an action"),
         wiki("reflection-and-reviewer-patterns", "Reflection and reviewer patterns"),
     ],
+    "tool_use+control": [
+        wiki("tool-use-and-function-calling", "Tool use and function calling"),
+        wiki("guardrails", "Guardrails"),
+        wiki("tool-routing", "Tool routing"),
+        wiki("cost-and-latency-optimization", "Cost and latency optimization"),
+    ],
     "planning": [wiki("planning", "Planning")],
     "multi_agent": [wiki("multi-agent-systems", "Multi-agent systems")],
     "benchmark": [wiki("evaluation-harnesses", "Evaluation harnesses")],
@@ -79,6 +85,7 @@ class ScenarioManifest(BaseModel):
     pass_criteria: list[str]
     requires: list[Requirement] = Field(default_factory=list)
     open_ended: bool = False
+    supports_decisions: bool = Field(default=False, description="accepts a control policy (config.decisions)")
     tasks: int
     wiki: list[WikiLink] = Field(default_factory=list)
 

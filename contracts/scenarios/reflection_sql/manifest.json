@@ -41,6 +41,7 @@
       "needs": []
     }
   ],
+  "supports_decisions": false,
   "tasks": 10,
   "title": "Text-to-SQL with execution feedback",
   "wiki": [

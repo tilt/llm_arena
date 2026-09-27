@@ -35,6 +35,7 @@
       "needs": []
     }
   ],
+  "supports_decisions": false,
   "tasks": 6,
   "title": "Customer service via code actions",
   "wiki": [

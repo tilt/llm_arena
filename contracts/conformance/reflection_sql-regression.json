@@ -1,5 +1,6 @@
 {
   "case": {
+    "decisions": null,
     "id": "reflection_sql-regression",
     "params": {
       "feedback": "sql_only"
@@ -16,6 +17,7 @@
     "scenario": "reflection_sql",
     "task_id": "harborview_march_rentals"
   },
+  "decisions": [],
   "final": "SELECT COUNT(*) FROM rentals WHERE started_at LIKE '2026-03%'",
   "requests": {
     "critic": [

@@ -3,6 +3,7 @@
   import { num, pct, usd } from "../lib/format";
   import { bars, passRateMatrix, ratings, sections, stepMatrix, trials } from "../lib/report";
   import BarsCI from "./BarsCI.svelte";
+  import DecisionQuality from "./DecisionQuality.svelte";
   import Heatmap from "./Heatmap.svelte";
   import TraceDetails from "./TraceDetails.svelte";
 
@@ -12,6 +13,7 @@
   const overview = $derived(passRateMatrix(bundle));
   const rated = $derived(ratings(bundle));
   const rows = $derived(trials(bundle));
+  const decisionsFor = (scenario: string) => (bundle.summary.decisions ?? []).filter((d) => d.scenario === scenario);
   const wikiFor = (id: string) => manifests.find((m) => m.id === id)?.wiki ?? [];
 
   let filterScenario = $state("");
@@ -103,6 +105,11 @@
         </tbody>
       </table>
     </div>
+  {/if}
+
+  {#if decisionsFor(section.scenario).length}
+    <h3>Decision quality (control policies)</h3>
+    <DecisionQuality rows={decisionsFor(section.scenario)} />
   {/if}
 
   {#if section.tests.length}

@@ -51,7 +51,7 @@ def _experiment(model: str) -> ExperimentConfig:
 def test_manifests_cover_every_scenario_with_wiki_links() -> None:
     service, _ = _service()
     manifests = {m.id: m for m in service.list_scenarios()}
-    assert len(manifests) == 15
+    assert len(manifests) == 16
     assert manifests["chart_codegen"].requires == ["sandbox"]
     assert next(r for r in manifests["chart_codegen"].roles if r.name == "critic").needs == ["vision"]
     assert manifests["react_multihop"].params[0].choices == ["react", "act", "cot"]

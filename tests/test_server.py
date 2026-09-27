@@ -53,7 +53,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
 
 def test_catalog_scenarios_and_estimate(client: TestClient) -> None:
-    assert len(client.get("/api/scenarios").json()) == 15
+    assert len(client.get("/api/scenarios").json()) == 16
     models = client.get("/api/models").json()
     assert [m["ref"] for m in models["models"]] == ["openai:gpt-4.1-nano"] and models["unavailable"] == {
         "lmstudio": "ConnectError"
