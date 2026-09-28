@@ -35,6 +35,18 @@
 - **Bump `Scenario.version`** whenever prompts, tools, evaluators or pass criteria change; otherwise old and new
   results would pool.
 
+## Replacement effects
+
+For a replacement study, each configuration that swaps one role is compared with the baseline configuration of the
+same scenario:
+- **Δ pass rate:** on the tasks both ran (per-task pass shares, averaged).
+- **p:** a paired permutation test on those tasks.
+- **Δ cost and Δ p50 latency:** per trial.
+- **Step metrics:** changes in the step-level metrics.
+
+Errored trials count as fails in the pass rate, but they are reported with the effect. A swap where every trial
+errored (a missing model, an exhausted quota) is shown as *not measurable*, not as a model effect.
+
 ## Interpreting results
 
 - **Small samples.** With few tasks, the confidence intervals are wide. The report warns when a paired comparison

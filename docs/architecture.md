@@ -45,7 +45,12 @@ The base install (pydantic + pyyaml) is exactly what the engine needs, and it lo
 | API models | `api.py` | Request/response models of the app API (StartRun, RunListing, RuntimeResponse, SetKey), exported as schemas. |
 | Local app | `server/{app,channels,keys}.py` | FastAPI over ArenaService; per-run event channels with replay; session key store that never returns keys. |
 | `ArenaService` | `service.py` | `list_scenarios`, `catalog`, `runtime_info`, `estimate`, `start_run`/`wait`/`cancel`, `run_bundle`. |
-| `Trace` / `Span` | `core/trace.py` | Nested spans. Step evaluators read them. |
+| `Trace` / `Span` | `core/trace.py` | Nested spans. Step evaluators read them. `Trace.in_step` links each span to a workflow step; `Trace.attach` keeps files (images, charts) with the span, via the run store. |
+| `Workflow` | `scenarios/workflow.py` | Each scenario's declared steps and transitions, with the role running each step and parameter conditions. The UI draws it; tests check it against roles, parameters and the spans of conformance runs. |
+| `Brief` / `TaskView` | `scenarios/brief.py` | What a scenario tests, and each task's expected outcome in readable form. |
+| `BaselineProfile` | `runner/baselines.py` | A model per kind of step (`RoleRequirement.kind`). `PipelineConfig.baseline` fills unbound roles by kind. |
+| `StudyConfig` | `runner/study.py` | Replacement studies: expanded at planning time into the baseline plus one configuration per swapped role and candidate. `report/aggregate._replacements` computes the effects. |
+| Fingerprints | `runner/fingerprint.py` | Setup fingerprint (models and call settings of the roles in use, params, policy), task hash, and resume key. The leaderboard pools by them; resuming refuses changed setups. |
 | `DecisionPolicy` | `decisions/` | Typed control questions (noul / choice / score) answered by LLM, rule, cascade or Jev policies. `TracedPolicy` records a `decision` span with ground-truth labels; `records.py` turns them into rows and quality metrics. Jev enters as `Runtime.jev` (server only). |
 
 ## Browser runtime (web/src/engine)
@@ -80,13 +85,18 @@ source of truth.
 - **One mapping, many transports.** The server SDKs and the browser's fetch send identical requests.
 - **Serialized local trials.** A trial reserves every model endpoint it uses before its clock starts, so local servers
   (concurrency 1) run trials sequentially and latencies stay honest.
-- **Sandbox as a port.** Subprocess or Docker on the server; a terminable Pyodide worker in the browser. Scenarios
-  that need one declare `requires: sandbox`.
+- **Sandbox as a port.** Docker (default when available) or a local subprocess on the server; a terminable Pyodide
+  worker in the browser. Each reports its `isolation`, which the app shows. Scenarios that need one declare
+  `requires: sandbox`. See [security.md](security.md).
+- **Artifacts through the run store.** The local app writes them to `runs/<id>/artifacts/`; the browser keeps them in
+  the run bundle (IndexedDB), and the UI says when a run could only be kept for the session.
 
 ## Extending
 
 - **New scenario:**
   - Subclass `Scenario` and set `title`, `requires`, `param_choices`, `tokens_per_trial` and `fixtures()`.
+  - Give every role a `kind`, declare `workflow()`, `brief()` and `describe(task)`, and wrap the pipeline's phases in
+    `trace.in_step(<step id>)` (the patterns take step ids).
   - Bump its `version` whenever prompts, tools or evaluators change, so the leaderboard does not pool old and new
     results.
   - Register it and add it to `scenarios/catalog.py`.

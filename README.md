@@ -35,18 +35,20 @@ Other entry points:
 - `arena leaderboard [scenario]` ranks setups per scenario across all runs (also in the app's Leaderboard page).
 - `arena contracts [--check]` exports JSON Schemas, scenario data and conformance vectors for the web UI and other
   engines.
-- `arena run … --docker` runs model-written code in Docker (`--network none`).
+- `arena run … --sandbox auto|docker|subprocess` chooses where model-written code runs. `auto` (the default) uses
+  Docker (`--network none`, no capabilities) when it runs and `make sandbox-image` was built; otherwise it runs a
+  local process and says so loudly. See [docs/security.md](docs/security.md).
+- A resumed run (`--run-id`) refuses to continue if a finished trial's setup, task content or seed changed.
 - `max_cost_usd` in an experiment stops the run at a spend limit.
 
 ## Local app
 
 `make ui` (or `uv run arena ui`) starts the app on http://127.0.0.1:8787 (change it with `--port` or `ARENA_UI_PORT`
 in `.env`). It provides:
-- the discovered models
-- scenarios with wiki links
-- cost estimates
-- runs with live progress (Server-Sent Events)
-- reports
+- the discovered models, with capabilities and prices
+- a page per scenario: what it tests, every task with its expected outcome, the workflow with a model per step
+- baseline profiles (a model per kind of step) and replacement studies
+- cost estimates, runs with live progress (Server-Sent Events), reports, a step inspector and a cross-run leaderboard
 
 Details:
 - **Keys** are read from `.env` on the server. You can also set a key for the current session in the app; it is held in
@@ -56,20 +58,32 @@ Details:
   OpenAPI view):
 
   ```
-  GET  /api/runtime   GET /api/scenarios   GET /api/models   PUT|DELETE /api/keys/{provider}
+  GET  /api/runtime   GET /api/scenarios   GET /api/scenarios/{id}/tasks   GET /api/models
+  PUT|DELETE /api/keys/{provider}          GET /api/baselines   PUT|DELETE /api/baselines/{name}
   POST /api/estimate  POST /api/runs       GET /api/runs     GET /api/runs/{id}/events (SSE)
-  POST /api/runs/{id}/cancel               GET /api/runs/{id}/bundle   GET /api/runs/{id}/report
+  POST /api/runs/{id}/cancel               GET /api/runs/{id}/bundle[?traces=&artifacts=]
+  GET  /api/runs/{id}/report               GET /api/runs/{id}/trials/{trial}/trace
+  GET  /api/runs/{id}/artifacts/{key}      GET /api/leaderboard
   ```
 
 ### Web UI
 
-`make web` builds the Svelte UI (`web/`). It needs Node ≥ 20, and `arena ui` serves it. The UI has four views:
+`make web` builds the Svelte UI (`web/`). It needs Node ≥ 20, and `arena ui` serves it. Its views:
+- **Scenarios:** one page per scenario with tabs:
+  - *Overview:* what it tests, the environment, pass criteria in plain words, traps, useful comparisons.
+  - *Tasks:* every task with its prompt and expected outcome, searchable; run a single task.
+  - *Workflow & models:* the workflow diagram; start from a baseline, pick a model per step, set parameters and the
+    control policy, estimate and run.
+  - *Results:* this scenario's leaderboard; "Use this setup" loads an entry back.
+- **Build:** either compare hand-built configurations across scenarios, or run a *replacement study* (baseline +
+  candidate models + which steps to swap, with a live preview of the configurations).
+- **Runs:** live progress, then the report: heatmaps, confidence intervals, step metrics, decision quality, the effect
+  of each replaced step, arena ratings. Each trial opens the *step inspector*: the trial's workflow as a map, and for
+  every step its input (new messages first), output, tool calls, code, decisions and files, such as the chart a
+  vision critic saw. Deep links: `#/runs/<run>/trial/<trial>/step/<step>`.
+- **Leaderboard:** every run pooled per scenario and setup, filterable by model.
+- **Baselines:** edit the baseline profiles.
 - **Models:** the catalog, filterable by capability, plus API keys.
-- **Build:** pick scenarios, bind a model to each role (the choices are filtered by the role's capability needs, with
-  prices), set parameters, estimate cost, start, or download the experiment as YAML.
-- **Runs:** live progress, then an in-app report with heatmaps, confidence intervals, step metrics, arena ratings,
-  traces and wiki links.
-- **Overview:** the scenarios and benchmarks.
 
 The UI uses only the `ArenaBackend` interface, and its TypeScript types are generated from `contracts/schemas`
 (`npm run contracts`). The same UI will run the in-browser engine. `make test-web` runs svelte-check and vitest; for
@@ -140,6 +154,33 @@ The report compares task success, cost and latency across configs, and adds per-
 `split: test`. See `configs/experiments/decisions.yaml`. Jev (TypeSafe) needs `TYPESAFE_API_KEY` and works in the
 local app and CLI; its API does not allow browser calls.
 
+## Baselines and replacement studies
+
+A **baseline profile** gives every step a model by the kind of work it does: text, vision, code, agent or decision.
+Two ship built in:
+- **Local small:** Qwen3 4B with thinking off, Qwen3-VL 8B for images, and winnow via Ollaya for decisions.
+- **OpenAI mini:** GPT-5 mini with low reasoning.
+
+Edit them on the Baselines page (saved to `configs/baselines.local.yaml`), or add your own in `configs/baselines.yaml`.
+A config with `baseline: local-small` binds every role you don't set explicitly.
+
+A **replacement study** measures what one step's model is worth. It runs the baseline, then the same setup with
+exactly one role swapped to each candidate. The report shows the change in pass rate on shared tasks, with a paired
+test, plus the change in cost and latency:
+
+```yaml
+# configs/experiments/replacement-study.yaml
+scenarios: [reflection_sql, chart_codegen]
+limit: 3
+study:
+  baseline: local-small
+  candidates: ["ollama:qwen3:14b#reasoning=none", "openai:gpt-5-mini#reasoning=low"]
+  roles: [critic]            # default: every role except decision roles
+```
+
+Candidates replace only steps whose needs they meet: a text-only model never replaces a vision critic. Dedicated
+decision models (`ollaya:winnow:e4b`, `jev:jev-latest`) can be candidates too; they replace control decisions.
+
 ## Configuring models and experiments
 
 **Models are discovered, not hard-coded.** `arena models list` queries the endpoints below and shows each model's
@@ -153,6 +194,8 @@ per million tokens:
 | OpenAI | `/v1/models` |
 
 Use a reference directly in experiments: `ollama:qwen3:14b`, `lmstudio:qwen/qwen3-14b`, `openai:gpt-4.1-mini`.
+A reference can carry call settings after `#`, for example `ollama:qwen3:4b#reasoning=none` (thinking off, about 10×
+faster for Qwen3) or `openai:gpt-5-mini#reasoning=low,temperature=0`.
 - **Capabilities come from the server,** so role checks (e.g. a vision critic) work on any machine.
 - **Models without native tool support** automatically use the JSON tool protocol.
 - **A provider that isn't running** is reported and skipped.
@@ -208,5 +251,8 @@ It handles:
 - [docs/decisions/](docs/decisions/): architecture decision records (e.g. the Pyodide browser runtime).
 - [docs/scenarios.md](docs/scenarios.md): every scenario, its step metrics and design rationale.
 - [docs/metrics.md](docs/metrics.md): how scores, pass^k, CIs, significance tests and arena ratings are computed.
+- [docs/security.md](docs/security.md): threat model: sandboxing of model-written code, keys, spending, reports.
+- [docs/related-work.md](docs/related-work.md): how the arena relates to Inspect AI, OpenAI Evals, τ-bench, BFCL and
+  others, and when to use them instead.
 - [docs/PROVENANCE.md](docs/PROVENANCE.md): where ideas came from. No course material is copied.
 - [docs/licenses.md](docs/licenses.md): licences of the benchmark datasets that are downloaded at runtime.
