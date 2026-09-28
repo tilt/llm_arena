@@ -39,7 +39,8 @@ Other entry points:
 
 ## Local app
 
-`make ui` (or `uv run arena ui`) starts the app on http://127.0.0.1:8765. It provides:
+`make ui` (or `uv run arena ui`) starts the app on http://127.0.0.1:8787 (change it with `--port` or `ARENA_UI_PORT`
+in `.env`). It provides:
 - the discovered models
 - scenarios with wiki links
 - cost estimates

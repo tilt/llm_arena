@@ -5,6 +5,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   base: process.env.ARENA_BASE ?? "/",
   plugins: [svelte()],
-  server: { proxy: { "/api": "http://127.0.0.1:8765" } },
+  // Dev server proxies the API to a running `arena ui` (ARENA_UI_PORT, default 8787).
+  server: { proxy: { "/api": `http://127.0.0.1:${process.env.ARENA_UI_PORT ?? "8787"}` } },
   test: { environment: "node", include: ["src/**/*.test.ts"] },
 });

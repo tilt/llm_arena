@@ -258,7 +258,7 @@ def mock_email(port: int = 8025) -> None:
 
 @app.command()
 def ui(
-    port: Annotated[int, typer.Option(help="Port on 127.0.0.1")] = 8765,
+    port: Annotated[int, typer.Option(help="Port on 127.0.0.1", envvar="ARENA_UI_PORT")] = 8787,
     runs_dir: Annotated[Path, typer.Option(help="Where runs are stored")] = Path("runs"),
     static: Annotated[Path | None, typer.Option(help="Built web UI directory (default: web/dist or bundled)")] = None,
     open_browser: Annotated[bool, typer.Option("--open/--no-open", help="Open the browser")] = True,
@@ -284,7 +284,10 @@ def ui(
     if open_browser:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     uvicorn.run(
-        create_app(service, runs_dir=runs_dir, static_dir=static_dir), host="127.0.0.1", port=port, log_level="warning"
+        create_app(service, runs_dir=runs_dir, static_dir=static_dir, port=port),
+        host="127.0.0.1",
+        port=port,
+        log_level="warning",
     )
 
 

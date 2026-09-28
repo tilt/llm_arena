@@ -28,17 +28,24 @@ from llm_arena.server.channels import Channels
 from llm_arena.server.keys import KeyStore
 from llm_arena.service import ArenaService, Estimate, RunBundle
 
-LOCAL_ORIGINS = [
-    "http://127.0.0.1:8765", "http://localhost:8765",  # the app itself
-    "http://127.0.0.1:5173", "http://localhost:5173",  # Vite dev server for the web UI
-]  # fmt: skip
+DEFAULT_PORT = 8787
+DEV_SERVER_PORT = 5173  # Vite dev server for the web UI
+
+
+def local_origins(port: int) -> list[str]:
+    return [f"http://{host}:{p}" for p in (port, DEV_SERVER_PORT) for host in ("127.0.0.1", "localhost")]
 
 
 def create_app(
-    service: ArenaService, *, runs_dir: Path, static_dir: Path | None = None, keys: KeyStore | None = None
+    service: ArenaService,
+    *,
+    runs_dir: Path,
+    static_dir: Path | None = None,
+    keys: KeyStore | None = None,
+    port: int = DEFAULT_PORT,
 ) -> FastAPI:
     app = FastAPI(title="LLM Arena", version="0.1.0")
-    app.add_middleware(CORSMiddleware, allow_origins=LOCAL_ORIGINS, allow_methods=["*"], allow_headers=["*"])
+    app.add_middleware(CORSMiddleware, allow_origins=local_origins(port), allow_methods=["*"], allow_headers=["*"])
     channels = Channels()
     keys = keys or KeyStore()
 

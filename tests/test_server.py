@@ -106,3 +106,11 @@ def test_placeholder_page_until_the_web_ui_is_built(client: TestClient) -> None:
     page = client.get("/")
     assert page.status_code == 200 and "make web" in page.text
     assert page.headers["cache-control"] == "no-cache"
+
+
+def test_allowed_origins_follow_the_configured_port() -> None:
+    from llm_arena.server.app import local_origins
+
+    assert local_origins(9001) == [
+        "http://127.0.0.1:9001", "http://localhost:9001", "http://127.0.0.1:5173", "http://localhost:5173",
+    ]  # fmt: skip

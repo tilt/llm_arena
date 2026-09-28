@@ -13,7 +13,7 @@ help:
 	@printf "  make models      list and ping configured models\n"
 	@printf "  make smoke       run the smoke experiment and build its report\n"
 	@printf "  make contracts   regenerate JSON Schemas, scenario data and conformance vectors\n"
-	@printf "  make ui          start the local app on http://127.0.0.1:8765\n"
+	@printf "  make ui          start the local app on http://127.0.0.1:8787 (ARENA_UI_PORT)\n"
 	@printf "  make web         build the web UI (web/dist, served by arena ui)\n"
 	@printf "  make test-web    svelte-check + vitest for the web UI\n"
 
