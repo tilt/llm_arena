@@ -1,4 +1,17 @@
 {
+  "brief": {
+    "compare": [
+      "the same model with thinking on and off",
+      "a small model vs a large one"
+    ],
+    "criteria": {
+      "correct": "every verifiable instruction is followed (checked by code)"
+    },
+    "environment": "One model call per task, no tools; a deterministic sample of 100 items (seed 0) from the pinned public dataset.",
+    "measured": [],
+    "summary": "IFEval subset (Apache-2.0): verifiable formatting/length/keyword instructions, own checkers.",
+    "traps": []
+  },
   "description": "IFEval subset (Apache-2.0): verifiable formatting/length/keyword instructions, own checkers.",
   "id": "ifeval",
   "kind": "benchmark",

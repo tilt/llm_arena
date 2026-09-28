@@ -1,4 +1,17 @@
 {
+  "brief": {
+    "compare": [
+      "the same model with thinking on and off",
+      "a small model vs a large one"
+    ],
+    "criteria": {
+      "correct": "the number after 'Answer:' equals the reference"
+    },
+    "environment": "One model call per task, no tools; a deterministic sample of 100 items (seed 0) from the pinned public dataset.",
+    "measured": [],
+    "summary": "GSM8K test subset (MIT): multi-step arithmetic word problems, numeric match.",
+    "traps": []
+  },
   "description": "GSM8K test subset (MIT): multi-step arithmetic word problems, numeric match.",
   "id": "gsm8k",
   "kind": "benchmark",

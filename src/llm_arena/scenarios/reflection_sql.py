@@ -20,6 +20,7 @@ from llm_arena.mocks.sqlite_exec import QueryResult, run_query
 from llm_arena.patterns.reflection import Critique, llm_critique, reflect
 from llm_arena.patterns.roles import RoleModels
 from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario, register, work_dir
+from llm_arena.scenarios.brief import Brief, TaskView, code, table
 from llm_arena.scenarios.workflow import Workflow, edge, reflection, step, when
 
 # (id, question, gold SQL). Gold SQL is the reference; any query producing the same columns passes.
@@ -200,6 +201,28 @@ class ReflectionSQL(Scenario):
                 "verdicts": [c.verdict for c in outcome.critiques],
             },
         )
+
+    def brief(self) -> Brief:
+        return Brief(
+            summary="Text-to-SQL with reflection: does a critic that sees the query's result catch mistakes the "
+            "generator makes, and does revising fix them without breaking correct queries?",
+            environment="A read-only SQLite database of the fictional bike-rental company Veloria (stations, bikes, "
+            "rentals, a ledger). Each draft is executed and its result shown to the critic.",
+            criteria={"final_correct": "the final query returns the gold rows (gold columns present; order and extra "
+                      "columns ignored)"},
+            measured=["draft_correct: was the first query already right?", "critic precision and recall: did the "
+                      "critic flag exactly the wrong drafts?", "regressed: a correct draft broken by a revision"],
+            traps=["money is stored in cents", "refunds are negative ledger entries", "deposits are not revenue",
+                   "some bikes were never rented"],
+            compare=["reflection_rounds: 0 vs 1 (does reflection help at all?)",
+                     "feedback: execution vs sql_only (what does seeing the result add?)"],
+        )  # fmt: skip
+
+    def describe(self, task: Task) -> TaskView:
+        return TaskView(id=task.id, prompt=task.prompt, tags=task.tags, expected=[
+            table("Expected result rows", task.data["gold_rows"]),
+            code("Reference query (one correct solution)", task.data["gold_sql"], "sql"),
+        ])  # fmt: skip
 
     def workflow(self) -> Workflow:
         run_sql = step("run", "Run the SQL", "tool", description="SQLite with schema traps")

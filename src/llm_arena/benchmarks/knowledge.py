@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import re
+from typing import ClassVar
 
 from llm_arena.benchmarks.base import Benchmark, answer_line, correct_score
 from llm_arena.benchmarks.hf import GSM8K, MMLU_PRO, load_rows, stratified_sample
 from llm_arena.eval.base import EvalContext, Score, Task
 from llm_arena.eval.compare import first_number, last_number, numbers_match
 from llm_arena.scenarios.base import register
+from llm_arena.scenarios.brief import Expectation, text
 
 LETTERS = "ABCDEFGHIJ"
 
@@ -21,6 +23,11 @@ class GSM8KBench(Benchmark):
     tokens_per_trial = 800
     description = "GSM8K test subset (MIT): multi-step arithmetic word problems, numeric match."
     sample_size = 100
+
+    grading: ClassVar[str] = "the number after 'Answer:' equals the reference"
+
+    def expected(self, task: Task) -> list[Expectation]:
+        return [text("Answer", f"{task.data['answer']:g}")]
 
     def load_tasks(self) -> list[Task]:
         rows = stratified_sample(load_rows(GSM8K), self.sample_size, seed=0)
@@ -63,6 +70,11 @@ class MMLUProBench(Benchmark):
     tokens_per_trial = 1200
     description = "MMLU-Pro test subset (MIT), stratified by subject; 10-option multiple choice."
     sample_size = 140  # 10 per subject
+
+    grading: ClassVar[str] = "the letter after 'Answer:' is the right option"
+
+    def expected(self, task: Task) -> list[Expectation]:
+        return [text("Right option", task.data["answer"])]
 
     def load_tasks(self) -> list[Task]:
         rows = stratified_sample(load_rows(MMLU_PRO), self.sample_size, key=lambda row: str(row["category"]), seed=0)

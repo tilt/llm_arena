@@ -1,4 +1,23 @@
 {
+  "brief": {
+    "compare": [
+      "reflection_rounds: 0 vs 1",
+      "backend: corpus vs tavily vs arxiv (live)"
+    ],
+    "criteria": {
+      "citation_validity": "every cited source was actually fetched",
+      "fact_recall": "the report states the key facts",
+      "no_misinformation": "none of the planted wrong figures appears"
+    },
+    "environment": "A search corpus of fictional topics with sources in three quality tiers (agencies and journals, news, content farms); the low tier repeats wrong figures. Live web or arXiv search optional.",
+    "measured": [
+      "preferred_source_ratio: share of reads from the top tier",
+      "gold_doc_recall",
+      "draft_fact_recall before review"
+    ],
+    "summary": "Research with tools, then writing with review: find credible sources, avoid planted misinformation, and cite only what was read.",
+    "traps": []
+  },
   "description": "Research with search tools, write a cited report, review and revise it.",
   "id": "research_report",
   "kind": "pattern",

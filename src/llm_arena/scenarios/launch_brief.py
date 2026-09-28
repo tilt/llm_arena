@@ -24,6 +24,7 @@ from llm_arena.patterns.multi_agent import Worker, orchestrate
 from llm_arena.patterns.roles import RoleModels
 from llm_arena.patterns.tool_loop import run_tool_loop
 from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario, register
+from llm_arena.scenarios.brief import Brief, TaskView, bullet, text
 from llm_arena.scenarios.research_report import search_tools
 from llm_arena.scenarios.workflow import END, START, Workflow, edge, step, when
 from llm_arena.tools.executor import ToolExecutor
@@ -302,6 +303,25 @@ class LaunchBrief(Scenario):
                 "delegated": [a.worker for a in result.delegation.assignments] if result.delegation else [],
             },
         )
+
+    def brief(self) -> Brief:
+        return Brief(
+            summary="Multi-agent work with typed handoffs: a researcher, an analyst and a copywriter build a launch "
+            "brief under an orchestrator, compared with one agent doing everything.",
+            environment="Trend reports (some with inflated claims) and a product catalog; each worker returns a "
+            "typed result that is validated before the next one sees it.",
+            criteria={"correct_product": "the brief picks the right product", "tagline_ok": "a tagline of at most "
+                      "12 words", "no_misinformation": "none of the banned claims appears"},
+            measured=["handoff_acceptance", "unsupported_claim_rate", "analyst_pick_correct"],
+            compare=["mode: multi_agent vs single_agent", "delegation: auto vs fixed"],
+        )  # fmt: skip
+
+    def describe(self, task: Task) -> TaskView:
+        product = next((p for p in CATALOG if p["sku"] == task.data["gold_sku"]), {"name": task.data["gold_sku"]})
+        return TaskView(id=task.id, prompt=task.prompt, tags=task.tags, expected=[
+            text("Right product", f"{product['name']} ({task.data['gold_sku']})"),
+            bullet("Claims that must not appear", task.data["banned_claims"]),
+        ])  # fmt: skip
 
     def workflow(self) -> Workflow:
         multi = when("mode", equals="multi_agent")

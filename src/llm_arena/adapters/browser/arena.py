@@ -37,6 +37,7 @@ from llm_arena.runner.ports import Runtime
 from llm_arena.runner.run import new_run_id
 from llm_arena.sandbox.base import Sandbox
 from llm_arena.scenarios.base import get_scenario, work_dir
+from llm_arena.scenarios.brief import TaskView
 from llm_arena.service import ArenaService
 
 HttpGet = Callable[[str, dict[str, str]], Awaitable[HttpResponse]]
@@ -153,6 +154,10 @@ class BrowserArena:
                 )
             )
         return TypeAdapter(list[RunListing]).dump_json(listings).decode()
+
+    async def tasks(self, scenario: str) -> str:
+        await self._prefetch([scenario])  # benchmarks: fetch the pinned files first
+        return TypeAdapter(list[TaskView]).dump_json(self.service.tasks(scenario)).decode()
 
     def leaderboard(self, trials_json: str) -> str:
         """Leaderboards over trial rows the UI collected from this tab's runs and saved bundles."""

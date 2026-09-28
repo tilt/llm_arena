@@ -118,3 +118,9 @@ def test_allowed_origins_follow_the_configured_port() -> None:
 
 def test_leaderboard_endpoint_lists_boards(client: TestClient) -> None:
     assert client.get("/api/leaderboard").json() == []
+
+
+def test_scenario_tasks_endpoint(client: TestClient) -> None:
+    tasks = client.get("/api/scenarios/reflection_sql/tasks").json()
+    assert tasks and tasks[0]["expected"][0]["format"] == "table"
+    assert client.get("/api/scenarios/nope/tasks").status_code == 404

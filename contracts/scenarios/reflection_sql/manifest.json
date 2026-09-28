@@ -1,4 +1,26 @@
 {
+  "brief": {
+    "compare": [
+      "reflection_rounds: 0 vs 1 (does reflection help at all?)",
+      "feedback: execution vs sql_only (what does seeing the result add?)"
+    ],
+    "criteria": {
+      "final_correct": "the final query returns the gold rows (gold columns present; order and extra columns ignored)"
+    },
+    "environment": "A read-only SQLite database of the fictional bike-rental company Veloria (stations, bikes, rentals, a ledger). Each draft is executed and its result shown to the critic.",
+    "measured": [
+      "draft_correct: was the first query already right?",
+      "critic precision and recall: did the critic flag exactly the wrong drafts?",
+      "regressed: a correct draft broken by a revision"
+    ],
+    "summary": "Text-to-SQL with reflection: does a critic that sees the query's result catch mistakes the generator makes, and does revising fix them without breaking correct queries?",
+    "traps": [
+      "money is stored in cents",
+      "refunds are negative ledger entries",
+      "deposits are not revenue",
+      "some bikes were never rented"
+    ]
+  },
   "description": "Text-to-SQL; the critic reviews the query with (or without) its execution result.",
   "id": "reflection_sql",
   "kind": "pattern",

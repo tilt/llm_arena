@@ -1,4 +1,17 @@
 {
+  "brief": {
+    "compare": [
+      "the same model with thinking on and off",
+      "a small model vs a large one"
+    ],
+    "criteria": {
+      "correct": "the letter after 'Answer:' is the right option"
+    },
+    "environment": "One model call per task, no tools; a deterministic sample of 140 items (seed 0) from the pinned public dataset.",
+    "measured": [],
+    "summary": "MMLU-Pro test subset (MIT), stratified by subject; 10-option multiple choice.",
+    "traps": []
+  },
   "description": "MMLU-Pro test subset (MIT), stratified by subject; 10-option multiple choice.",
   "id": "mmlu_pro",
   "kind": "benchmark",

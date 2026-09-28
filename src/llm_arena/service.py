@@ -27,6 +27,7 @@ from llm_arena.runner.events import EventSink, ignore
 from llm_arena.runner.ports import RunStore, Runtime
 from llm_arena.runner.run import ExperimentRunner, new_run_id
 from llm_arena.scenarios.base import SCENARIOS, get_scenario
+from llm_arena.scenarios.brief import TaskView
 from llm_arena.scenarios.manifest import ScenarioManifest
 
 JUDGE_TOKENS_PER_TRIAL = 1500  # rubric judging; a rough allowance for the estimate
@@ -102,6 +103,11 @@ class ArenaService:
     def list_scenarios(self) -> list[ScenarioManifest]:
         get_scenario("email_assistant")  # importing registers every scenario
         return [get_scenario(name).manifest() for name in sorted(SCENARIOS)]
+
+    def tasks(self, scenario: str) -> list[TaskView]:
+        """A scenario's tasks with their expected outcomes (benchmarks download their pinned subset on first use)."""
+        found = get_scenario(scenario)
+        return [found.describe(task) for task in found.load_tasks()]
 
     async def catalog(self, *, refresh: bool = False) -> Catalog:
         if self._catalog is None or refresh:

@@ -17,6 +17,7 @@ from llm_arena.llm.client import system, user
 from llm_arena.patterns.reflection import Critique, llm_critique, reflect
 from llm_arena.patterns.roles import RoleModels
 from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario, register
+from llm_arena.scenarios.brief import Brief, TaskView, bullet
 from llm_arena.scenarios.workflow import Workflow, reflection
 
 TASKS: list[dict[str, Any]] = [
@@ -200,6 +201,31 @@ class ReflectionWriting(Scenario):
         return TrialOutput(
             final=outcome.final, extras={"drafts": outcome.drafts, "verdicts": [c.verdict for c in outcome.critiques]}
         )
+
+    def brief(self) -> Brief:
+        return Brief(
+            summary="Constrained writing with an editor in the loop: can a critic get a draft to meet every "
+            "requirement (length, facts, forbidden phrases, format)?",
+            environment="A brief with facts to use and verifiable requirements; no tools.",
+            criteria={"constraints_ok": "every requirement checked by code: word range, required facts, "
+                      "forbidden phrases, format"},
+            measured=["critic precision and recall on the drafts", "writing_quality: a judge rubric (with a judge)",
+                      "pairwise arena battles between configs (with a judge)"],
+            compare=["reflection_rounds: 0 vs 1", "show_constraints_to_critic: does the editor need the rules?"],
+        )  # fmt: skip
+
+    def describe(self, task: Task) -> TaskView:
+        checks = task.data["checks"]
+        rules = []
+        if "min_words" in checks or "max_words" in checks:
+            rules.append(f"{checks.get('min_words', 0)}–{checks.get('max_words', '∞')} words")
+        rules += ["mentions " + " or ".join(f"“{a}”" for a in group) for group in checks.get("must_include", [])]
+        rules += [f"never says “{phrase}”" for phrase in checks.get("forbidden", [])]
+        if fmt := checks.get("format"):
+            rules.append(f"format: {fmt}")
+        return TaskView(id=task.id, prompt=task.prompt, tags=task.tags, expected=[
+            bullet("Requirements (checked by code)", rules), bullet("Facts to use", task.data["facts"]),
+        ])  # fmt: skip
 
     def workflow(self) -> Workflow:
         return reflection(generator="writer", critic="critic", draft="Draft the text", critique="Editor checks the draft",

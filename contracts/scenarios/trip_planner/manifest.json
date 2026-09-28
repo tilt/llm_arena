@@ -1,4 +1,21 @@
 {
+  "brief": {
+    "compare": [
+      "mode: plan_execute vs single_loop",
+      "a strong planner with a small executor"
+    ],
+    "criteria": {
+      "constraints_satisfied": "times, calendar, budget, hotel stars and distance, cheapest choice",
+      "no_extra_bookings": "nothing booked twice or left over"
+    },
+    "environment": "Mock flight, hotel and calendar services; booking the cheapest flight fails, so the plan must change.",
+    "measured": [
+      "plan_repairs and replans",
+      "recovered_from_failure"
+    ],
+    "summary": "Planning with an injected failure: book flights and a hotel under hard constraints, and recover when a flight sells out at booking time.",
+    "traps": []
+  },
   "description": "Constrained trip booking with an injected sold-out failure; plan-and-execute vs single tool loop.",
   "id": "trip_planner",
   "kind": "pattern",

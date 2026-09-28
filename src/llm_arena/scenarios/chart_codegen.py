@@ -27,6 +27,7 @@ from llm_arena.patterns.reflection import Critique, llm_critique, reflect
 from llm_arena.patterns.roles import RoleModels
 from llm_arena.sandbox.base import ExecResult
 from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario, register
+from llm_arena.scenarios.brief import Brief, TaskView, as_json, text
 from llm_arena.scenarios.workflow import Workflow, reflection, step
 
 DATASETS = {"energy.csv": energy_csv, "roastery.csv": roastery_csv, "weather_sales.csv": weather_sales_csv}
@@ -168,6 +169,24 @@ class ChartCodegen(Scenario):
             artifacts=artifacts,
             extras={"specs": [_spec(a) for a in attempts], "ok": [a.ok for a in attempts]},
         )
+
+    def brief(self) -> Brief:
+        return Brief(
+            summary="Code generation with a vision critic: the model writes matplotlib code, the chart is rendered, "
+            "and a critic that sees the image asks for fixes.",
+            environment="Synthetic CSV files and a Python sandbox; a prelude records the figure's structure (lines, "
+            "bars, labels, legend) so the chart can be checked by code.",
+            criteria={"chart_rendered": "the code ran and produced chart.png",
+                      "spec_compliance": "the figure matches the request: series count, labels, legend entries, "
+                      "sorted bars where asked"},
+            measured=["how many renders failed", "whether the critic's image review led to a better chart"],
+            compare=["critic_sees_image: true vs false (what does vision add?)", "reflection_rounds: 0 vs 1"],
+        )  # fmt: skip
+
+    def describe(self, task: Task) -> TaskView:
+        return TaskView(id=task.id, prompt=task.prompt, tags=task.tags, expected=[
+            text("Data file", task.data["file"]), as_json("The figure must have", task.data["expect"]),
+        ])  # fmt: skip
 
     def workflow(self) -> Workflow:
         render = step("render", "Render the chart", "code", description="sandbox; the figure is introspected")

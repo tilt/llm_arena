@@ -23,6 +23,7 @@ export interface Contracts {
   SetKey?: SetKey;
   StartRun?: StartRun;
   Task?: Task;
+  TaskView?: TaskView;
   Trace?: Trace;
 }
 /**
@@ -602,6 +603,10 @@ export interface RuntimeResponse {
  * via the `definition` "ScenarioManifest".
  */
 export interface ScenarioManifest {
+  /**
+   * what the scenario tests and how it is graded
+   */
+  brief?: Brief | null;
   description: string;
   id: string;
   kind: "pattern" | "benchmark";
@@ -626,6 +631,38 @@ export interface ScenarioManifest {
    * steps, transitions and the role running each step
    */
   workflow?: Workflow | null;
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "Brief".
+ */
+export interface Brief {
+  /**
+   * useful ablations (parameters to vary)
+   */
+  compare?: string[];
+  /**
+   * pass criterion -> what it checks, in plain words
+   */
+  criteria: {
+    [k: string]: string | undefined;
+  };
+  /**
+   * what the agent works with
+   */
+  environment: string;
+  /**
+   * step-level measurements worth knowing
+   */
+  measured?: string[];
+  /**
+   * what the scenario tests, in one or two sentences
+   */
+  summary: string;
+  /**
+   * what makes the tasks hard
+   */
+  traps?: string[];
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema
@@ -759,6 +796,36 @@ export interface Task {
   id: string;
   prompt: string;
   tags?: string[];
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "TaskView".
+ */
+export interface TaskView {
+  expected: Expectation[];
+  id: string;
+  note?: string;
+  prompt: string;
+  split?: string | null;
+  tags?: string[];
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "Expectation".
+ */
+export interface Expectation {
+  format?: "text" | "list" | "code" | "table" | "json";
+  label: string;
+  /**
+   * for code: sql, python, …
+   */
+  language?: string | null;
+  /**
+   * text, list of strings, code, table rows (list of lists) or JSON
+   */
+  value: {
+    [k: string]: unknown | undefined;
+  };
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema

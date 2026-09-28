@@ -11,6 +11,7 @@ from llm_arena.eval.base import EvalContext, Evaluator, FunctionEvaluator, Score
 from llm_arena.llm.client import user
 from llm_arena.patterns.roles import RoleModels
 from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario
+from llm_arena.scenarios.brief import Brief, Expectation, TaskView, as_json
 
 _ANSWER_LINE = re.compile(r"answer\s*(?:is)?\s*[:：]\s*(.+)", re.IGNORECASE)
 
@@ -31,8 +32,26 @@ class Benchmark(Scenario):
     # Pinned upstream files; runtimes whose loader cannot fetch synchronously prefetch these first.
     sources: ClassVar[tuple[HFSource, ...]] = ()
 
+    # What the grader checks, in plain words (subclasses refine it).
+    grading: ClassVar[str] = "the answer matches the reference"
+
     def task_count(self) -> int:
         return self.sample_size  # without downloading the dataset
+
+    def brief(self) -> Brief:
+        return Brief(
+            summary=self.description,
+            environment=f"One model call per task, no tools; a deterministic sample of {self.sample_size} items "
+            "(seed 0) from the pinned public dataset.",
+            criteria={"correct": self.grading},
+            compare=["the same model with thinking on and off", "a small model vs a large one"],
+        )
+
+    def expected(self, task: Task) -> list[Expectation]:
+        return [as_json("Reference", task.data)]
+
+    def describe(self, task: Task) -> TaskView:
+        return TaskView(id=task.id, prompt=task.prompt, tags=task.tags, expected=self.expected(task))
 
     async def run(self, task: Task, models: RoleModels, ctx: RunContext) -> TrialOutput:
         with ctx.trace.in_step("answer"):

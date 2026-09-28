@@ -12,6 +12,7 @@ import type {
   RuntimeResponse,
   ScenarioManifest,
   StartRun,
+  TaskView,
   Trace,
 } from "./contracts";
 
@@ -48,6 +49,8 @@ export interface ArenaBackend {
   cancel(runId: string): Promise<void>;
   runs(): Promise<RunListing[]>;
   bundle(runId: string): Promise<RunBundle>;
+  /** A scenario's tasks with their expected outcomes (benchmarks may download their subset first). */
+  tasks(scenario: string): Promise<TaskView[]>;
   /** One trial's trace, loaded on demand. */
   trace(runId: string, trialId: string): Promise<TrialTrace | null>;
   /** A URL for an artifact (image, JSON, …) of a run, or null when it was not stored. */
@@ -130,6 +133,10 @@ export class HttpBackend implements ArenaBackend {
   bundle(runId: string): Promise<RunBundle> {
     // Light bundle: traces load per trial when inspected.
     return this.request("GET", `/api/runs/${encodeURIComponent(runId)}/bundle?traces=false`);
+  }
+
+  tasks(scenario: string): Promise<TaskView[]> {
+    return this.request("GET", `/api/scenarios/${encodeURIComponent(scenario)}/tasks`);
   }
 
   async trace(runId: string, trialId: string): Promise<TrialTrace | null> {

@@ -17,6 +17,7 @@ from llm_arena.patterns.planning import basic_validator, plan_and_execute
 from llm_arena.patterns.roles import RoleModels
 from llm_arena.patterns.tool_loop import run_tool_loop
 from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario, register
+from llm_arena.scenarios.brief import Brief, TaskView, bullet
 from llm_arena.scenarios.workflow import END, START, Workflow, edge, step, when
 from llm_arena.tools.executor import ToolExecutor
 from llm_arena.tools.registry import ToolRegistry
@@ -165,6 +166,27 @@ class TripPlanner(Scenario):
             extras=extras,
         )
 
+    def brief(self) -> Brief:
+        return Brief(
+            summary="Planning with an injected failure: book flights and a hotel under hard constraints, and "
+            "recover when a flight sells out at booking time.",
+            environment="Mock flight, hotel and calendar services; booking the cheapest flight fails, so the plan "
+            "must change.",
+            criteria={"constraints_satisfied": "times, calendar, budget, hotel stars and distance, cheapest choice",
+                      "no_extra_bookings": "nothing booked twice or left over"},
+            measured=["plan_repairs and replans", "recovered_from_failure"],
+            compare=["mode: plan_execute vs single_loop", "a strong planner with a small executor"],
+        )  # fmt: skip
+
+    def describe(self, task: Task) -> TaskView:
+        c = task.data["constraints"]
+        rules = [_flight_rule(f) for f in c.get("flights", [])]
+        if hotel := c.get("hotel"):
+            rules.append(_hotel_rule(hotel))
+        if "budget" in c:
+            rules.append(f"total at most ${c['budget']:.0f}")
+        return TaskView(id=task.id, prompt=task.prompt, tags=task.tags, expected=[bullet("Hard constraints", rules)])
+
     def workflow(self) -> Workflow:
         planned = when("mode", equals="plan_execute")
         single = when("mode", equals="single_loop")
@@ -304,3 +326,29 @@ def _hotel_problems(booking: dict[str, Any], spec: dict[str, Any]) -> list[str]:
         if best[0] != hotel[0]:
             problems.append(f"booked {hotel[2]}, closest eligible is {best[2]}")
     return problems
+
+
+def _flight_rule(f: dict[str, Any]) -> str:
+    parts = [f"flight {f['origin']}→{f['destination']}"]
+    if f.get("date"):
+        parts.append(f"on {f['date']}")
+    if f.get("depart_after"):
+        parts.append(f"departing after {f['depart_after'].replace('T', ' ')}")
+    if f.get("arrive_by"):
+        parts.append(f"arriving by {f['arrive_by'].replace('T', ' ')}")
+    if f.get("cheapest_valid"):
+        parts.append("the cheapest one that fits")
+    return ", ".join(parts)
+
+
+def _hotel_rule(h: dict[str, Any]) -> str:
+    parts = [f"hotel in {h['city']}: {h['nights']} nights from {h['check_in']}"]
+    if h.get("min_stars"):
+        parts.append(f"at least {h['min_stars']}★")
+    if h.get("max_price_per_night"):
+        parts.append(f"at most ${h['max_price_per_night']:.0f} per night")
+    if h.get("max_km"):
+        parts.append(f"within {h['max_km']} km of {h['landmark']}")
+    elif h.get("closest"):
+        parts.append(f"the closest to {h['landmark']}")
+    return ", ".join(parts)

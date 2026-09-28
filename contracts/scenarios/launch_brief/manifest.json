@@ -1,4 +1,23 @@
 {
+  "brief": {
+    "compare": [
+      "mode: multi_agent vs single_agent",
+      "delegation: auto vs fixed"
+    ],
+    "criteria": {
+      "correct_product": "the brief picks the right product",
+      "no_misinformation": "none of the banned claims appears",
+      "tagline_ok": "a tagline of at most 12 words"
+    },
+    "environment": "Trend reports (some with inflated claims) and a product catalog; each worker returns a typed result that is validated before the next one sees it.",
+    "measured": [
+      "handoff_acceptance",
+      "unsupported_claim_rate",
+      "analyst_pick_correct"
+    ],
+    "summary": "Multi-agent work with typed handoffs: a researcher, an analyst and a copywriter build a launch brief under an orchestrator, compared with one agent doing everything.",
+    "traps": []
+  },
   "description": "Orchestrator + researcher/analyst/copywriter with typed handoffs vs a single agent with all tools.",
   "id": "launch_brief",
   "kind": "pattern",

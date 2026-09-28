@@ -23,6 +23,7 @@ from llm_arena.llm.spec import ModelSpec
 from llm_arena.mocks.search import SearchBackend
 from llm_arena.patterns.roles import RoleModels
 from llm_arena.sandbox.base import Sandbox
+from llm_arena.scenarios.brief import Brief, TaskView, as_json
 from llm_arena.scenarios.manifest import (
     EVALUATION_LINKS,
     PATTERN_LINKS,
@@ -101,6 +102,16 @@ class Scenario(ABC):
     @abstractmethod
     def evaluators(self, params: dict[str, Any]) -> list[Evaluator]: ...
 
+    def brief(self) -> Brief | None:
+        """What the scenario tests and how it is graded (None: the one-line description is all there is)."""
+        return None
+
+    def describe(self, task: Task) -> TaskView:
+        """One task as a person reads it: prompt and expected outcome. Scenarios render their ground truth."""
+        data = {k: v for k, v in task.data.items() if k != "split"}
+        return TaskView(id=task.id, prompt=task.prompt, expected=[as_json("Ground truth (raw)", data)] if data else [],
+                        tags=task.tags, split=task.data.get("split"))  # fmt: skip
+
     def workflow(self) -> Workflow:
         """The pipeline's steps and which role runs each (for UIs; see scenarios/workflow.py)."""
         return single_call(self.roles[0].name)
@@ -137,6 +148,7 @@ class Scenario(ABC):
             supports_decisions=self.supports_decisions,
             version=self.version,
             workflow=self.workflow(),
+            brief=self.brief(),
             tasks=self.task_count(),
             wiki=list({link.url: link for link in [*PATTERN_LINKS.get(self.pattern, []), *EVALUATION_LINKS]}.values()),
         )

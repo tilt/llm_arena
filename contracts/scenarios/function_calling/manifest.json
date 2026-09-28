@@ -1,4 +1,17 @@
 {
+  "brief": {
+    "compare": [
+      "the same model with thinking on and off",
+      "a small model vs a large one"
+    ],
+    "criteria": {
+      "correct": "exactly the expected tool calls with matching arguments (none for irrelevant requests)"
+    },
+    "environment": "One model call per task, no tools; a deterministic sample of 16 items (seed 0) from the pinned public dataset.",
+    "measured": [],
+    "summary": "Own synthetic suite: simple/multiple/parallel/irrelevance tool calls, AST-style argument check.",
+    "traps": []
+  },
   "description": "Own synthetic suite: simple/multiple/parallel/irrelevance tool calls, AST-style argument check.",
   "id": "function_calling",
   "kind": "benchmark",

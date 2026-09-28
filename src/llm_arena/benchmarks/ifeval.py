@@ -9,12 +9,13 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Callable
-from typing import Any
+from typing import Any, ClassVar
 
 from llm_arena.benchmarks.base import Benchmark, correct_score
 from llm_arena.benchmarks.hf import IFEVAL, load_rows, stratified_sample
 from llm_arena.eval.base import EvalContext, Score, Task
 from llm_arena.scenarios.base import register
+from llm_arena.scenarios.brief import Expectation, bullet
 
 Checker = Callable[[str, dict[str, Any]], bool]
 
@@ -104,6 +105,13 @@ class IFEvalBench(Benchmark):
     description = "IFEval subset (Apache-2.0): verifiable formatting/length/keyword instructions, own checkers."
     sample_size = 100
     pass_criteria = ["correct"]
+
+    grading: ClassVar[str] = "every verifiable instruction is followed (checked by code)"
+
+    def expected(self, task: Task) -> list[Expectation]:
+        rules = [f"{name}" + (f" ({', '.join(f'{k}={v}' for k, v in kwargs.items())})" if kwargs else "")
+                 for name, kwargs in zip(task.data["instructions"], task.data["kwargs"], strict=False)]  # fmt: skip
+        return [bullet("Instructions checked", rules)]
 
     def load_tasks(self) -> list[Task]:
         supported = [row for row in load_rows(IFEVAL) if all(i in CHECKERS for i in row["instruction_id_list"])]

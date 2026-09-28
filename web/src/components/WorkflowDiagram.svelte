@@ -63,8 +63,8 @@
           {#if stats && ran(p.step.id)}
             <g transform={`translate(${NODE_W - 34},-9)`} class="badge"><rect width="40" height="18" rx="9" /><text x="20" y="13" text-anchor="middle">{s?.errors ? "! " : ""}×{s?.runs ?? 0}</text></g>
           {/if}
-          {#if p.step.role}
-            <text x="14" y="50" class="model">{short(models[p.step.role] ?? "—", 32)}</text>
+          {#if p.step.role && models[p.step.role]}
+            <text x="14" y="50" class="model">{short(models[p.step.role]!, 32)}</text>
           {:else if p.step.description}
             <text x="14" y="50" class="desc">{short(p.step.description, 32)}</text>
           {/if}

@@ -7,7 +7,7 @@ normalised argument trees — a BFCL-style AST check, written from scratch.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 from llm_arena.benchmarks.base import Benchmark, correct_score
 from llm_arena.eval.base import EvalContext, Score, Task, TrialOutput
@@ -15,6 +15,7 @@ from llm_arena.llm.client import system, user
 from llm_arena.llm.types import LLMResponse
 from llm_arena.patterns.roles import RoleModels
 from llm_arena.scenarios.base import RunContext, register
+from llm_arena.scenarios.brief import Expectation, bullet, text
 
 
 def _fn(name: str, description: str, properties: dict[str, Any], required: list[str]) -> dict[str, Any]:
@@ -184,6 +185,15 @@ class FunctionCallingBench(Benchmark):
     tokens_per_trial = 700
     description = "Own synthetic suite: simple/multiple/parallel/irrelevance tool calls, AST-style argument check."
     sample_size = len(CASES)
+
+    grading: ClassVar[str] = "exactly the expected tool calls with matching arguments (none for irrelevant requests)"
+
+    def expected(self, task: Task) -> list[Expectation]:
+        calls = [f"{name}({', '.join(f'{k}={v!r}' for k, v in args.items())})" for name, args in task.data["expected"]]
+        return [
+            bullet("Expected calls", calls or ["no call: the request needs no tool"]),
+            text("Category", task.data["category"]),
+        ]
 
     def load_tasks(self) -> list[Task]:
         return [

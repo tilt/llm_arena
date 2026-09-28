@@ -82,7 +82,7 @@
     {:else if router.route.name === "models"}<ModelsView />
     {:else if router.route.name === "runs"}<RunsView />
     {:else if router.route.name === "leaderboard"}<LeaderboardView />
-    {:else if router.route.name === "scenario"}{#key router.route.id}<ScenarioView id={router.route.id} />{/key}
+    {:else if router.route.name === "scenario"}{#key router.route.id}<ScenarioView id={router.route.id} tab={router.route.tab} />{/key}
     {:else if router.route.name === "run"}<RunView id={router.route.id} trial={router.route.trial} step={router.route.step} />
     {:else if router.route.name === "selftest"}<SelftestView />
     {/if}

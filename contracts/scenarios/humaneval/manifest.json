@@ -1,4 +1,17 @@
 {
+  "brief": {
+    "compare": [
+      "the same model with thinking on and off",
+      "a small model vs a large one"
+    ],
+    "criteria": {
+      "correct": "the completed function passes the reference unit tests"
+    },
+    "environment": "One model call per task, no tools; a deterministic sample of 60 items (seed 0) from the pinned public dataset.",
+    "measured": [],
+    "summary": "HumanEval subset (MIT): complete a Python function; graded by the reference unit tests.",
+    "traps": []
+  },
   "description": "HumanEval subset (MIT): complete a Python function; graded by the reference unit tests.",
   "id": "humaneval",
   "kind": "benchmark",

@@ -1,4 +1,17 @@
 {
+  "brief": {
+    "compare": [
+      "the same model with thinking on and off",
+      "a small model vs a large one"
+    ],
+    "criteria": {
+      "correct": "the function passes the reference tests"
+    },
+    "environment": "One model call per task, no tools; a deterministic sample of 60 items (seed 0) from the pinned public dataset.",
+    "measured": [],
+    "summary": "MBPP sanitized test subset (CC-BY-4.0): write a function from a description and one example test.",
+    "traps": []
+  },
   "description": "MBPP sanitized test subset (CC-BY-4.0): write a function from a description and one example test.",
   "id": "mbpp",
   "kind": "benchmark",

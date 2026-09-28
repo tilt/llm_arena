@@ -1,4 +1,22 @@
 {
+  "brief": {
+    "compare": [
+      "variant: react vs act vs cot"
+    ],
+    "criteria": {
+      "exact_match": "the final answer matches"
+    },
+    "environment": "An encyclopedia of a fictional world, looked up with a plain-text Thought/Action protocol, so any chat model can play.",
+    "measured": [
+      "premature_answer: answered with fewer lookups than hops",
+      "invalid actions",
+      "f1 of the answer"
+    ],
+    "summary": "Multi-hop questions over a fictional encyclopedia: reason and act (ReAct) vs act only vs reason only.",
+    "traps": [
+      "the facts are fictional, so answering from memory fails"
+    ]
+  },
   "description": "Multi-hop QA over a fictional encyclopedia via Thought/Action/Observation.",
   "id": "react_multihop",
   "kind": "pattern",

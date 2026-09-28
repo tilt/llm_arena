@@ -1,4 +1,19 @@
 {
+  "brief": {
+    "compare": [],
+    "criteria": {
+      "policy_ok": "no cancellation after processing, no refund outside 30 days or above the amount paid",
+      "state_correct": "orders, refunds, stock and messages end as expected"
+    },
+    "environment": "A sandbox with the shop's API module and its SQLite state, which persists between steps.",
+    "measured": [
+      "executions and failed executions per task"
+    ],
+    "summary": "Code as action: the agent solves customer requests by writing Python against a shop API, and must follow the store policy although the API does not enforce it.",
+    "traps": [
+      "the API happily executes policy violations"
+    ]
+  },
   "description": "Customer service by writing Python against a shop API in a sandbox; graded by final DB state.",
   "id": "shop_codeact",
   "kind": "pattern",

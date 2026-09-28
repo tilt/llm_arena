@@ -3,7 +3,7 @@
 // are kept in IndexedDB and can be exported/imported as RunBundle files.
 import type { ArenaBackend, ModelsResponse, Persistence, TrialTrace } from "./backend";
 import { BackendError } from "./backend";
-import type { Estimate, ExperimentConfig, Leaderboard, RunBundle, RunEvent, RunListing, RuntimeResponse, ScenarioManifest, StartRun } from "./contracts";
+import type { Estimate, ExperimentConfig, Leaderboard, RunBundle, RunEvent, RunListing, RuntimeResponse, ScenarioManifest, StartRun, TaskView } from "./contracts";
 import type { EngineMethod, EngineReply } from "../engine/protocol";
 import { listBundles, loadBundle, saveBundle } from "./idb";
 
@@ -77,6 +77,8 @@ export class WorkerBackend implements ArenaBackend {
     const trials = (await listBundles()).flatMap((b) => b.trials.map((t) => ({ ...t, run_id: t.run_id ?? b.run.run_id })));
     return this.json("leaderboard", JSON.stringify(trials));
   }
+
+  async tasks(scenario: string): Promise<TaskView[]> { return this.json("tasks", scenario); }
 
   async trace(runId: string, trialId: string): Promise<TrialTrace | null> {
     const bundle = await this.bundle(runId);

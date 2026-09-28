@@ -1,4 +1,21 @@
 {
+  "brief": {
+    "compare": [
+      "critic_sees_image: true vs false (what does vision add?)",
+      "reflection_rounds: 0 vs 1"
+    ],
+    "criteria": {
+      "chart_rendered": "the code ran and produced chart.png",
+      "spec_compliance": "the figure matches the request: series count, labels, legend entries, sorted bars where asked"
+    },
+    "environment": "Synthetic CSV files and a Python sandbox; a prelude records the figure's structure (lines, bars, labels, legend) so the chart can be checked by code.",
+    "measured": [
+      "how many renders failed",
+      "whether the critic's image review led to a better chart"
+    ],
+    "summary": "Code generation with a vision critic: the model writes matplotlib code, the chart is rendered, and a critic that sees the image asks for fixes.",
+    "traps": []
+  },
   "description": "Matplotlib chart generation; a (vision) critic reviews the rendered chart; graded by figure introspection.",
   "id": "chart_codegen",
   "kind": "pattern",

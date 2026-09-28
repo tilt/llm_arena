@@ -25,6 +25,7 @@ from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import RunEvent
 from llm_arena.sandbox.base import Sandbox
 from llm_arena.scenarios.base import SCENARIOS, get_scenario
+from llm_arena.scenarios.brief import TaskView
 from llm_arena.scenarios.manifest import ScenarioManifest
 from llm_arena.service import Estimate, RunBundle, RuntimeInfo
 
@@ -39,6 +40,7 @@ SCHEMA_TYPES: dict[str, Any] = {
     "Trace": Trace,
     "RunBundle": RunBundle,
     "Leaderboard": Leaderboard,
+    "TaskView": TaskView,
     "RuntimeInfo": RuntimeInfo,
     "Estimate": Estimate,
     "StartRun": StartRun,

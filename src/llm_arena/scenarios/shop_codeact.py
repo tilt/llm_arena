@@ -16,6 +16,7 @@ from llm_arena.mocks.shop import API_DOC, API_SOURCE, POLICY, TODAY, ShopEnviron
 from llm_arena.patterns.codeact import run_codeact
 from llm_arena.patterns.roles import RoleModels
 from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario, register
+from llm_arena.scenarios.brief import Brief, TaskView, bullet, text
 from llm_arena.scenarios.workflow import END, START, Workflow, edge, step
 
 TASKS: list[dict[str, Any]] = [
@@ -103,6 +104,28 @@ class ShopCodeAct(Scenario):
                 "failed": result.failed_executions,
             },
         )
+
+    def brief(self) -> Brief:
+        return Brief(
+            summary="Code as action: the agent solves customer requests by writing Python against a shop API, "
+            "and must follow the store policy although the API does not enforce it.",
+            environment="A sandbox with the shop's API module and its SQLite state, which persists between steps.",
+            criteria={"state_correct": "orders, refunds, stock and messages end as expected",
+                      "policy_ok": "no cancellation after processing, no refund outside 30 days or above the amount paid"},
+            measured=["executions and failed executions per task"],
+            traps=["the API happily executes policy violations"],
+        )  # fmt: skip
+
+    def describe(self, task: Task) -> TaskView:
+        expect = task.data["expect"]
+        lines = [f"order {o} → {status}" for o, status in expect.get("order_status", {}).items()]
+        lines += [f"refunds on order {o}: ${amount:.2f}" for o, amount in expect.get("refund_total", {}).items()]
+        lines += [f"stock of {sku}: {n}" for sku, n in expect.get("stock", {}).items()]
+        lines += [f"message to {who}" for who in expect.get("messaged", [])]
+        expected = [bullet("Expected final state", lines or ["nothing changes"])]
+        if "answer_number" in task.data:
+            expected.insert(0, text("Answer", f"{task.data['answer_number']:g}"))
+        return TaskView(id=task.id, prompt=task.prompt, tags=task.tags, expected=expected)
 
     def workflow(self) -> Workflow:
         return Workflow(

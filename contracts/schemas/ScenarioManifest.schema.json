@@ -1,5 +1,58 @@
 {
   "$defs": {
+    "Brief": {
+      "properties": {
+        "compare": {
+          "description": "useful ablations (parameters to vary)",
+          "items": {
+            "type": "string"
+          },
+          "title": "Compare",
+          "type": "array"
+        },
+        "criteria": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "pass criterion -> what it checks, in plain words",
+          "title": "Criteria",
+          "type": "object"
+        },
+        "environment": {
+          "description": "what the agent works with",
+          "title": "Environment",
+          "type": "string"
+        },
+        "measured": {
+          "description": "step-level measurements worth knowing",
+          "items": {
+            "type": "string"
+          },
+          "title": "Measured",
+          "type": "array"
+        },
+        "summary": {
+          "description": "what the scenario tests, in one or two sentences",
+          "title": "Summary",
+          "type": "string"
+        },
+        "traps": {
+          "description": "what makes the tasks hard",
+          "items": {
+            "type": "string"
+          },
+          "title": "Traps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "summary",
+        "environment",
+        "criteria"
+      ],
+      "title": "Brief",
+      "type": "object"
+    },
     "Condition": {
       "description": "True when the parameter matches: `equals` / `one_of` / `gt` (all given ones must hold).",
       "properties": {
@@ -287,6 +340,18 @@
     }
   },
   "properties": {
+    "brief": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Brief"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "what the scenario tests and how it is graded"
+    },
     "description": {
       "title": "Description",
       "type": "string"

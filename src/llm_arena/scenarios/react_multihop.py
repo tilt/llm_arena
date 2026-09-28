@@ -16,6 +16,7 @@ from llm_arena.mocks.world import articles, multihop_tasks
 from llm_arena.patterns.react import run_react
 from llm_arena.patterns.roles import RoleModels
 from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario, register
+from llm_arena.scenarios.brief import Brief, TaskView, text
 from llm_arena.scenarios.workflow import END, START, Workflow, edge, step, when
 from llm_arena.tools.executor import ToolExecutor
 from llm_arena.tools.registry import Tool, ToolRegistry, tool
@@ -75,6 +76,23 @@ class ReactMultihop(Scenario):
                 "invalid_actions": result.invalid_actions,
             },
         )
+
+    def brief(self) -> Brief:
+        return Brief(
+            summary="Multi-hop questions over a fictional encyclopedia: reason and act (ReAct) vs act only vs "
+            "reason only.",
+            environment="An encyclopedia of a fictional world, looked up with a plain-text Thought/Action protocol, "
+            "so any chat model can play.",
+            criteria={"exact_match": "the final answer matches"},
+            measured=["premature_answer: answered with fewer lookups than hops", "invalid actions", "f1 of the answer"],
+            traps=["the facts are fictional, so answering from memory fails"],
+            compare=["variant: react vs act vs cot"],
+        )  # fmt: skip
+
+    def describe(self, task: Task) -> TaskView:
+        return TaskView(id=task.id, prompt=task.prompt, tags=task.tags, expected=[
+            text("Answer", task.data["answer"]), text("Lookups needed", task.data["hops"]),
+        ])  # fmt: skip
 
     def workflow(self) -> Workflow:
         tools = when("variant", in_=["react", "act"])

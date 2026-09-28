@@ -21,6 +21,7 @@ from llm_arena.patterns.reflection import Critique, llm_critique, reflect
 from llm_arena.patterns.roles import RoleModels
 from llm_arena.patterns.tool_loop import run_tool_loop
 from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario, register
+from llm_arena.scenarios.brief import Brief, TaskView, bullet
 from llm_arena.scenarios.workflow import END, START, Workflow, edge, reflection, step
 from llm_arena.tools.executor import ToolExecutor
 from llm_arena.tools.registry import Tool, ToolRegistry, tool
@@ -166,6 +167,26 @@ class ResearchReport(Scenario):
                 "stop_reason": research.stop_reason,
             },
         )
+
+    def brief(self) -> Brief:
+        return Brief(
+            summary="Research with tools, then writing with review: find credible sources, avoid planted "
+            "misinformation, and cite only what was read.",
+            environment="A search corpus of fictional topics with sources in three quality tiers (agencies and "
+            "journals, news, content farms); the low tier repeats wrong figures. Live web or arXiv search optional.",
+            criteria={"fact_recall": "the report states the key facts", "no_misinformation": "none of the planted "
+                      "wrong figures appears", "citation_validity": "every cited source was actually fetched"},
+            measured=["preferred_source_ratio: share of reads from the top tier", "gold_doc_recall",
+                      "draft_fact_recall before review"],
+            compare=["reflection_rounds: 0 vs 1", "backend: corpus vs tavily vs arxiv (live)"],
+        )  # fmt: skip
+
+    def describe(self, task: Task) -> TaskView:
+        return TaskView(id=task.id, prompt=task.prompt, tags=task.tags, expected=[
+            bullet("Key facts the report must state", [f["statement"] for f in task.data["facts"]]),
+            bullet("Wrong claims that must not appear", task.data["wrong_claims"]),
+            bullet("Best sources", task.data["gold_docs"]),
+        ])  # fmt: skip
 
     def workflow(self) -> Workflow:
         writing = reflection(generator="writer", critic="reviewer", draft="Write the report",

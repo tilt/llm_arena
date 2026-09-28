@@ -24,6 +24,7 @@ from llm_arena.llm.errors import LLMError
 from llm_arena.report.leaderboard import Leaderboard
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.run import new_run_id
+from llm_arena.scenarios.brief import TaskView
 from llm_arena.scenarios.manifest import ScenarioManifest
 from llm_arena.server.channels import Channels
 from llm_arena.server.keys import KeyStore
@@ -102,6 +103,13 @@ def create_app(
         except (ArenaError, LLMError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return RunStartedResponse(run_id=run_id)
+
+    @app.get("/api/scenarios/{scenario_id}/tasks", response_model=list[TaskView])
+    def tasks(scenario_id: str) -> list[TaskView]:
+        try:
+            return service.tasks(scenario_id)
+        except ArenaError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     @app.get("/api/leaderboard", response_model=list[Leaderboard])
     def leaderboard(scenario: str | None = None) -> list[Leaderboard]:

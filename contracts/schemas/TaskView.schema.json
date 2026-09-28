@@ -1,0 +1,95 @@
+{
+  "$defs": {
+    "Expectation": {
+      "properties": {
+        "format": {
+          "default": "text",
+          "enum": [
+            "text",
+            "list",
+            "code",
+            "table",
+            "json"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "for code: sql, python, …",
+          "title": "Language"
+        },
+        "value": {
+          "description": "text, list of strings, code, table rows (list of lists) or JSON",
+          "title": "Value"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "title": "Expectation",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "expected": {
+      "items": {
+        "$ref": "#/$defs/Expectation"
+      },
+      "title": "Expected",
+      "type": "array"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "note": {
+      "default": "",
+      "title": "Note",
+      "type": "string"
+    },
+    "prompt": {
+      "title": "Prompt",
+      "type": "string"
+    },
+    "split": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Split"
+    },
+    "tags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Tags",
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "prompt",
+    "expected"
+  ],
+  "title": "TaskView",
+  "type": "object"
+}

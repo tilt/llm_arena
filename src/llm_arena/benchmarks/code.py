@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from llm_arena.benchmarks.base import Benchmark, correct_score
 from llm_arena.benchmarks.hf import HUMANEVAL, MBPP, load_rows, stratified_sample
 from llm_arena.eval.base import EvalContext, Score, Task
 from llm_arena.patterns.codeact import extract_code
 from llm_arena.sandbox.base import Sandbox
 from llm_arena.scenarios.base import register
+from llm_arena.scenarios.brief import Expectation, code, text
 
 
 async def run_tests(sandbox: Sandbox | None, program: str, timeout_s: float = 15.0) -> tuple[bool, str]:
@@ -26,6 +29,11 @@ class HumanEvalBench(Benchmark):
     requires = frozenset({"sandbox"})
     description = "HumanEval subset (MIT): complete a Python function; graded by the reference unit tests."
     sample_size = 60
+
+    grading: ClassVar[str] = "the completed function passes the reference unit tests"
+
+    def expected(self, task: Task) -> list[Expectation]:
+        return [code("Reference tests", task.data["test"], "python"), text("Function", task.data["entry_point"])]
 
     def load_tasks(self) -> list[Task]:
         rows = stratified_sample(load_rows(HUMANEVAL), self.sample_size, seed=0)
@@ -57,6 +65,11 @@ class MBPPBench(Benchmark):
     requires = frozenset({"sandbox"})
     description = "MBPP sanitized test subset (CC-BY-4.0): write a function from a description and one example test."
     sample_size = 60
+
+    grading: ClassVar[str] = "the function passes the reference tests"
+
+    def expected(self, task: Task) -> list[Expectation]:
+        return [code("Reference tests", "\n".join(task.data["tests"]), "python")]
 
     def load_tasks(self) -> list[Task]:
         rows = stratified_sample(load_rows(MBPP), self.sample_size, seed=0)

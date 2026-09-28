@@ -1,4 +1,21 @@
 {
+  "brief": {
+    "compare": [
+      "reflection_rounds: 0 vs 1",
+      "show_constraints_to_critic: does the editor need the rules?"
+    ],
+    "criteria": {
+      "constraints_ok": "every requirement checked by code: word range, required facts, forbidden phrases, format"
+    },
+    "environment": "A brief with facts to use and verifiable requirements; no tools.",
+    "measured": [
+      "critic precision and recall on the drafts",
+      "writing_quality: a judge rubric (with a judge)",
+      "pairwise arena battles between configs (with a judge)"
+    ],
+    "summary": "Constrained writing with an editor in the loop: can a critic get a draft to meet every requirement (length, facts, forbidden phrases, format)?",
+    "traps": []
+  },
   "description": "Constrained writing; a critic (same or other model) reviews; constraints are checked by code.",
   "id": "reflection_writing",
   "kind": "pattern",
