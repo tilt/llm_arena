@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from llm_arena.core.trace import Trace
-from llm_arena.decisions.config import JevFactory
+from llm_arena.decisions.config import ServiceFactory
 from llm_arena.eval.base import Score
 from llm_arena.llm.catalog import Catalog
 from llm_arena.llm.client import LLMClient
@@ -80,5 +80,7 @@ class Runtime:
     discover: Callable[[], Awaitable[Catalog]] | None = None
     sandbox: Sandbox | None = None
     live_search: Callable[[str], SearchBackend] | None = None
-    jev: JevFactory | None = None  # TypeSafe's Jev decision model; None where it cannot be reached (browser)
+    decision_services: ServiceFactory | None = None  # Jev / Ollaya decision models; None where unreachable (browser)
+    # service -> (status, models), for the UI; None where the services cannot be reached
+    decision_status: Callable[[], Awaitable[dict[str, tuple[str, list[str]]]]] | None = None
     name: str = "server"

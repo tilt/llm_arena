@@ -16,9 +16,13 @@ from llm_arena.decisions.tracing import TracedPolicy
 from llm_arena.llm.client import LLMClient
 from llm_arena.runner.budget import BudgetGuard
 
-PolicyKind = Literal["llm", "rules", "cascade", "jev"]
-Stage = Literal["llm", "jev"]
-JevFactory = Callable[[str], DecisionPolicy]  # model name -> policy (the runtime supplies it; absent in the browser)
+PolicyKind = Literal["llm", "rules", "cascade", "jev", "ollaya"]
+Stage = Literal["llm", "jev", "ollaya"]
+# "System One" decision services with the same API (POST /v1/systemone): TypeSafe's hosted Jev, or decision models
+# such as winnow served locally by Ollaya.
+Service = Literal["jev", "ollaya"]
+SERVICES: tuple[Service, ...] = ("jev", "ollaya")
+ServiceFactory = Callable[[Service, str], DecisionPolicy]  # (service, model) -> policy; supplied by the runtime
 
 DECIDER_ROLE = "decider"  # the LLM answering control questions (defaults to the agent's model)
 ESCALATION_ROLE = "escalation"  # the cascade's fallback LLM (defaults to the decider)
@@ -40,12 +44,16 @@ class DecisionConfig(BaseModel):
     threshold: float = Field(default=0.8, ge=0.0, le=1.0, description="cascade: escalate below this confidence")
     thresholds: dict[str, float] = Field(default_factory=dict, description="per-question thresholds")
     jev_model: str = "jev-latest"
+    ollaya_model: str = Field(default="winnow:e4b", description="decision model served by the local Ollaya app")
     review: bool = Field(default=True, description="classify the finished trace (task done? needs human review?)")
 
-    def uses_jev(self) -> bool:
-        if self.policy == "jev":
-            return True
-        return self.policy == "cascade" and "jev" in (self.primary, self.fallback)
+    def services(self) -> set[Service]:
+        """Decision services this config calls (to check availability before a run)."""
+        stages = {self.primary, self.fallback} if self.policy == "cascade" else {self.policy}
+        return {stage for stage in SERVICES if stage in stages}
+
+    def service_model(self, service: Service) -> str:
+        return self.jev_model if service == "jev" else self.ollaya_model
 
 
 @dataclass
@@ -56,7 +64,7 @@ class DecisionSetup:
     trace: Trace
     decider: LLMClient | None = None
     escalation: LLMClient | None = None
-    jev: JevFactory | None = None
+    services: ServiceFactory | None = None
     budget: BudgetGuard | None = None
 
     def policy(self, rules: dict[str, Rule] | None = None) -> TracedPolicy:
@@ -77,11 +85,11 @@ class DecisionSetup:
             thresholds=self.config.thresholds,
         )
 
-    def _stage(self, stage: Stage, client: LLMClient | None) -> DecisionPolicy:
-        if stage == "jev":
-            if self.jev is None:
-                raise ConfigError("Jev needs the local app or CLI (TypeSafe's API does not allow browser calls)")
-            return self.jev(self.config.jev_model)
+    def _stage(self, stage: Stage | PolicyKind, client: LLMClient | None) -> DecisionPolicy:
+        if stage in SERVICES:
+            if self.services is None:
+                raise ConfigError(f"{stage} needs the local app or CLI (not reachable from the browser)")
+            return self.services(stage, self.config.service_model(stage))
         if client is None:
             raise ConfigError(f"an LLM decision policy needs a model for role {DECIDER_ROLE!r}")
         return LLMDecisionPolicy(client)

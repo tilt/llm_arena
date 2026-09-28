@@ -179,11 +179,14 @@ class ExperimentRunner:
             except Exception as exc:
                 raise ConfigError(f"{spec.name}: {exc}") from exc
         for config in {trial.config.name: trial.config for trial in trials}.values():
-            if config.decisions is not None and config.decisions.uses_jev():
-                if self.runtime.jev is None:
-                    raise ConfigError(f"{config.name}: Jev is not available in this runtime ({self.runtime.name})")
+            decisions = config.decisions
+            for service in decisions.services() if decisions else set():
+                if self.runtime.decision_services is None or decisions is None:
+                    raise ConfigError(
+                        f"{config.name}: {service} is not available in this runtime ({self.runtime.name})"
+                    )
                 try:
-                    self.runtime.jev(config.decisions.jev_model)
+                    self.runtime.decision_services(service, decisions.service_model(service))
                 except Exception as exc:
                     raise ConfigError(f"{config.name}: {exc}") from exc
         self._planned = trials
@@ -291,7 +294,7 @@ class ExperimentRunner:
         clients = {role: TracedLLM(self._client(model), trace, role) for role, model in spec.bindings.items()}
         return DecisionSetup(
             config=config, trace=trace, decider=clients.get(DECIDER_ROLE), escalation=clients.get(ESCALATION_ROLE),
-            jev=self.runtime.jev, budget=self.budget,
+            services=self.runtime.decision_services, budget=self.budget,
         )  # fmt: skip
 
     async def _evaluate(self, spec: TrialSpec, output: TrialOutput, trace: Trace, judge_trace: Trace) -> list[Score]:

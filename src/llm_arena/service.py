@@ -14,6 +14,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from llm_arena.decisions.config import SERVICES
 from llm_arena.decisions.records import DecisionSummary
 from llm_arena.llm.catalog import Catalog
 from llm_arena.llm.pricing import known_price, price_per_mtok
@@ -29,12 +30,19 @@ from llm_arena.scenarios.manifest import ScenarioManifest
 JUDGE_TOKENS_PER_TRIAL = 1500  # rubric judging; a rough allowance for the estimate
 
 
+class DecisionServiceInfo(BaseModel):
+    status: str = Field(description="'available' or why not")
+    models: list[str] = Field(default_factory=list)
+
+
 class RuntimeInfo(BaseModel):
     runtime: str
     sandbox: bool
     live_search: bool
     providers: dict[str, str] = Field(description="provider -> 'available' or why not (never key material)")
-    jev: str = Field(default="available", description="TypeSafe's Jev decision model: 'available' or why not")
+    decision_services: dict[str, DecisionServiceInfo] = Field(
+        default_factory=dict, description="'jev' / 'ollaya' -> availability and models (System One decision models)"
+    )
 
 
 class Estimate(BaseModel):
@@ -99,17 +107,15 @@ class ArenaService:
             sandbox=self.runtime.sandbox is not None,
             live_search=self.runtime.live_search is not None,
             providers=providers,
-            jev=self._jev_status(),
+            decision_services=await self._decision_services(),
         )
 
-    def _jev_status(self) -> str:
-        if self.runtime.jev is None:
-            return "not available here: TypeSafe's API does not allow browser (cross-origin) calls; use the local app"
-        try:
-            self.runtime.jev("jev-latest")
-        except Exception as exc:
-            return str(exc)
-        return "available"
+    async def _decision_services(self) -> dict[str, DecisionServiceInfo]:
+        if self.runtime.decision_status is None:
+            reason = "not available in the browser; use the local app or CLI"
+            return {service: DecisionServiceInfo(status=reason) for service in SERVICES}
+        return {name: DecisionServiceInfo(status=status, models=models)
+                for name, (status, models) in (await self.runtime.decision_status()).items()}  # fmt: skip
 
     # ---- planning -------------------------------------------------------------------------
     async def estimate(self, experiment: ExperimentConfig) -> Estimate:

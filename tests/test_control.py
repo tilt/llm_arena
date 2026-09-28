@@ -229,7 +229,7 @@ async def test_runner_stores_decision_rows_and_summaries() -> None:
 async def test_jev_without_runtime_support_fails_preflight() -> None:
     runner = ExperimentRunner(_experiment({"policy": "jev"}), Runtime(client_factory=_factory, name="browser"),
                               store=MemoryStore(), model_specs=SPECS)  # fmt: skip
-    with pytest.raises(ConfigError, match="Jev is not available"):
+    with pytest.raises(ConfigError, match="jev is not available"):
         await runner.preflight()
 
 
@@ -259,3 +259,22 @@ async def test_duckdb_store_returns_the_same_decision_rows(tmp_path: Path) -> No
             {k: v for k, v in r.items() if k != "latency_s"} for r in store.load_run().decisions
         ]  # timing differs
     assert rows["memory"] and rows["memory"] == rows["duckdb"]
+
+
+async def test_ollaya_config_uses_the_runtime_service_factory() -> None:
+    from llm_arena.decisions.jev import JevDecisionPolicy
+    from test_decisions import JEV_OK, FakeTransport
+
+    calls: list[tuple[str, str]] = []
+
+    def services(service: str, model: str) -> JevDecisionPolicy:
+        calls.append((service, model))
+        return JevDecisionPolicy(FakeTransport([JEV_OK] * 20), None, model=model, service=service, usd_per_mtok=0.0)
+
+    experiment = _experiment({"policy": "ollaya", "control": "gate", "ollaya_model": "winnow:e12b"})
+    store = MemoryStore()
+    runner = ExperimentRunner(experiment, Runtime(client_factory=_factory, decision_services=services),  # type: ignore[arg-type]
+                              store=store, model_specs=SPECS)  # fmt: skip
+    await runner.run()
+    assert ("ollaya", "winnow:e12b") in calls
+    assert {r["policy"] for r in store.load_run().decisions} == {"ollaya:winnow:e12b"}

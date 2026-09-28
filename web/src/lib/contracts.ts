@@ -191,17 +191,21 @@ export interface DecisionConfig {
   /**
    * cascade: stage for uncertain answers (None: no stage)
    */
-  fallback?: ("llm" | "jev") | null;
+  fallback?: ("llm" | "jev" | "ollaya") | null;
   /**
    * cascade: the scenario's rules answer first where they apply
    */
   hard_rules?: boolean;
   jev_model?: string;
-  policy?: "llm" | "rules" | "cascade" | "jev";
+  /**
+   * decision model served by the local Ollaya app
+   */
+  ollaya_model?: string;
+  policy?: "llm" | "rules" | "cascade" | "jev" | "ollaya";
   /**
    * cascade: first stage
    */
-  primary?: "llm" | "jev";
+  primary?: "llm" | "jev" | "ollaya";
   /**
    * classify the finished trace (task done? needs human review?)
    */
@@ -453,9 +457,11 @@ export interface RunStartedResponse {
  */
 export interface RuntimeInfo {
   /**
-   * TypeSafe's Jev decision model: 'available' or why not
+   * 'jev' / 'ollaya' -> availability and models (System One decision models)
    */
-  jev?: string;
+  decision_services?: {
+    [k: string]: DecisionServiceInfo | undefined;
+  };
   live_search: boolean;
   /**
    * provider -> 'available' or why not (never key material)
@@ -468,13 +474,26 @@ export interface RuntimeInfo {
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "DecisionServiceInfo".
+ */
+export interface DecisionServiceInfo {
+  models?: string[];
+  /**
+   * 'available' or why not
+   */
+  status: string;
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
  * via the `definition` "RuntimeResponse".
  */
 export interface RuntimeResponse {
   /**
-   * TypeSafe's Jev decision model: 'available' or why not
+   * 'jev' / 'ollaya' -> availability and models (System One decision models)
    */
-  jev?: string;
+  decision_services?: {
+    [k: string]: DecisionServiceInfo | undefined;
+  };
   keys: {
     [k: string]: "env" | "session" | "missing" | undefined;
   };

@@ -63,7 +63,7 @@ describe("experiment output", () => {
 });
 
 describe("control policies", () => {
-  const withPolicy = (policy: "llm" | "jev") =>
+  const withPolicy = (policy: "llm" | "jev" | "ollaya") =>
     state({ scenarios: ["reflection_sql", "support_desk"], split: "test",
       configs: [{ ...emptyConfig(0), name: "p", roles: { "*": "m" }, decisions: { policy, control: "gate" } }] });
 
@@ -73,10 +73,12 @@ describe("control policies", () => {
     expect(experiment.split).toBe("test");
   });
 
-  it("reports unsupported selections and an unavailable Jev", () => {
+  it("reports unsupported selections and unavailable decision services", () => {
     const none = state({ configs: [{ ...emptyConfig(0), roles: { "*": "m" }, decisions: { policy: "rules" } }] });
     expect(validate(none, MANIFESTS, true).some((e) => e.includes("supports a control policy"))).toBe(true);
-    expect(validate(withPolicy("jev"), MANIFESTS, true, "no CORS").some((e) => e.includes("Jev is unavailable"))).toBe(true);
-    expect(validate(withPolicy("llm"), MANIFESTS, true, "no CORS")).toEqual([]);
+    const status = { jev: "no key", ollaya: "available" };
+    expect(validate(withPolicy("jev"), MANIFESTS, true, status).some((e) => e.includes("Jev is unavailable"))).toBe(true);
+    expect(validate(withPolicy("ollaya"), MANIFESTS, true, status)).toEqual([]);
+    expect(validate(withPolicy("llm"), MANIFESTS, true, { jev: "no key", ollaya: "down" })).toEqual([]);
   });
 });

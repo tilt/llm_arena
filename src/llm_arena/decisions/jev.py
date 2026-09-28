@@ -1,9 +1,10 @@
-"""TypeSafe's Jev ("System One" model) as a DecisionPolicy.
+""" "System One" decision services as a DecisionPolicy: TypeSafe's hosted Jev, or a local Ollaya server.
 
-API: POST https://api.typesafe.ai/v1/systemone {model, state, questions} -> {answers, usage}. Jev
+API (both): POST <base>/v1/systemone {model, state, questions} -> {answers, usage}. The service
 returns only values from the question schema, with probabilities; noul answers have no confidence
-field (we derive it). Pricing is per input token. Pure module over an injected ChatTransport
-(httpx on the server). TypeSafe does not serve CORS, so browser mode cannot call it.
+field (we derive it). Jev is priced per input token; Ollaya runs local models (e.g. winnow:e4b) for
+free and needs no key. Pure module over an injected ChatTransport (httpx on the server). TypeSafe
+does not serve CORS, so browser mode cannot call it.
 """
 
 from __future__ import annotations
@@ -18,24 +19,29 @@ from llm_arena.decisions.types import Answer, DecisionRequest, DecisionResult, n
 from llm_arena.llm.errors import ProviderError
 from llm_arena.llm.transport import ChatTransport, TransportError
 
-JEV_URL = os.getenv("ARENA_TYPESAFE_BASE_URL", "https://api.typesafe.ai") + "/v1/systemone"
+JEV_BASE_URL = os.getenv("ARENA_TYPESAFE_BASE_URL", "https://api.typesafe.ai")
+OLLAYA_BASE_URL = os.getenv("ARENA_OLLAYA_BASE_URL", "http://localhost:11435")
 JEV_INPUT_USD_PER_MTOK = 0.042
 _TRANSIENT = {429, 529, 500, 502, 503}
 
 
 class JevDecisionPolicy:
-    def __init__(self, transport: ChatTransport, api_key: str, *, model: str = "jev-latest", max_retries: int = 3,
-                 timeout_s: float = 30.0, backoff_s: float = 1.0) -> None:  # fmt: skip
+    def __init__(self, transport: ChatTransport, api_key: str | None, *, model: str = "jev-latest",
+                 base_url: str = JEV_BASE_URL, service: str = "jev", usd_per_mtok: float = JEV_INPUT_USD_PER_MTOK,
+                 max_retries: int = 3, timeout_s: float = 30.0, backoff_s: float = 1.0) -> None:  # fmt: skip
         self._transport = transport
         self._api_key = api_key
         self.model = model
+        self.url = base_url.rstrip("/") + "/v1/systemone"
+        self.service = service
+        self._usd_per_mtok = usd_per_mtok
         self._max_retries = max_retries
         self._timeout_s = timeout_s
         self._backoff_s = backoff_s
 
     @property
     def name(self) -> str:
-        return f"jev:{self.model}"
+        return f"{self.service}:{self.model}"
 
     async def decide(self, request: DecisionRequest) -> DecisionResult:
         body = {
@@ -43,7 +49,9 @@ class JevDecisionPolicy:
             "state": request.state,
             "questions": {name: q.model_dump(exclude_none=True) for name, q in request.questions.items()},
         }
-        headers = {"Authorization": f"Bearer {self._api_key}", "Content-Type": "application/json"}
+        headers = {"Content-Type": "application/json"}
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
         started = time.perf_counter()
         data = await self._post(body, headers)
         answers = {
@@ -51,7 +59,7 @@ class JevDecisionPolicy:
         }
         usage = data.get("usage") or {}
         tokens = int(usage.get("input_tokens") or 0)
-        cost = float(usage["cost"]) if "cost" in usage else tokens * JEV_INPUT_USD_PER_MTOK / 1_000_000
+        cost = float(usage["cost"]) if "cost" in usage else tokens * self._usd_per_mtok / 1_000_000
         return DecisionResult(answers=answers, cost_usd=cost, tokens=tokens, latency_s=time.perf_counter() - started)
 
     async def _post(self, body: dict[str, Any], headers: dict[str, str]) -> dict[str, Any]:
@@ -60,7 +68,7 @@ class JevDecisionPolicy:
             if attempt:
                 await asyncio.sleep(self._backoff_s * 2 ** (attempt - 1))
             try:
-                response = await self._transport.post_json(JEV_URL, headers, body, self._timeout_s)
+                response = await self._transport.post_json(self.url, headers, body, self._timeout_s)
             except TransportError as exc:
                 last = f"connection error: {exc}"
                 continue

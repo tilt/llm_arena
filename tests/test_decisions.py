@@ -146,3 +146,14 @@ async def test_jev_spend_is_charged_and_counted_in_trace_totals() -> None:
     await policy.decide(REQUEST)
     assert budget.spent_usd == pytest.approx(1000 * 0.042e-6)
     assert trace.totals()["cost_usd"] == pytest.approx(budget.spent_usd)
+
+
+async def test_ollaya_uses_the_same_api_locally_without_key_or_cost() -> None:
+    transport = FakeTransport([JEV_OK])
+    policy = JevDecisionPolicy(transport, None, model="winnow:e4b", base_url="http://localhost:11435",
+                               service="ollaya", usd_per_mtok=0.0)  # fmt: skip
+    result = await policy.decide(REQUEST)
+    sent = transport.requests[0]
+    assert sent["url"] == "http://localhost:11435/v1/systemone" and "Authorization" not in sent["headers"]
+    assert sent["body"]["model"] == "winnow:e4b" and policy.name == "ollaya:winnow:e4b"
+    assert result.cost_usd == 0.0 and result.answers["next_action"].choice == "finish"

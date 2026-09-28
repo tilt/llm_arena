@@ -47,7 +47,8 @@
             {
               "enum": [
                 "llm",
-                "jev"
+                "jev",
+                "ollaya"
               ],
               "type": "string"
             },
@@ -70,13 +71,20 @@
           "title": "Jev Model",
           "type": "string"
         },
+        "ollaya_model": {
+          "default": "winnow:e4b",
+          "description": "decision model served by the local Ollaya app",
+          "title": "Ollaya Model",
+          "type": "string"
+        },
         "policy": {
           "default": "llm",
           "enum": [
             "llm",
             "rules",
             "cascade",
-            "jev"
+            "jev",
+            "ollaya"
           ],
           "title": "Policy",
           "type": "string"
@@ -86,7 +94,8 @@
           "description": "cascade: first stage",
           "enum": [
             "llm",
-            "jev"
+            "jev",
+            "ollaya"
           ],
           "title": "Primary",
           "type": "string"

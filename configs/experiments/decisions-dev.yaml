@@ -16,3 +16,9 @@ configs:
   - name: llm-controls
     roles: {"*": qwen3-14b-fast, decider: qwen3-4b-fast}
     decisions: {policy: llm, control: policy}
+  - name: winnow-gate                 # local decision model via Ollaya (ollaya serve; ollaya pull winnow:e4b)
+    roles: {"*": qwen3-14b-fast}
+    decisions: {policy: ollaya, control: gate, ollaya_model: "winnow:e4b"}
+  - name: winnow-controls
+    roles: {"*": qwen3-14b-fast}
+    decisions: {policy: ollaya, control: policy, ollaya_model: "winnow:e4b"}

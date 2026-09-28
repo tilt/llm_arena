@@ -3,7 +3,8 @@
   import { app } from "../lib/app.svelte";
   import {
     CONTROLS, DEFAULT_ROLE, EVALUATION_PAGES, POLICIES, controllableScenarios, defaultRoleNeeds, eligibleModels, emptyConfig,
-    roleSlots, toExperiment, toYaml, usesJev, validate, type BuilderState, type ConfigDraft,
+    roleSlots, SERVICE_LABELS, servicesUsed, toExperiment, toYaml, validate, type BuilderState, type ConfigDraft,
+    type Service,
   } from "../lib/builder";
   import type { Estimate, ParamManifest } from "../lib/contracts";
   import { usd } from "../lib/format";
@@ -22,14 +23,19 @@
   const slots = $derived(roleSlots(app.scenarios, draft.scenarios));
   const selected = $derived(app.scenarios.filter((s) => draft.scenarios.includes(s.id)));
   const openEnded = $derived(selected.some((s) => s.open_ended));
-  const jevStatus = $derived(app.runtime?.jev ?? "available");
-  const errors = $derived(validate(draft, app.scenarios, sandbox, jevStatus));
+  const services = $derived(app.runtime?.decision_services ?? {});
+  const serviceStatus = $derived(Object.fromEntries(Object.entries(services).map(([k, v]) => [k, v?.status ?? ""])) as Record<Service, string>);
+  const available = (service: string) => services[service]?.status === "available";
+  const errors = $derived(validate(draft, app.scenarios, sandbox, serviceStatus));
   const controllable = $derived(controllableScenarios(draft, app.scenarios));
   const hasSplits = $derived(controllable.length > 0);
   const experiment = () => toExperiment(draft, app.scenarios);
 
+  const SERVICES_SHOWN: Service[] = ["jev", "ollaya"];
+
   function setPolicy(config: ConfigDraft, value: string) {
-    config.decisions = value ? { ...(config.decisions ?? { control: "policy", threshold: 0.8 }), policy: value as never } : null;
+    const base = config.decisions ?? { control: "policy", threshold: 0.8, ollaya_model: services.ollaya?.models?.[0] ?? "winnow:e4b" };
+    config.decisions = value ? { ...base, policy: value as never } : null;
   }
 
   function toggleScenario(id: string) {
@@ -139,7 +145,7 @@
         <label class="param">policy
           <select value={config.decisions?.policy ?? ""} onchange={(e) => setPolicy(config, e.currentTarget.value)}>
             <option value="">none (the agent decides)</option>
-            {#each POLICIES as p (p.value)}<option value={p.value} disabled={p.value === "jev" && jevStatus !== "available"}>{p.label}</option>{/each}
+            {#each POLICIES as p (p.value)}<option value={p.value} disabled={(p.value === "jev" || p.value === "ollaya") && !available(p.value)}>{p.label}</option>{/each}
           </select>
         </label>
         {#if config.decisions}
@@ -150,16 +156,23 @@
           </label>
           {#if config.decisions.policy === "cascade"}
             <label class="param">primary
-              <select bind:value={config.decisions.primary}><option value="llm">LLM (decider)</option><option value="jev" disabled={jevStatus !== "available"}>Jev</option></select>
+              <select bind:value={config.decisions.primary}><option value="llm">LLM (decider)</option><option value="jev" disabled={!available("jev")}>Jev</option><option value="ollaya" disabled={!available("ollaya")}>Ollaya</option></select>
             </label>
             <label class="param">fallback
-              <select bind:value={config.decisions.fallback}><option value="llm">LLM (escalation)</option><option value="jev" disabled={jevStatus !== "available"}>Jev</option><option value={null}>none</option></select>
+              <select bind:value={config.decisions.fallback}><option value="llm">LLM (escalation)</option><option value="jev" disabled={!available("jev")}>Jev</option><option value="ollaya" disabled={!available("ollaya")}>Ollaya</option><option value={null}>none</option></select>
             </label>
             <label class="param">escalate below<input type="number" min="0" max="1" step="0.05" bind:value={config.decisions.threshold} /></label>
           {/if}
-          {#if usesJev(config.decisions) || jevStatus !== "available"}
-            <span class="muted jev">Jev: {jevStatus}</span>
+          {#if servicesUsed(config.decisions).includes("ollaya")}
+            <label class="param">Ollaya model
+              <select bind:value={config.decisions.ollaya_model}>
+                {#each services.ollaya?.models ?? ["winnow:e4b"] as m (m)}<option value={m}>{m}</option>{/each}
+              </select>
+            </label>
           {/if}
+          {#each SERVICES_SHOWN.filter((s) => !available(s)) as s (s)}
+            <span class="muted jev">{SERVICE_LABELS[s]}: {services[s]?.status ?? "unknown"}</span>
+          {/each}
         {/if}
       </div>
     {/if}

@@ -1,6 +1,7 @@
 # Control policies: who makes the agent's control decisions (next action, task complete, needs approval)?
 # Same agent model everywhere; only the decision maker changes. Tune thresholds with `split: dev`,
-# then report with `split: test`. Jev configs need TYPESAFE_API_KEY and the local app or CLI.
+# then report with `split: test`. Jev needs TYPESAFE_API_KEY, Ollaya a running `ollaya serve`; both need the local
+# app or CLI. Jev and Ollaya (winnow) share one API, so they are interchangeable here.
 name: decisions
 scenarios: [support_desk, email_assistant]
 split: dev
@@ -23,6 +24,12 @@ configs:
   - name: cascade-controls            # rules first, small LLM next, big LLM for uncertain answers
     roles: {"*": ollama:qwen3:14b, decider: ollama:qwen3:4b, escalation: ollama:qwen3:14b}
     decisions: {policy: cascade, control: policy, primary: llm, fallback: llm, threshold: 0.8}
+  - name: winnow-controls             # local decision model via Ollaya (ollaya serve; ollaya pull winnow:e4b)
+    roles: {"*": ollama:qwen3:14b}
+    decisions: {policy: ollaya, control: policy, ollaya_model: "winnow:e4b"}
+  - name: rules+winnow→llm            # rules first, winnow next, a big LLM only for uncertain answers
+    roles: {"*": ollama:qwen3:14b, escalation: ollama:qwen3:14b}
+    decisions: {policy: cascade, control: policy, primary: ollaya, fallback: llm, threshold: 0.8}
   # - name: jev-controls              # needs TYPESAFE_API_KEY (early access)
   #   roles: {"*": ollama:qwen3:14b}
   #   decisions: {policy: jev, control: policy}

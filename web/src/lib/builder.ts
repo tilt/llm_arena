@@ -33,7 +33,8 @@ export const POLICIES: { value: NonNullable<DecisionConfig["policy"]>; label: st
   { value: "llm", label: "LLM (structured output)" },
   { value: "rules", label: "Rules" },
   { value: "cascade", label: "Cascade (rules → primary → fallback)" },
-  { value: "jev", label: "Jev (TypeSafe)" },
+  { value: "jev", label: "Jev (TypeSafe, hosted)" },
+  { value: "ollaya", label: "Ollaya (local decision model, e.g. winnow)" },
 ];
 
 export const CONTROLS: { value: NonNullable<DecisionConfig["control"]>; label: string }[] = [
@@ -42,9 +43,15 @@ export const CONTROLS: { value: NonNullable<DecisionConfig["control"]>; label: s
   { value: "review", label: "agent loop; policy reviews the trace" },
 ];
 
-export function usesJev(decisions: DecisionConfig | null): boolean {
-  if (!decisions) return false;
-  return decisions.policy === "jev" || (decisions.policy === "cascade" && (decisions.primary === "jev" || decisions.fallback === "jev"));
+export const SERVICES = ["jev", "ollaya"] as const;
+export type Service = (typeof SERVICES)[number];
+export const SERVICE_LABELS: Record<Service, string> = { jev: "Jev", ollaya: "Ollaya" };
+
+/** Decision services (Jev, Ollaya) a control-policy config calls. */
+export function servicesUsed(decisions: DecisionConfig | null): Service[] {
+  if (!decisions) return [];
+  const stages = decisions.policy === "cascade" ? [decisions.primary ?? "llm", decisions.fallback] : [decisions.policy];
+  return SERVICES.filter((s) => stages.includes(s));
 }
 
 export interface BuilderState {
@@ -90,7 +97,8 @@ export function defaultRoleNeeds(slots: RoleSlot[], config: ConfigDraft): string
 }
 
 export function validate(
-  state: BuilderState, manifests: ScenarioManifest[], runtimeHasSandbox: boolean, jevStatus = "available",
+  state: BuilderState, manifests: ScenarioManifest[], runtimeHasSandbox: boolean,
+  serviceStatus: Partial<Record<Service, string>> = {},
 ): string[] {
   const errors: string[] = [];
   if (!state.name.trim()) errors.push("Give the experiment a name.");
@@ -114,7 +122,10 @@ export function validate(
   const controllable = controllableScenarios(state, manifests);
   for (const config of state.configs.filter((c) => c.decisions)) {
     if (!controllable.length) errors.push(`${config.name}: none of the selected scenarios supports a control policy.`);
-    if (usesJev(config.decisions) && jevStatus !== "available") errors.push(`${config.name}: Jev is unavailable (${jevStatus}).`);
+    for (const service of servicesUsed(config.decisions)) {
+      const status = serviceStatus[service] ?? "available";
+      if (status !== "available") errors.push(`${config.name}: ${SERVICE_LABELS[service]} is unavailable (${status}).`);
+    }
   }
   return errors;
 }

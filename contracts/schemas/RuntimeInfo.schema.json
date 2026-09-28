@@ -1,10 +1,35 @@
 {
+  "$defs": {
+    "DecisionServiceInfo": {
+      "properties": {
+        "models": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Models",
+          "type": "array"
+        },
+        "status": {
+          "description": "'available' or why not",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "DecisionServiceInfo",
+      "type": "object"
+    }
+  },
   "properties": {
-    "jev": {
-      "default": "available",
-      "description": "TypeSafe's Jev decision model: 'available' or why not",
-      "title": "Jev",
-      "type": "string"
+    "decision_services": {
+      "additionalProperties": {
+        "$ref": "#/$defs/DecisionServiceInfo"
+      },
+      "description": "'jev' / 'ollaya' -> availability and models (System One decision models)",
+      "title": "Decision Services",
+      "type": "object"
     },
     "live_search": {
       "title": "Live Search",
