@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
 import type { CatalogItem } from "./backend";
-import { defaultRoleNeeds, eligibleModels, emptyConfig, roleSlots, toExperiment, toYaml, validate, type BuilderState } from "./builder";
+import { defaultRoleNeeds, eligibleModels, emptyConfig, roleSlots, studyConfigs, toExperiment, toYaml, validate, type BuilderState } from "./builder";
 import type { ScenarioManifest } from "./contracts";
 
 const manifest = (id: string, roles: ScenarioManifest["roles"], requires: ScenarioManifest["requires"] = []): ScenarioManifest => ({
@@ -69,7 +69,7 @@ describe("control policies", () => {
 
   it("restricts a policy config to the scenarios that support one", () => {
     const experiment = toExperiment(withPolicy("llm"), MANIFESTS);
-    expect(experiment.configs[0]).toEqual({ name: "p", roles: { "*": "m" }, decisions: { policy: "llm", control: "gate" }, scenarios: ["support_desk"] });
+    expect(experiment.configs?.[0]).toEqual({ name: "p", roles: { "*": "m" }, decisions: { policy: "llm", control: "gate" }, scenarios: ["support_desk"] });
     expect(experiment.split).toBe("test");
   });
 
@@ -80,5 +80,28 @@ describe("control policies", () => {
     expect(validate(withPolicy("jev"), MANIFESTS, true, status).some((e) => e.includes("Jev is unavailable"))).toBe(true);
     expect(validate(withPolicy("ollaya"), MANIFESTS, true, status)).toEqual([]);
     expect(validate(withPolicy("llm"), MANIFESTS, true, { jev: "no key", ollaya: "down" })).toEqual([]);
+  });
+});
+
+describe("replacement studies", () => {
+  const sql = manifest("reflection_sql", [{ name: "generator", description: "", kind: "code" }, { name: "critic", description: "", fallback: "generator", kind: "text" }]);
+  const chart = manifest("chart_codegen", [{ name: "generator", description: "", kind: "code" }, { name: "critic", description: "", needs: ["vision"], kind: "vision" }]);
+  const profile = { label: "Weak", models: { text: "weak", code: "weak", vision: "vlm" } };
+
+  it("previews the baseline plus one config per role and candidate, like the engine", () => {
+    const study = { baseline: "weak", candidates: ["strong", "weak"], roles: [], decisionControl: "gate" as const };
+    const noVision = (_: string, needs: string[]) => !needs.includes("vision");
+    expect(studyConfigs(study, [sql, chart], profile, noVision)).toEqual([
+      { name: "baseline", scenarios: ["reflection_sql", "chart_codegen"] },
+      { name: "critic→strong", scenarios: ["reflection_sql"] },
+      { name: "generator→strong", scenarios: ["chart_codegen", "reflection_sql"] },
+    ]);
+  });
+
+  it("exports a study experiment", () => {
+    const experiment = toExperiment(state({ scenarios: ["reflection_sql"], study: { baseline: "weak", candidates: ["strong"], roles: ["critic"], decisionControl: "gate" } }), [sql], { weak: profile });
+    expect(experiment.study).toEqual({ baseline: "weak", candidates: ["strong"], roles: ["critic"], decision_control: "gate" });
+    expect(experiment.configs).toBeUndefined();
+    expect(experiment.baselines).toEqual({ weak: profile });
   });
 });

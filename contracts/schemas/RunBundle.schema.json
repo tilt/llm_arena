@@ -34,6 +34,14 @@
           "description": "scope ('overall' or scenario) -> config -> rating",
           "title": "Ratings",
           "type": "object"
+        },
+        "replacements": {
+          "description": "replacement studies: each swapped step against the baseline",
+          "items": {
+            "$ref": "#/$defs/ReplacementEffect"
+          },
+          "title": "Replacements",
+          "type": "array"
         }
       },
       "required": [
@@ -410,6 +418,77 @@
         "tasks"
       ],
       "title": "PairedTest",
+      "type": "object"
+    },
+    "ReplacementEffect": {
+      "description": "One swapped step against the baseline, on the tasks both ran (replacement studies).",
+      "properties": {
+        "baseline_rate": {
+          "title": "Baseline Rate",
+          "type": "number"
+        },
+        "candidate": {
+          "title": "Candidate",
+          "type": "string"
+        },
+        "config": {
+          "title": "Config",
+          "type": "string"
+        },
+        "delta": {
+          "title": "Delta",
+          "type": "number"
+        },
+        "delta_cost_usd": {
+          "title": "Delta Cost Usd",
+          "type": "number"
+        },
+        "delta_latency_s": {
+          "title": "Delta Latency S",
+          "type": "number"
+        },
+        "p_value": {
+          "title": "P Value",
+          "type": "number"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "scenario": {
+          "title": "Scenario",
+          "type": "string"
+        },
+        "step_deltas": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Step Deltas",
+          "type": "object"
+        },
+        "tasks": {
+          "title": "Tasks",
+          "type": "integer"
+        },
+        "variant_rate": {
+          "title": "Variant Rate",
+          "type": "number"
+        }
+      },
+      "required": [
+        "scenario",
+        "role",
+        "candidate",
+        "config",
+        "tasks",
+        "baseline_rate",
+        "variant_rate",
+        "delta",
+        "p_value",
+        "delta_cost_usd",
+        "delta_latency_s"
+      ],
+      "title": "ReplacementEffect",
       "type": "object"
     }
   },

@@ -163,6 +163,7 @@ def summary_as_json(summary: RunSummary) -> str:
             "paired_tests": [asdict(t) for t in summary.paired_tests],
             "ratings": summary.ratings,
             "decisions": [d.model_dump() for d in summary.decisions],
+            "replacements": [asdict(e) for e in summary.replacements],
         },
         default=_json_default,
         indent=2,

@@ -71,6 +71,48 @@ export interface BuilderState {
   maxCostUsd: number | null;
   /** task split for scenarios that define one (dev for tuning thresholds, test for reporting) */
   split: "all" | "dev" | "test";
+  /** replacement study instead of hand-built configurations */
+  study?: StudyDraft | null;
+}
+
+export interface StudyDraft {
+  baseline: string;
+  /** model references, or "ollaya:<model>" / "jev:<model>" decision models */
+  candidates: string[];
+  /** roles to swap; empty = every non-decision role of the selected scenarios */
+  roles: string[];
+  decisionControl: "gate" | "policy" | "review";
+}
+
+const SERVICE_PREFIXES = ["ollaya:", "jev:"];
+const shortRef = (ref: string) => {
+  const [base = "", settings = ""] = ref.split("#", 2);
+  const name = base.includes(":") ? base.slice(base.indexOf(":") + 1) : base;
+  const notes = settings.split(",").filter(Boolean).map((s) => (s === "reasoning=none" ? "no thinking" : s.replace("reasoning=", "reasoning ")));
+  return notes.length ? `${name} (${notes.join(", ")})` : name;
+};
+
+/** The configurations a study will run (mirrors runner/study.py expand), for the preview and the estimate. */
+export function studyConfigs(
+  study: StudyDraft, manifests: ScenarioManifest[], profile: BaselineProfile | undefined,
+  canDo: (candidate: string, needs: string[]) => boolean = () => true,
+): { name: string; scenarios: string[] }[] {
+  const out = [{ name: "baseline", scenarios: manifests.map((m) => m.id) }];
+  const roles = study.roles.length ? study.roles
+    : [...new Set(manifests.flatMap((m) => m.roles.filter((r) => r.kind !== "decision").map((r) => r.name)))].sort();
+  for (const candidate of study.candidates.filter(Boolean)) {
+    if (SERVICE_PREFIXES.some((p) => candidate.startsWith(p))) {
+      const controlled = manifests.filter((m) => m.supports_decisions).map((m) => m.id);
+      if (controlled.length) out.push({ name: `decisions→${candidate.split(":").slice(1).join(":")}`, scenarios: controlled });
+      continue;
+    }
+    for (const role of roles) {
+      const scenarios = manifests.filter((m) => m.roles.some((r) =>
+        r.name === role && modelFor(profile, r.kind ?? "text") !== candidate && canDo(candidate, r.needs ?? []))).map((m) => m.id);
+      if (scenarios.length) out.push({ name: `${role}→${shortRef(candidate)}`, scenarios: scenarios.sort() });
+    }
+  }
+  return out;
 }
 
 export function emptyConfig(index: number): ConfigDraft {
@@ -173,6 +215,7 @@ export function controllableScenarios(state: BuilderState, manifests: ScenarioMa
 export function toExperiment(
   state: BuilderState, manifests: ScenarioManifest[] = [], profiles: Record<string, BaselineProfile> = {},
 ): ExperimentConfig {
+  if (state.study) return studyExperiment(state, state.study, profiles);
   const controllable = controllableScenarios(state, manifests);
   const experiment: ExperimentConfig = {
     name: state.name.trim(),
@@ -209,6 +252,34 @@ export function toExperiment(
   const used = [...new Set(state.configs.map((c) => c.baseline).filter((b): b is string => !!b && !!profiles[b]))];
   if (used.length) experiment.baselines = Object.fromEntries(used.map((b) => [b, profiles[b]!]));
   return experiment;
+}
+
+function studyExperiment(state: BuilderState, study: StudyDraft, profiles: Record<string, BaselineProfile>): ExperimentConfig {
+  const experiment: ExperimentConfig = {
+    name: state.name.trim(),
+    scenarios: [...state.scenarios],
+    repeats: state.repeats,
+    study: {
+      baseline: study.baseline,
+      candidates: study.candidates.filter(Boolean) as [string, ...string[]], // validateStudy requires one
+      ...(study.roles.length ? { roles: [...study.roles] } : {}),
+      decision_control: study.decisionControl,
+    },
+  };
+  if (state.limit) experiment.limit = state.limit;
+  if (state.maxCostUsd) experiment.max_cost_usd = state.maxCostUsd;
+  if (state.split !== "all") experiment.split = state.split;
+  if (profiles[study.baseline]) experiment.baselines = { [study.baseline]: profiles[study.baseline]! };
+  return experiment;
+}
+
+export function validateStudy(state: BuilderState, study: StudyDraft): string[] {
+  const errors: string[] = [];
+  if (!state.name.trim()) errors.push("Give the study a name.");
+  if (!state.scenarios.length) errors.push("Select at least one scenario.");
+  if (!study.baseline) errors.push("Choose the baseline profile.");
+  if (!study.candidates.some(Boolean)) errors.push("Add at least one candidate model.");
+  return errors;
 }
 
 export function toYaml(experiment: ExperimentConfig): string {

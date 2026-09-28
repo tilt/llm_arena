@@ -4,6 +4,7 @@
   import { bars, passRateMatrix, ratings, sections, stepMatrix, trials } from "../lib/report";
   import BarsCI from "./BarsCI.svelte";
   import DecisionQuality from "./DecisionQuality.svelte";
+  import ReplacementEffects from "./ReplacementEffects.svelte";
   import Heatmap from "./Heatmap.svelte";
 
   let { bundle, manifests = [], runId = "" }: { bundle: RunBundle; manifests?: ScenarioManifest[]; runId?: string } = $props();
@@ -15,6 +16,7 @@
   const overview = $derived(passRateMatrix(bundle));
   const rated = $derived(ratings(bundle));
   const rows = $derived(trials(bundle));
+  const replacementsFor = (scenario: string) => (bundle.summary.replacements ?? []).filter((r) => r.scenario === scenario);
   const decisionsFor = (scenario: string) => (bundle.summary.decisions ?? []).filter((d) => d.scenario === scenario);
   const wikiFor = (id: string) => manifests.find((m) => m.id === id)?.wiki ?? [];
 
@@ -107,6 +109,11 @@
         </tbody>
       </table>
     </div>
+  {/if}
+
+  {#if replacementsFor(section.scenario).length}
+    <h3>Effect of replacing a step</h3>
+    <ReplacementEffects effects={replacementsFor(section.scenario)} />
   {/if}
 
   {#if decisionsFor(section.scenario).length}

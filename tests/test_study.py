@@ -1,0 +1,87 @@
+"""Replacement studies: a baseline plus one swapped step per configuration, reported against the baseline."""
+
+from __future__ import annotations
+
+from llm_arena.llm.client import LLMClient
+from llm_arena.llm.spec import ModelSpec
+from llm_arena.llm.testing import ScriptedLLM
+from llm_arena.report.aggregate import summarize
+from llm_arena.runner.baselines import BaselineProfile
+from llm_arena.runner.config import ExperimentConfig
+from llm_arena.runner.memory_store import MemoryStore
+from llm_arena.runner.ports import Runtime
+from llm_arena.runner.run import ExperimentRunner
+from llm_arena.runner.study import StudyConfig, expand, short
+from llm_arena.scenarios.base import get_scenario
+
+WEAK = BaselineProfile(label="Weak", models={"text": "weak", "code": "weak", "agent": "weak", "decision": "weak"})
+GOOD_SQL = (
+    "```sql\nSELECT COUNT(*) FROM rentals r JOIN stations s ON s.station_id = r.start_station_id "
+    "WHERE s.city = 'Harborview' AND r.started_at >= '2026-03-01' AND r.started_at < '2026-04-01'\n```"
+)
+SPECS = {name: ModelSpec(name=name, provider="openai_compatible", model=name) for name in ("weak", "strong")}
+
+
+def test_expansion_names_roles_and_skips_what_the_baseline_already_uses() -> None:
+    scenarios = [get_scenario("reflection_sql"), get_scenario("reflection_writing"), get_scenario("support_desk")]
+    study = StudyConfig(baseline="weak", candidates=["strong", "weak", "ollaya:winnow:e4b"])
+    configs = expand(study, scenarios, WEAK)
+    names = [c["name"] for c in configs]
+    assert names[0] == "baseline"
+    # critic exists in both reflection scenarios: one config swaps it in both; "weak" is the baseline itself.
+    critic = next(c for c in configs if c["name"] == "critic→strong")
+    assert critic["scenario_roles"] == {
+        "reflection_sql": {"critic": "strong"},
+        "reflection_writing": {"critic": "strong"},
+    }
+    assert not any(n.endswith("→weak") for n in names)
+    assert "decider→strong" not in names  # decision roles only when asked for
+    service = next(c for c in configs if c["name"] == "decisions→winnow:e4b")
+    assert service["scenarios"] == ["support_desk"] and service["decisions"]["policy"] == "ollaya"
+    assert short("ollama:qwen3:4b#reasoning=none") == "qwen3:4b (no thinking)"
+
+
+def factory(spec: ModelSpec) -> LLMClient:
+    if spec.name == "strong":  # a critic that catches the wrong query; the generator then fixes it
+        return ScriptedLLM(['{"verdict": "revise", "issues": ["filter by city"]}'], name="strong")
+
+    def weak(messages: list[dict[str, object]]) -> str:
+        text = str(messages)
+        if "verdict" in text:
+            return '{"verdict": "accept", "issues": []}'
+        return GOOD_SQL if "Reviewer feedback" in text else "```sql\nSELECT 1\n```"
+
+    return ScriptedLLM([weak], name="weak")
+
+
+async def test_study_runs_and_reports_the_effect_of_each_swap() -> None:
+    experiment = ExperimentConfig.model_validate({
+        "name": "study", "scenarios": ["reflection_sql"], "task_ids": ["harborview_march_rentals"],
+        "baselines": {"weak": WEAK.model_dump()},
+        "study": {"baseline": "weak", "candidates": ["strong"], "roles": ["critic"]},
+    })  # fmt: skip
+    store = MemoryStore()
+    runner = ExperimentRunner(experiment, Runtime(client_factory=factory), store=store, model_specs=SPECS)
+    runner.plan()
+    assert [c.name for c in runner.experiment.configs] == ["baseline", "critic→strong"]
+    await runner.run()
+    (effect,) = summarize(store.load_run()).replacements
+    assert (effect.role, effect.candidate, effect.tasks) == ("critic", "strong", 1)
+    assert effect.baseline_rate == 0.0 and effect.variant_rate == 1.0 and effect.delta == 1.0
+
+
+def test_candidates_only_replace_steps_they_can_do() -> None:
+    experiment = ExperimentConfig.model_validate({
+        "name": "vision", "scenarios": ["chart_codegen"], "limit": 1, "baselines": {"weak": WEAK.model_dump()},
+        "study": {"baseline": "weak", "candidates": ["strong"]},
+    })  # fmt: skip
+    specs = {
+        **SPECS,
+        "weak": SPECS["weak"].model_copy(
+            update={"capabilities": SPECS["weak"].capabilities.model_copy(update={"vision": True})}
+        ),
+    }
+    runner = ExperimentRunner(experiment, Runtime(client_factory=factory), model_specs=specs)
+    runner.plan()
+    # "strong" has no vision: it may replace the code generator but not the vision critic.
+    assert [c.name for c in runner.experiment.configs] == ["baseline", "generator→strong"]

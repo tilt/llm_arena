@@ -45,7 +45,8 @@ from llm_arena.runner.events import (
 )
 from llm_arena.runner.fingerprint import fingerprint, setup_of, task_fingerprint
 from llm_arena.runner.ports import RunStore, Runtime, TrialRecord
-from llm_arena.scenarios.base import RunContext, Scenario, get_scenario
+from llm_arena.runner.study import expand as expand_study
+from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario, get_scenario
 
 WILDCARD_ROLE = "*"  # binds every role of a scenario that the config does not bind explicitly
 
@@ -109,6 +110,10 @@ class ExperimentRunner:
         """References that are not curated aliases, i.e. need discovery to get real capabilities."""
         refs = {ref for config in self.experiment.configs for ref in config.roles.values()}
         refs |= {ref for c in self.experiment.configs if c.baseline for ref in self._profile(c).models.values()}
+        if study := self.experiment.study:
+            services = tuple(f"{s}:" for s in ("ollaya", "jev"))
+            refs |= {c for c in study.candidates if not c.startswith(services)}
+            refs |= set(self.baselines[study.baseline].models.values()) if study.baseline in self.baselines else set()
         refs |= {ref for c in self.experiment.configs for roles in c.scenario_roles.values() for ref in roles.values()}
         refs |= {ref for ref in (self.experiment.judge, self.experiment.arena.judge) if ref}
         return {ref for ref in refs if ref not in self.model_specs}
@@ -120,6 +125,7 @@ class ExperimentRunner:
 
     # ---- planning -------------------------------------------------------------------------
     def plan(self) -> list[TrialSpec]:
+        self._expand_study()
         trials: list[TrialSpec] = []
         for scenario_name in self.experiment.scenarios:
             scenario = get_scenario(scenario_name)
@@ -168,6 +174,24 @@ class ExperimentRunner:
                 if requirement.name not in bindings and requirement.fallback is None:
                     bindings[requirement.name] = self._spec(roles[WILDCARD_ROLE])
         return bindings
+
+    def _expand_study(self) -> None:
+        """Expand a study into configurations (after any explicit ones), once, when model capabilities are known:
+        a candidate replaces only steps it can do. The run records the expanded experiment."""
+        study = self.experiment.study
+        if study is None or any(c.study for c in self.experiment.configs):
+            return
+        if study.baseline not in self.baselines:
+            raise ConfigError(f"study: unknown baseline {study.baseline!r}; known: {sorted(self.baselines)}")
+
+        def can_do(candidate: str, role: RoleRequirement) -> bool:
+            capabilities = self._spec(candidate).capabilities
+            return all(getattr(capabilities, need) for need in role.needs)
+
+        scenarios = [get_scenario(name) for name in self.experiment.scenarios]
+        generated = expand_study(study, scenarios, self.baselines[study.baseline], can_do)
+        configs = [*self.experiment.configs, *(PipelineConfig.model_validate(c) for c in generated)]
+        self.experiment = self.experiment.model_copy(update={"configs": configs})
 
     def _profile(self, config: PipelineConfig) -> BaselineProfile:
         if config.baseline not in self.baselines:

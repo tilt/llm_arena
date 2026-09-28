@@ -35,7 +35,7 @@ describe("baselines in the builder", () => {
   it("accepts a baseline instead of a model per role and ships the profile with the experiment", () => {
     expect(validate(state, [manifest], true)).toEqual([]);
     const experiment = toExperiment(state, [manifest], { "local-small": PROFILE });
-    expect(experiment.configs[0]).toMatchObject({ baseline: "local-small", scenario_roles: { chart: { critic: "openai:gpt-5-mini" } } });
+    expect(experiment.configs?.[0]).toMatchObject({ baseline: "local-small", scenario_roles: { chart: { critic: "openai:gpt-5-mini" } } });
     expect(experiment.baselines).toEqual({ "local-small": PROFILE });
   });
 });

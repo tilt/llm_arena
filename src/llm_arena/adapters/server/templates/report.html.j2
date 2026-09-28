@@ -119,6 +119,25 @@ pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2
   </table>
 </div>
 
+{% if s.replacements %}
+<h2 id="replacements">Effect of replacing a step</h2>
+<p class="lead">Each row swaps one step's model and keeps everything else at the baseline. Δ is the change in pass
+  rate on the tasks both ran; p is a paired permutation test. With few tasks, only large differences are significant.</p>
+{% for sc in s.replacements | map(attribute="scenario") | unique %}
+<h3>{{ sc }}</h3>
+<div class="card table-wrap"><table>
+  <thead><tr><th>Step (role)</th><th>Replaced by</th><th class="n">Baseline</th><th class="n">With swap</th><th class="n">Δ pass rate</th>
+    <th class="n">p</th><th class="n">Tasks</th><th class="n">Δ $/trial</th><th class="n">Δ p50 s</th></tr></thead>
+  <tbody>{% for e in s.replacements | selectattr("scenario", "equalto", sc) %}<tr>
+    <td>{{ e.role }}</td><td>{{ e.candidate }}</td><td class="n">{{ e.baseline_rate | pct }}</td><td class="n">{{ e.variant_rate | pct }}</td>
+    <td class="n">{% if e.p_value < 0.05 %}<strong class="{{ 'pass' if e.delta > 0 else 'fail' }}">{{ '%+.0f' % (100 * e.delta) }} pts</strong>{% else %}{{ '%+.0f' % (100 * e.delta) }} pts{% endif %}</td>
+    <td class="n">{{ e.p_value | num(2) }}</td><td class="n">{{ e.tasks }}</td>
+    <td class="n">{{ '%+.4f' % e.delta_cost_usd }}</td><td class="n">{{ '%+.1f' % e.delta_latency_s }}</td>
+  </tr>{% endfor %}</tbody>
+</table></div>
+{% endfor %}
+{% endif %}
+
 <h3>Quality vs. token spend</h3>
 <p class="lead">Mean pass rate across scenarios plotted against mean tokens per trial. Local models cost $0, so tokens
   are used as the budget axis. Upper-left is better.</p>

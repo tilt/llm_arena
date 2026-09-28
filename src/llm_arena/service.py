@@ -22,7 +22,7 @@ from llm_arena.decisions.records import DecisionSummary
 from llm_arena.llm.catalog import Catalog
 from llm_arena.llm.pricing import known_price, price_per_mtok
 from llm_arena.llm.spec import ModelSpec
-from llm_arena.report.aggregate import ConfigSummary, PairedTest, summarize
+from llm_arena.report.aggregate import ConfigSummary, PairedTest, ReplacementEffect, summarize
 from llm_arena.report.leaderboard import Leaderboard, build_leaderboards
 from llm_arena.runner.baselines import DEFAULT_BASELINES, BaselineProfile, save_profile
 from llm_arena.runner.config import ExperimentConfig
@@ -65,6 +65,9 @@ class BundleSummary(BaseModel):
     paired_tests: list[PairedTest]
     ratings: dict[str, dict[str, float]] = Field(description="scope ('overall' or scenario) -> config -> rating")
     decisions: list[DecisionSummary] = Field(default_factory=list, description="control-policy decision quality")
+    replacements: list[ReplacementEffect] = Field(
+        default_factory=list, description="replacement studies: each swapped step against the baseline"
+    )
 
 
 class BundledArtifact(BaseModel):
@@ -231,6 +234,7 @@ class ArenaService:
                 paired_tests=summary.paired_tests,
                 ratings=summary.ratings,
                 decisions=summary.decisions,
+                replacements=summary.replacements,
             ),  # fmt: skip
             trials=data.trials,
             scores=data.scores,

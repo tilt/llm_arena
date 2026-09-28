@@ -70,6 +70,7 @@ class RunSummary:
     trials: list[dict[str, Any]]
     scores: dict[str, list[dict[str, Any]]]  # trial_id -> scores
     decisions: list[DecisionSummary] = field(default_factory=list)  # control-policy quality, when configs use one
+    replacements: list[ReplacementEffect] = field(default_factory=list)  # replacement studies: swap vs baseline
 
     @property
     def scenarios(self) -> list[str]:
@@ -101,6 +102,7 @@ def summarize(data: RunData) -> RunSummary:
         trials=data.trials,
         scores=dict(scores),
         decisions=summarize_decisions(data.decisions),
+        replacements=_replacements(configs, json.loads(data.run.get("config_json") or "{}")),
     )
 
 
@@ -157,6 +159,53 @@ def _derived(step: dict[str, float]) -> dict[str, float]:
         "reviewer_precision": tp / (tp + fp) if tp + fp else float("nan"),
         "reviewer_recall": tp / (tp + fn) if tp + fn else float("nan"),
     }
+
+
+@dataclass
+class ReplacementEffect:
+    """One swapped step against the baseline, on the tasks both ran (replacement studies)."""
+
+    scenario: str
+    role: str
+    candidate: str
+    config: str
+    tasks: int
+    baseline_rate: float
+    variant_rate: float
+    delta: float  # variant - baseline pass rate on the shared tasks
+    p_value: float  # paired permutation test on the shared tasks
+    delta_cost_usd: float  # per trial
+    delta_latency_s: float  # p50
+    step_deltas: dict[str, float] = field(default_factory=dict)  # step metrics: variant - baseline
+
+
+def _replacements(configs: list[ConfigSummary], config_json: dict[str, Any]) -> list[ReplacementEffect]:
+    tags = {c["name"]: c.get("study") for c in config_json.get("configs", []) if c.get("study")}
+    by_scenario: dict[str, dict[str, ConfigSummary]] = defaultdict(dict)
+    for config in configs:
+        by_scenario[config.scenario][config.config] = config
+    effects = []
+    for scenario, members in sorted(by_scenario.items()):
+        base = next((c for name, c in members.items() if (tags.get(name) or {}).get("kind") == "baseline"), None)
+        if base is None:
+            continue
+        for name, variant in sorted(members.items()):
+            tag = tags.get(name) or {}
+            if tag.get("kind") != "swap":
+                continue
+            shared = sorted(set(base.per_task_pass) & set(variant.per_task_pass))
+            a = [base.per_task_pass[t] for t in shared]
+            b = [variant.per_task_pass[t] for t in shared]
+            effects.append(ReplacementEffect(
+                scenario=scenario, role=str(tag.get("role")), candidate=str(tag.get("candidate")), config=name,
+                tasks=len(shared), baseline_rate=mean(a) if a else float("nan"), variant_rate=mean(b) if b else float("nan"),
+                delta=mean(b) - mean(a) if shared else float("nan"),
+                p_value=paired_permutation_test(b, a) if shared else float("nan"),
+                delta_cost_usd=variant.mean_cost_usd - base.mean_cost_usd,
+                delta_latency_s=variant.latency_p50_s - base.latency_p50_s,
+                step_deltas={k: variant.step_means[k] - base.step_means[k] for k in variant.step_means if k in base.step_means},
+            ))  # fmt: skip
+    return effects
 
 
 def _paired_tests(configs: list[ConfigSummary]) -> list[PairedTest]:

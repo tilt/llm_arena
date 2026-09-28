@@ -1,0 +1,12 @@
+# Replacement study: what is a better critic worth? Everything runs on the Local small baseline, and
+# one configuration per candidate swaps only the critic. The report shows the effect per scenario
+# ("Effect of replacing a step"). Candidates that lack a step's needs (e.g. vision) skip that step.
+name: critic-study
+scenarios: [reflection_sql, chart_codegen]
+limit: 3
+study:
+  baseline: local-small
+  candidates:
+    - "ollama:qwen3:14b#reasoning=none"   # a bigger local model (text only: skips the chart critic)
+    - "openai:gpt-5-mini#reasoning=low"   # a small remote model with vision
+  roles: [critic]

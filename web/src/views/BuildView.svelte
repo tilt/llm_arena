@@ -1,10 +1,11 @@
 <script lang="ts">
   import ModelSelect from "../components/ModelSelect.svelte";
   import ScenarioSetup from "../components/ScenarioSetup.svelte";
+  import StudyForm from "../components/StudyForm.svelte";
   import { app } from "../lib/app.svelte";
   import {
     CONTROLS, DEFAULT_ROLE, EVALUATION_PAGES, POLICIES, controllableScenarios, defaultRoleNeeds, eligibleModels, emptyConfig,
-    roleSlots, SERVICE_LABELS, servicesUsed, toExperiment, toYaml, validate, type BuilderState, type ConfigDraft,
+    roleSlots, SERVICE_LABELS, servicesUsed, toExperiment, toYaml, validate, validateStudy, type BuilderState, type ConfigDraft,
     type Service,
   } from "../lib/builder";
   import type { Estimate } from "../lib/contracts";
@@ -28,7 +29,11 @@
   const services = $derived(app.runtime?.decision_services ?? {});
   const serviceStatus = $derived(Object.fromEntries(Object.entries(services).map(([k, v]) => [k, v?.status ?? ""])) as Record<Service, string>);
   const available = (service: string) => services[service]?.status === "available";
-  const errors = $derived(validate(draft, app.scenarios, sandbox, serviceStatus));
+  const errors = $derived(draft.study ? validateStudy(draft, draft.study) : validate(draft, app.scenarios, sandbox, serviceStatus));
+  function setMode(study: boolean) {
+    draft.study = study ? { baseline: activeBaseline(), candidates: [""], roles: [], decisionControl: "gate" } : null;
+    estimate = null;
+  }
   const controllable = $derived(controllableScenarios(draft, app.scenarios));
   const hasSplits = $derived(controllable.length > 0);
   const experiment = () => toExperiment(draft, app.scenarios, app.baselines);
@@ -86,9 +91,15 @@
   pipeline role, for example a local model drafting and a remote model critiquing.
 </p>
 
-<section class="card">
+<section class="card intro">
   <label for="exp-name">Experiment name</label>
   <input id="exp-name" type="text" bind:value={draft.name} />
+  <div class="mode" role="radiogroup" aria-label="What do you want to find out?">
+    <label class:on={!draft.study}><input type="radio" name="mode" checked={!draft.study} onchange={() => setMode(false)} />
+      <span><strong>Compare configurations</strong><br /><span class="muted">set up one or more complete setups and rank them</span></span></label>
+    <label class:on={!!draft.study}><input type="radio" name="mode" checked={!!draft.study} onchange={() => setMode(true)} />
+      <span><strong>Replacement study</strong><br /><span class="muted">start from a baseline and measure what swapping one step's model changes</span></span></label>
+  </div>
 </section>
 
 <h2>1 · Scenarios</h2>
@@ -110,6 +121,10 @@
   </div>
 {/each}
 
+{#if draft.study}
+<h2>2 · Study</h2>
+<StudyForm bind:study={draft.study} manifests={app.scenarios.filter((s) => draft.scenarios.includes(s.id))} />
+{:else}
 <h2>2 · Model configurations</h2>
 {#if !draft.scenarios.length}<p class="muted">Select a scenario first.</p>{/if}
 {#each draft.configs as config, index (index)}
@@ -179,6 +194,7 @@
   </section>
 {/each}
 <button onclick={addConfig}>+ Add configuration</button>
+{/if}
 
 <h2>3 · Run settings</h2>
 <section class="card settings">
@@ -228,6 +244,11 @@
   @media (max-width: 720px) { .role { grid-template-columns: 1fr; } }
   .role-name { font-size: 14px; }
   .role-name .muted { font-size: 12px; }
+  .intro { display: grid; gap: 8px; }
+  .mode { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; margin-top: 8px; }
+  .mode label { display: flex; gap: 10px; align-items: start; border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; cursor: pointer; font-size: 14px; }
+  .mode label.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .mode .muted { font-size: 13px; }
   .scenario-setup { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px; }
   .scenario-setup summary { cursor: pointer; margin-bottom: 8px; }
   .params { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 10px; font-size: 13px; }
