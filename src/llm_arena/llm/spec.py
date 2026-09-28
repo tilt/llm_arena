@@ -11,7 +11,7 @@ Provider = Literal["openai", "anthropic", "ollama", "lmstudio", "openai_compatib
 # ProtocolClient (always used in the browser); aisuite: the aisuite library.
 Backend = Literal["auto", "openai", "anthropic", "http", "aisuite"]
 ToolMode = Literal["native", "json"]
-ReasoningEffort = Literal["minimal", "low", "medium", "high", "xhigh", "max"]
+ReasoningEffort = Literal["none", "minimal", "low", "medium", "high", "xhigh", "max"]  # none: thinking off
 
 
 class Capabilities(BaseModel):

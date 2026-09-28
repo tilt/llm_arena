@@ -19,6 +19,18 @@ models:
     tool_mode: json
     capabilities: {reasoning: true}
 
+  # Thinking off: Qwen3 answers ~10x faster. Use these for development runs and as decision models.
+  qwen3-4b-fast:
+    provider: ollama
+    model: qwen3:4b
+    reasoning_effort: none
+    capabilities: {tools: true, json_schema: true}
+  qwen3-14b-fast:
+    provider: ollama
+    model: qwen3:14b
+    reasoning_effort: none
+    capabilities: {tools: true, json_schema: true}
+
   # Reasoning effort is a call parameter, not a model property.
   gpt-5-mini-low:
     provider: openai

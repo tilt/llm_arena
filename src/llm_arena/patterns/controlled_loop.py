@@ -136,10 +136,12 @@ async def run_controlled_loop(
             labels=labels,
         )
         done, choice = decided.answers["task_complete"], decided.answers["next_action"]
-        if (not done.abstained and done.yes) or (not choice.abstained and choice.choice == FINISH):
+        chosen = choice.choice if not choice.abstained and choice.choice in tools else None
+        # Stop on "finish", or on "complete" without a tool choice. A tool choice wins over a contradicting
+        # "complete" (small models claim completion before acting); task_complete is still scored every step.
+        if (not choice.abstained and choice.choice == FINISH) or (chosen is None and not done.abstained and done.yes):
             stop, steps = "final", step
             break
-        chosen = choice.choice if not choice.abstained and choice.choice in tools else None
         schemas = [tools[chosen].schema()] if chosen else executor.registry.schemas()
         directive = (
             f"Next step: call the tool `{chosen}` with the right arguments." if chosen else "Take the next step."

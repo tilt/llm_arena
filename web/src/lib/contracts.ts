@@ -66,7 +66,7 @@ export interface ModelSpec {
   name: string;
   output_cost_per_mtok?: number | null;
   provider: "openai" | "anthropic" | "ollama" | "lmstudio" | "openai_compatible";
-  reasoning_effort?: ("minimal" | "low" | "medium" | "high" | "xhigh" | "max") | null;
+  reasoning_effort?: ("none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max") | null;
   temperature?: number | null;
   timeout_s?: number;
   tool_mode?: "native" | "json";

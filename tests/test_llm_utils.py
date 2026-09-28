@@ -34,6 +34,13 @@ def test_split_think_separates_reasoning_including_unterminated_blocks() -> None
     assert split_think("Partial <think>cut off") == ("Partial", "cut off")
 
 
+def test_thinking_can_be_switched_off_for_ollama_but_not_sent_to_anthropic() -> None:
+    ollama = ModelSpec(name="x", provider="ollama", model="qwen3:4b", reasoning_effort="none")
+    assert sampling_params(ollama)["reasoning_effort"] == "none"
+    anthropic = ModelSpec(name="y", provider="anthropic", model="claude-haiku-4-5", reasoning_effort="none")
+    assert "output_config" not in sampling_params(anthropic)
+
+
 def test_reasoning_models_get_no_temperature() -> None:
     assert "temperature" not in sampling_params(ModelSpec(name="x", provider="openai", model="gpt-5-mini"))
     assert sampling_params(ModelSpec(name="x", provider="lmstudio", model="qwen", temperature=0.4)) == {

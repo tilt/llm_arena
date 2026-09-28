@@ -42,11 +42,23 @@ WRONG_SQL = "```sql\nSELECT COUNT(*) FROM rentals WHERE started_at LIKE '2026-03
 
 
 def _decide(**answers: dict[str, float]) -> str:
-    return json.dumps({"answers": [{"question": q, "probabilities": p} for q, p in answers.items()]})
+    return json.dumps(answers)
+
+
+DESK_ACTIONS = [
+    "get_order",
+    "list_orders",
+    "get_product",
+    "send_message",
+    "restock",
+    "issue_refund",
+    "cancel_order",
+    "finish",
+]
 
 
 def _step(action: str, done: float = 0.1) -> str:
-    return _decide(next_action={action: 0.9, "get_order" if action == "finish" else "finish": 0.1},
+    return _decide(next_action={a: 0.93 if a == action else 0.01 for a in DESK_ACTIONS},
                    task_complete={"true": done, "false": 1 - done})  # fmt: skip
 
 

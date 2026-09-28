@@ -56,38 +56,38 @@ def test_oracle_flags_policy_and_request_violations() -> None:
 
 
 # ---- scripted models --------------------------------------------------------------------------------
+def asked_questions(prompt: str) -> dict[str, list[str]]:
+    """Question -> option names, parsed from the policy prompt (the fake must answer every option)."""
+    questions: dict[str, list[str]] = {}
+    for block in re.split(r"\n(?=- \w+ \()", prompt.split("QUESTIONS:\n", 1)[1]):
+        name, kind = re.match(r"- (\w+) \((\w+)\)", block).groups()  # type: ignore[union-attr]
+        questions[name] = ["true", "false"] if kind == "noul" else re.findall(r"^    (\w+):", block, flags=re.MULTILINE)
+    return questions
+
+
 def decider(step_plan: list[str], *, approve: bool = False, review: bool = True) -> ScriptedLLM:
     """Answers whatever questions the policy prompt asks: next actions from `step_plan`, then finish."""
     plan = list(step_plan)
 
     def reply(messages: list[Message]) -> str:
-        prompt = str(messages[-1]["content"])
-        asked = re.findall(r"^- (\w+) \(", prompt, flags=re.MULTILINE)
-        answers = []
+        asked = asked_questions(str(messages[-1]["content"]))
+        answers: dict[str, dict[str, float]] = {}
         done = not plan  # before this step pops its action
-        for question in asked:
+        for question, options in asked.items():
             if question == "next_action":
                 choice = plan.pop(0) if plan else "finish"
-                answers.append(
-                    {
-                        "question": question,
-                        "probabilities": {choice: 0.9, "finish" if choice != "finish" else "get_order": 0.1},
-                    }
-                )
-            elif question == "task_complete":
-                p_done = 0.8 if done else 0.1
-                answers.append({"question": question, "probabilities": {"true": p_done, "false": 1 - p_done}})
+                answers[question] = {
+                    option: 0.9 if option == choice else 0.1 / (len(options) - 1) for option in options
+                }
+                continue
+            if question == "task_complete":
+                p = 0.8 if done else 0.1
             elif question == "needs_approval":
-                answers.append(
-                    {
-                        "question": question,
-                        "probabilities": {"true": 0.9 if approve else 0.2, "false": 0.1 if approve else 0.8},
-                    }
-                )
+                p = 0.9 if approve else 0.2
             else:  # review questions
                 p = 0.9 if (question == "task_accomplished") == review else 0.1
-                answers.append({"question": question, "probabilities": {"true": p, "false": 1 - p}})
-        return json.dumps({"answers": answers})
+            answers[question] = {"true": p, "false": 1 - p}
+        return json.dumps(answers)
 
     return ScriptedLLM([reply], name="decider")
 

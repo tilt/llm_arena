@@ -84,6 +84,7 @@ async def structured[T: BaseModel](
     *,
     retries: int = 2,
     temperature: float | None = None,
+    max_tokens: int | None = None,
 ) -> tuple[T, list[LLMResponse]]:
     """Ask for output matching a pydantic model; returns the object and every raw response.
 
@@ -100,7 +101,9 @@ async def structured[T: BaseModel](
     responses: list[LLMResponse] = []
     last_error = ""
     for _ in range(retries + 1):
-        response = await client.complete(conversation, response_format=response_format, temperature=temperature)
+        response = await client.complete(
+            conversation, response_format=response_format, temperature=temperature, max_tokens=max_tokens
+        )
         responses.append(response)
         try:
             return model.model_validate(extract_json(response.content)), responses

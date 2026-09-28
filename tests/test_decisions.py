@@ -25,7 +25,7 @@ REQUEST = DecisionRequest(
 
 
 def llm_reply(**answers: dict[str, float]) -> str:
-    return json.dumps({"answers": [{"question": q, "probabilities": p} for q, p in answers.items()]})
+    return json.dumps(answers)
 
 
 async def test_llm_policy_maps_probabilities() -> None:
@@ -40,10 +40,18 @@ async def test_llm_policy_maps_probabilities() -> None:
     assert result.tokens > 0 and result.answers["risk"].source == "llm:scripted"
 
 
-async def test_llm_policy_missing_answer_is_uncertain() -> None:
-    result = await LLMDecisionPolicy(ScriptedLLM([llm_reply()])).decide(REQUEST)
-    assert result.answers["needs_approval"].confidence == pytest.approx(0.5)
-    assert result.answers["next_action"].confidence == pytest.approx(0.5)
+async def test_llm_policy_without_a_valid_answer_abstains() -> None:
+    result = await LLMDecisionPolicy(ScriptedLLM([llm_reply()])).decide(REQUEST)  # missing questions fail the schema
+    assert all(answer.abstained for answer in result.answers.values())
+
+
+async def test_llm_policy_schema_uses_question_and_option_names() -> None:
+    from llm_arena.decisions.llm_policy import response_model
+
+    schema = response_model(REQUEST).model_json_schema()
+    assert schema["required"] == ["next_action", "needs_approval", "risk"]
+    risk = schema["$defs"]["Q2"]
+    assert risk["required"] == ["0", "1", "2"]
 
 
 def approval_rule(request: DecisionRequest) -> Answer | None:

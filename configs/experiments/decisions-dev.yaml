@@ -1,0 +1,18 @@
+# Fast development run of decisions.yaml: thinking off, 14b agent, 4b decider (a few minutes on a laptop).
+# Use it to check that pipelines and metrics work; draw conclusions only from decisions.yaml.
+name: decisions-dev
+scenarios: [support_desk]
+split: dev
+limit: 6
+configs:
+  - name: agent-decides
+    roles: {"*": qwen3-14b-fast, decider: qwen3-4b-fast}
+  - name: rules-gate
+    roles: {"*": qwen3-14b-fast, decider: qwen3-4b-fast}
+    decisions: {policy: rules, control: gate}
+  - name: llm-gate
+    roles: {"*": qwen3-14b-fast, decider: qwen3-4b-fast}
+    decisions: {policy: llm, control: gate}
+  - name: llm-controls
+    roles: {"*": qwen3-14b-fast, decider: qwen3-4b-fast}
+    decisions: {policy: llm, control: policy}

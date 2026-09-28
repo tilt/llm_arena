@@ -35,9 +35,10 @@ def sampling_params(spec: ModelSpec, temperature: float | None = None) -> dict[s
     chosen = spec.temperature if temperature is None else temperature
     if chosen is not None and accepts_temperature(spec):
         params["temperature"] = chosen
-    if spec.reasoning_effort and spec.provider == "openai":
+    if spec.reasoning_effort and spec.provider in ("openai", "ollama"):
+        # Ollama maps it onto its think switch; "none" turns thinking off (Qwen3 answers ~10x faster).
         params["reasoning_effort"] = spec.reasoning_effort
-    if spec.reasoning_effort and spec.provider == "anthropic":
+    if spec.reasoning_effort and spec.reasoning_effort != "none" and spec.provider == "anthropic":
         # Anthropic has no "minimal"; its lowest effort level is "low".
         effort = "low" if spec.reasoning_effort == "minimal" else spec.reasoning_effort
         params["output_config"] = {"effort": effort}
