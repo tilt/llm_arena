@@ -52,11 +52,11 @@ describe("validation", () => {
 describe("experiment output", () => {
   it("produces the config the CLI runs", () => {
     const draft = state({ limit: 3, judge: "openai:gpt-4.1-mini", arena: true, maxCostUsd: 2,
-      configs: [{ name: "c", roles: { "*": "m", critic: "" }, scenarioParams: { reflection_sql: { feedback: "sql_only" }, chart_codegen: { x: 1 } }, decisions: null }] });
+      configs: [{ name: "c", roles: { "*": "m", critic: "" }, scenarioParams: { reflection_sql: { feedback: "sql_only" }, chart_codegen: { x: 1 } }, scenarioRoles: { reflection_sql: { critic: "big" }, chart_codegen: { critic: "vlm" } }, decisions: null }] });
     const experiment = toExperiment(draft);
     expect(experiment).toEqual({
       name: "exp", scenarios: ["reflection_sql"], repeats: 1, limit: 3, judge: "openai:gpt-4.1-mini", arena: { enabled: true },
-      max_cost_usd: 2, configs: [{ name: "c", roles: { "*": "m" }, scenario_params: { reflection_sql: { feedback: "sql_only" } } }],
+      max_cost_usd: 2, configs: [{ name: "c", roles: { "*": "m" }, scenario_params: { reflection_sql: { feedback: "sql_only" } }, scenario_roles: { reflection_sql: { critic: "big" } } }],
     });
     expect(parse(toYaml(experiment))).toEqual(experiment);
   });

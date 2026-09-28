@@ -9,6 +9,7 @@
   let error = $state("");
   let scenario = $state("");
   let showLegacy = $state(false);
+  let model = $state("");
 
   $effect(() => {
     if (!app.backend) return;
@@ -23,6 +24,8 @@
   const visible = $derived(
     boards.filter((b) => (!scenario || b.scenario === scenario) && (showLegacy || b.scenario_version !== "legacy")),
   );
+  const usesModel = (entry: LeaderboardEntry, m: string) => models(entry).some((line) => line.split(": ")[1]?.startsWith(m));
+  const allModels = $derived([...new Set(boards.flatMap((b) => b.entries.flatMap((e) => models(e).map((l) => (l.split(": ")[1] ?? "").replace(/ \(.*\)$/, "")))))].filter(Boolean).sort());
   const legacyCount = $derived(boards.filter((b) => b.scenario_version === "legacy").length);
 
   type Role = { model?: string; provider?: string; reasoning_effort?: string | null; tool_mode?: string };
@@ -46,13 +49,18 @@
 
 <h1>Leaderboard</h1>
 <p class="lead">
-  Every run pooled, per scenario. Trials count together only when they ran the same setup (models, call settings,
+  Every run pooled, per scenario. Each entry is one combination of models per step (role), parameters and control
+  policy; filter by a model to compare where it is used. Trials count together only when they ran the same setup (models, call settings,
   parameters and control policy, whatever the config was named) on the same scenario version and task content. Each
   task weighs the same; the interval is a 95% bootstrap over tasks. The last column compares an entry with the leader on
   the tasks both ran (paired permutation test).
 </p>
 
 <div class="filters">
+  <select bind:value={model} aria-label="Model">
+    <option value="">Any model</option>
+    {#each allModels as m (m)}<option value={m}>{m}</option>{/each}
+  </select>
   <select bind:value={scenario} aria-label="Scenario">
     <option value="">All scenarios</option>
     {#each scenarios as s (s)}<option value={s}>{s}</option>{/each}
@@ -71,7 +79,7 @@
 {/if}
 
 {#each visible as board (`${board.scenario}@${board.scenario_version}`)}
-  <h2>{board.scenario} <span class="pill">version {board.scenario_version}</span> <span class="muted small">{board.tasks} tasks</span></h2>
+  <h2><a href={`#/scenarios/${board.scenario}`}>{board.scenario}</a> <span class="pill">version {board.scenario_version}</span> <span class="muted small">{board.tasks} tasks</span></h2>
   {#if board.scenario_version === "legacy"}
     <p class="note">These runs predate setup fingerprints: entries only merge when name, models and parameters match, and the
       control policy is not recorded. Rerun for firm comparisons.</p>
@@ -81,7 +89,7 @@
       <thead><tr><th class="n">#</th><th>Config</th><th>Setup</th><th class="n">Pass rate [95% CI]</th><th class="n">Tasks</th>
         <th class="n">Trials</th><th class="n">Runs</th><th class="n">$/trial</th><th class="n">p50 s</th><th class="n">vs #1 (shared tasks)</th></tr></thead>
       <tbody>
-        {#each board.entries as e (e.fingerprint)}
+        {#each board.entries.filter((e) => !model || usesModel(e, model)) as e (e.fingerprint)}
           <tr>
             <td class="n">{e.rank}</td>
             <td><strong>{e.config}</strong>{#if e.names.length > 1}<div class="muted small">also: {e.names.filter((n) => n !== e.config).join(", ")}</div>{/if}

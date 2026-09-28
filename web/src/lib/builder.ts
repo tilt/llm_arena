@@ -25,6 +25,8 @@ export interface ConfigDraft {
   /** role -> model ref; DEFAULT_ROLE binds every role that is not set explicitly */
   roles: Record<string, string>;
   scenarioParams: Record<string, Record<string, unknown>>;
+  /** scenario -> role -> model ref: per-scenario (per-step) bindings that override `roles` */
+  scenarioRoles: Record<string, Record<string, string>>;
   /** control policy for scenarios that support one; null = the agent decides everything */
   decisions: DecisionConfig | null;
 }
@@ -69,7 +71,7 @@ export interface BuilderState {
 }
 
 export function emptyConfig(index: number): ConfigDraft {
-  return { name: `config-${index + 1}`, roles: { [DEFAULT_ROLE]: "" }, scenarioParams: {}, decisions: null };
+  return { name: `config-${index + 1}`, roles: { [DEFAULT_ROLE]: "" }, scenarioParams: {}, scenarioRoles: {}, decisions: null };
 }
 
 /** Union of roles over the selected scenarios; capability needs are merged. */
@@ -108,12 +110,15 @@ export function validate(
   if (new Set(names).size !== names.length) errors.push("Configuration names must be unique.");
   const slots = roleSlots(manifests, state.scenarios);
   for (const config of state.configs) {
-    for (const slot of slots.filter((s) => !s.optional)) {
-      if (!config.roles[slot.name] && !config.roles[DEFAULT_ROLE]) {
-        errors.push(`${config.name}: choose a model for "${slot.name}" (or a default model).`);
+    for (const manifest of manifests.filter((m) => state.scenarios.includes(m.id))) {
+      for (const role of manifest.roles.filter((r) => !r.fallback)) {
+        if (!boundModel(config, manifest.id, role.name)) {
+          errors.push(`${config.name}: choose a model for "${role.name}" in ${manifest.id} (or a default model).`);
+        }
       }
     }
   }
+  void slots;
   if (!runtimeHasSandbox) {
     const needSandbox = manifests.filter((m) => state.scenarios.includes(m.id) && (m.requires ?? []).includes("sandbox"));
     if (needSandbox.length) errors.push(`This runtime cannot execute code: remove ${needSandbox.map((m) => m.id).join(", ")}.`);
@@ -128,6 +133,29 @@ export function validate(
     }
   }
   return errors;
+}
+
+/** The model a role runs on in one scenario: per-scenario binding, then config-wide role, then the default. */
+export function boundModel(config: ConfigDraft, scenario: string, role: string): string {
+  return config.scenarioRoles[scenario]?.[role] || config.roles[role] || config.roles[DEFAULT_ROLE] || "";
+}
+
+/** Roles a control policy calls (mirrors DecisionConfig.llm_roles). */
+export function llmRoles(decisions: DecisionConfig | null): string[] {
+  if (!decisions) return [];
+  if (decisions.policy === "llm") return ["decider"];
+  if (decisions.policy !== "cascade") return [];
+  return [...((decisions.primary ?? "llm") === "llm" ? ["decider"] : []), ...(decisions.fallback === "llm" ? ["escalation"] : [])];
+}
+
+export function policyLabel(decisions: DecisionConfig | null): string {
+  if (!decisions) return "";
+  const stage = (s: string | null | undefined) => (s === "ollaya" ? `ollaya ${decisions.ollaya_model ?? ""}`.trim() : s ?? "");
+  if (decisions.policy === "cascade") {
+    return ["cascade:", decisions.hard_rules === false ? "" : "rules →", stage(decisions.primary ?? "llm"),
+      decisions.fallback ? `→ ${stage(decisions.fallback)}` : ""].filter(Boolean).join(" ");
+  }
+  return stage(decisions.policy);
 }
 
 export function controllableScenarios(state: BuilderState, manifests: ScenarioManifest[]): string[] {
@@ -145,10 +173,17 @@ export function toExperiment(state: BuilderState, manifests: ScenarioManifest[] 
       const scenarioParams = Object.fromEntries(
         Object.entries(config.scenarioParams).filter(([id, params]) => state.scenarios.includes(id) && Object.keys(params).length),
       );
+      const scenarioRoles = Object.fromEntries(
+        Object.entries(config.scenarioRoles ?? {})
+          .filter(([id]) => state.scenarios.includes(id))
+          .map(([id, roles]) => [id, Object.fromEntries(Object.entries(roles).filter(([, ref]) => ref))])
+          .filter(([, roles]) => Object.keys(roles as object).length),
+      ) as Record<string, Record<string, string>>;
       return {
         name: config.name.trim(),
         roles,
         ...(Object.keys(scenarioParams).length ? { scenario_params: scenarioParams } : {}),
+        ...(Object.keys(scenarioRoles).length ? { scenario_roles: scenarioRoles } : {}),
         // A control policy applies only where a scenario supports one, so such a config runs only those scenarios.
         ...(config.decisions ? { decisions: { ...config.decisions }, scenarios: controllable } : {}),
       };

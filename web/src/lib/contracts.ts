@@ -669,7 +669,7 @@ export interface WorkflowEdge {
   when?: Condition[];
 }
 /**
- * True when the parameter matches: `equals` / `in_` / `gt` (all given ones must hold).
+ * True when the parameter matches: `equals` / `one_of` / `gt` (all given ones must hold).
  *
  * This interface was referenced by `Contracts`'s JSON-Schema
  * via the `definition` "Condition".
@@ -679,7 +679,7 @@ export interface Condition {
     [k: string]: unknown | undefined;
   };
   gt?: number | null;
-  in?: unknown[] | null;
+  one_of?: unknown[] | null;
   param: string;
 }
 /**

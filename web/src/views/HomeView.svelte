@@ -40,10 +40,11 @@ make install && make web && uv run arena ui</pre>
 </div>
 
 <h2>Agentic patterns</h2>
+<p class="muted">Open a scenario to see its workflow, choose a model for each step and run it.</p>
 <div class="cards">
   {#each patterns as s (s.id)}
     <article class="card">
-      <div class="top"><strong>{s.title}</strong><span class="pill">{s.pattern}</span></div>
+      <div class="top"><a class="title" href={`#/scenarios/${s.id}`}>{s.title}</a><span class="pill">{s.pattern}</span></div>
       <p>{s.description}</p>
       <p class="muted small">{s.tasks} tasks · roles: {s.roles.map((r) => r.name).join(", ")}{(s.requires ?? []).length ? ` · needs ${s.requires?.join(", ")}` : ""}</p>
       <p class="small">{#each (s.wiki ?? []).filter((link) => !EVALUATION_PAGES.has(link.title)) as link (link.url)}<a href={link.url} target="_blank" rel="noopener">{link.title}</a>{/each}</p>
@@ -57,7 +58,7 @@ make install && make web && uv run arena ui</pre>
 <h2>Benchmarks</h2>
 <div class="cards">
   {#each benchmarks as s (s.id)}
-    <article class="card"><div class="top"><strong>{s.title}</strong></div><p>{s.description}</p></article>
+    <article class="card"><div class="top"><a class="title" href={`#/scenarios/${s.id}`}>{s.title}</a></div><p>{s.description}</p></article>
   {/each}
 </div>
 
@@ -76,4 +77,6 @@ make install && make web && uv run arena ui</pre>
   .intro { margin: 16px 0; }
   .intro h2 { margin-top: 0; }
   .intro code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+  .title { font-weight: 600; color: var(--text-primary); text-decoration: none; }
+  .title:hover { color: var(--accent); text-decoration: underline; }
 </style>

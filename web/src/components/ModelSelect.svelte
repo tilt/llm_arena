@@ -3,11 +3,13 @@
   import { perMtok } from "../lib/format";
 
   // No fallback on `value`: it is bound to optional role slots that start out undefined.
-  let { value = $bindable(), options, empty = "", label }: { value?: string; options: CatalogItem[]; empty?: string; label: string } = $props();
+  let {
+    value = $bindable(), options, empty = "", label, onchange,
+  }: { value?: string; options: CatalogItem[]; empty?: string; label: string; onchange?: (ref: string) => void } = $props();
   const groups = $derived([...new Set(options.map((o) => o.source))]);
 </script>
 
-<select bind:value aria-label={label}>
+<select bind:value aria-label={label} onchange={() => onchange?.(value ?? "")}>
   {#if empty}<option value="">{empty}</option>{/if}
   {#each groups as group (group)}
     <optgroup label={group}>

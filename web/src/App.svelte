@@ -8,6 +8,7 @@
   import BuildView from "./views/BuildView.svelte";
   import HomeView from "./views/HomeView.svelte";
   import LeaderboardView from "./views/LeaderboardView.svelte";
+  import ScenarioView from "./views/ScenarioView.svelte";
   import ModelsView from "./views/ModelsView.svelte";
   import RunsView from "./views/RunsView.svelte";
   import RunView from "./views/RunView.svelte";
@@ -36,7 +37,7 @@
 
   const providers = $derived(Object.entries(app.runtime?.providers ?? {}));
   const nav = [
-    { href: "#/", label: "Overview", match: "home" },
+    { href: "#/", label: "Scenarios", match: "home" },
     { href: "#/build", label: "Build", match: "build" },
     { href: "#/models", label: "Models", match: "models" },
     { href: "#/runs", label: "Runs", match: "runs" },
@@ -81,6 +82,7 @@
     {:else if router.route.name === "models"}<ModelsView />
     {:else if router.route.name === "runs"}<RunsView />
     {:else if router.route.name === "leaderboard"}<LeaderboardView />
+    {:else if router.route.name === "scenario"}{#key router.route.id}<ScenarioView id={router.route.id} />{/key}
     {:else if router.route.name === "run"}<RunView id={router.route.id} />
     {:else if router.route.name === "selftest"}<SelftestView />
     {/if}

@@ -162,7 +162,7 @@
           {
             "equals": "react",
             "gt": null,
-            "in_": null,
+            "one_of": null,
             "param": "variant"
           }
         ]
@@ -178,7 +178,7 @@
           {
             "equals": "act",
             "gt": null,
-            "in_": null,
+            "one_of": null,
             "param": "variant"
           }
         ]
@@ -194,7 +194,7 @@
           {
             "equals": "cot",
             "gt": null,
-            "in_": null,
+            "one_of": null,
             "param": "variant"
           }
         ]
@@ -210,7 +210,7 @@
           {
             "equals": null,
             "gt": null,
-            "in_": [
+            "one_of": [
               "react",
               "act"
             ],

@@ -5,6 +5,7 @@ export type Route =
   | { name: "build" }
   | { name: "runs" }
   | { name: "leaderboard" }
+  | { name: "scenario"; id: string }
   | { name: "selftest" }
   | { name: "run"; id: string };
 
@@ -15,6 +16,7 @@ export function parse(hash: string): Route {
   if (section === "runs" && id) return { name: "run", id: decodeURIComponent(id) };
   if (section === "runs") return { name: "runs" };
   if (section === "leaderboard") return { name: "leaderboard" };
+  if (section === "scenarios" && id) return { name: "scenario", id: decodeURIComponent(id) };
   if (section === "selftest") return { name: "selftest" };
   return { name: "home" };
 }

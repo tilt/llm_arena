@@ -1,7 +1,7 @@
 {
   "$defs": {
     "Condition": {
-      "description": "True when the parameter matches: `equals` / `in_` / `gt` (all given ones must hold).",
+      "description": "True when the parameter matches: `equals` / `one_of` / `gt` (all given ones must hold).",
       "properties": {
         "equals": {
           "default": null,
@@ -19,7 +19,7 @@
           "default": null,
           "title": "Gt"
         },
-        "in": {
+        "one_of": {
           "anyOf": [
             {
               "items": {},
@@ -30,7 +30,7 @@
             }
           ],
           "default": null,
-          "title": "In"
+          "title": "One Of"
         },
         "param": {
           "title": "Param",

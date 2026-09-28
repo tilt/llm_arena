@@ -23,20 +23,18 @@ REVIEW_PARAM = "review"  # pseudo-parameter: post-run trace review by the contro
 
 
 class Condition(BaseModel):
-    """True when the parameter matches: `equals` / `in_` / `gt` (all given ones must hold)."""
+    """True when the parameter matches: `equals` / `one_of` / `gt` (all given ones must hold)."""
 
     param: str
     equals: Any = None
-    in_: list[Any] | None = Field(default=None, alias="in")
+    one_of: list[Any] | None = None
     gt: float | None = None
-
-    model_config = {"populate_by_name": True}
 
     def holds(self, params: dict[str, Any]) -> bool:
         value = params.get(self.param)
         if self.equals is not None and value != self.equals:
             return False
-        if self.in_ is not None and value not in self.in_:
+        if self.one_of is not None and value not in self.one_of:
             return False
         return not (self.gt is not None and not (isinstance(value, int | float) and value > self.gt))
 
@@ -95,7 +93,7 @@ def edge(source: str, target: str, label: str = "", *, loop: bool = False,
 
 
 def when(param: str, *, equals: Any = None, in_: list[Any] | None = None, gt: float | None = None) -> list[Condition]:
-    return [Condition(param=param, equals=equals, in_=in_, gt=gt)]
+    return [Condition(param=param, equals=equals, one_of=in_, gt=gt)]
 
 
 START = step("start", "Task", "start")
