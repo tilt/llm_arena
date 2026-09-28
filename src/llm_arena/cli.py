@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 from dotenv import load_dotenv
@@ -21,6 +21,7 @@ from llm_arena.llm.pricing import load_prices
 from llm_arena.llm.probe import ProbeResult, probe_model
 from llm_arena.llm.registry import PROVIDERS, load_model_specs, resolve_model
 from llm_arena.llm.spec import ModelSpec
+from llm_arena.runner.ports import Runtime
 
 app = typer.Typer(help="Evaluate local and remote LLMs on benchmarks and agentic patterns.", no_args_is_help=True)
 models_app = typer.Typer(help="Inspect configured and served models.", no_args_is_help=True)
@@ -217,6 +218,48 @@ def _report(run_dir: Path, *, inline: bool = True, json_out: bool = False) -> No
             c.scenario, c.config, f"{c.pass_rate:.0%}", f"{c.pass_hat_k:.0%}", f"{c.mean_tokens:,.0f}", str(c.errors)
         )
     console.print(table)
+
+
+@app.command()
+def leaderboard(
+    scenario: Annotated[str | None, typer.Argument(help="Only this scenario")] = None,
+    runs_dir: Annotated[Path, typer.Option(help="Where runs are stored")] = Path("runs"),
+    json_out: Annotated[bool, typer.Option("--json", help="Print JSON instead of tables")] = False,
+) -> None:
+    """Rank configurations per scenario across all runs (comparable trials only, see docs/metrics.md)."""
+    from pydantic import TypeAdapter
+
+    from llm_arena.adapters.server.duckdb_store import DuckDBStore
+    from llm_arena.report.leaderboard import Leaderboard
+    from llm_arena.service import ArenaService
+
+    service = ArenaService(
+        Runtime(client_factory=_no_models), store_factory=lambda run_id: DuckDBStore(runs_dir / run_id)
+    )
+    run_ids = [path.parent.name for path in runs_dir.glob("*/arena.duckdb")]
+    boards = service.leaderboards(run_ids, scenario=scenario)
+    if json_out:
+        print(TypeAdapter(list[Leaderboard]).dump_json(boards, indent=2).decode())
+        return
+    if not boards:
+        console.print(f"no runs in {runs_dir}/" + (f" for {scenario}" if scenario else ""))
+    for board in boards:
+        table = Table("#", "config", "fingerprint", "pass rate [95% CI]", "tasks", "trials", "runs", "Δ / p vs #1",
+                      "$/trial", "p50 s", title=f"{board.scenario} (version {board.scenario_version}, {board.tasks} tasks)")  # fmt: skip
+        for e in board.entries:
+            versus = (
+                ""
+                if e.delta_vs_leader is None
+                else f"{e.delta_vs_leader:+.0%} / {e.p_vs_leader:.2f} ({e.shared_tasks})"
+            )
+            table.add_row(str(e.rank), e.config, e.fingerprint, f"{e.pass_rate:.0%} [{e.ci_low:.0%}–{e.ci_high:.0%}]",
+                          str(e.tasks), str(e.trials), str(len(e.runs)), versus, f"{e.mean_cost_usd:.4f}",
+                          f"{e.latency_p50_s:.1f}")  # fmt: skip
+        console.print(table)
+
+
+def _no_models(spec: ModelSpec) -> Any:
+    raise RuntimeError("the leaderboard does not call models")
 
 
 @app.command("judge-calibrate")

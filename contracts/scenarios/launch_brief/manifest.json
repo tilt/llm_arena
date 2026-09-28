@@ -68,6 +68,7 @@
   "supports_decisions": false,
   "tasks": 2,
   "title": "Product launch team (multi-agent)",
+  "version": "1",
   "wiki": [
     {
       "title": "Multi-agent systems",

@@ -21,6 +21,7 @@ from llm_arena.adapters.server.report_html import build_report
 from llm_arena.api import RunListing, RunStartedResponse, RuntimeResponse, SetKey, StartRun
 from llm_arena.core.errors import ArenaError
 from llm_arena.llm.errors import LLMError
+from llm_arena.report.leaderboard import Leaderboard
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.run import new_run_id
 from llm_arena.scenarios.manifest import ScenarioManifest
@@ -101,6 +102,11 @@ def create_app(
         except (ArenaError, LLMError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return RunStartedResponse(run_id=run_id)
+
+    @app.get("/api/leaderboard", response_model=list[Leaderboard])
+    def leaderboard(scenario: str | None = None) -> list[Leaderboard]:
+        run_ids = [path.parent.name for path in runs_dir.glob("*/arena.duckdb")]
+        return service.leaderboards(run_ids, scenario=scenario)
 
     @app.get("/api/runs", response_model=list[RunListing])
     def list_runs() -> list[RunListing]:

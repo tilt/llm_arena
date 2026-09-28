@@ -29,6 +29,7 @@ from llm_arena.llm.http_client import ProtocolClient
 from llm_arena.llm.protocols.anthropic_messages import API_VERSION
 from llm_arena.llm.spec import ModelSpec
 from llm_arena.llm.transport import ChatTransport, HttpResponse
+from llm_arena.report.leaderboard import Leaderboard, build_leaderboards
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import RunEvent, RunFinished
 from llm_arena.runner.memory_store import MemoryStore
@@ -152,6 +153,11 @@ class BrowserArena:
                 )
             )
         return TypeAdapter(list[RunListing]).dump_json(listings).decode()
+
+    def leaderboard(self, trials_json: str) -> str:
+        """Leaderboards over trial rows the UI collected from this tab's runs and saved bundles."""
+        boards = build_leaderboards(json.loads(trials_json))
+        return TypeAdapter(list[Leaderboard]).dump_json(boards).decode()
 
     def bundle(self, run_id: str) -> str:
         return self.service.run_bundle(run_id).model_dump_json()

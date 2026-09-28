@@ -20,6 +20,7 @@ from llm_arena.core.trace import Trace
 from llm_arena.eval.base import Score
 from llm_arena.llm.catalog import CatalogEntry
 from llm_arena.llm.spec import ModelSpec
+from llm_arena.report.leaderboard import Leaderboard
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import RunEvent
 from llm_arena.sandbox.base import Sandbox
@@ -37,6 +38,7 @@ SCHEMA_TYPES: dict[str, Any] = {
     "Score": Score,
     "Trace": Trace,
     "RunBundle": RunBundle,
+    "Leaderboard": Leaderboard,
     "RuntimeInfo": RuntimeInfo,
     "Estimate": Estimate,
     "StartRun": StartRun,

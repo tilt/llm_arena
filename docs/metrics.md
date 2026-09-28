@@ -19,6 +19,22 @@
 | Decision latency / cost | p50/p95 per decision request; LLM stages cost their tokens, Jev its input tokens ($0.042 / M) | `decisions/records.py` |
 | Cost | tokens × price table (override per model); local models 0 $, latency still reported | `llm/pricing.py` |
 
+## Leaderboard across runs
+
+`arena leaderboard [scenario]`, `GET /api/leaderboard` and the **Leaderboard** page pool every run:
+
+- **Grouping:** by scenario, scenario `version` and *setup fingerprint*. The fingerprint hashes each role's model and
+  call settings (provider, model, backend, tool mode, temperature, reasoning effort, max tokens), the scenario
+  parameters and the control policy. Config names are labels only: a renamed config pools with its earlier runs,
+  and a changed setup under an old name does not.
+- **Tasks:** identified by id *and* content hash, so an edited task counts as a new task.
+- **Pass rate:** mean over tasks of the per-task pass share, so every task weighs the same however often it ran. The
+  95% interval bootstraps over tasks. Errors and timeouts count as fails; trials stopped by a spend limit are left out.
+- **vs #1:** difference to the leader on the tasks both ran, with a paired permutation test.
+- **Legacy runs** (from before fingerprints) form their own `legacy` board and never mix with versioned results.
+- **Bump `Scenario.version`** whenever prompts, tools, evaluators or pass criteria change; otherwise old and new
+  results would pool.
+
 ## Interpreting results
 
 - **Small samples.** With few tasks, the confidence intervals are wide. The report warns when a paired comparison

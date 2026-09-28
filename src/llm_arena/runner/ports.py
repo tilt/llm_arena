@@ -39,6 +39,11 @@ class TrialRecord:
     judge_cost_usd: float
     roles: dict[str, str]
     params: dict[str, Any]
+    # Cross-run comparability (see runner/fingerprint.py)
+    fingerprint: str = ""
+    scenario_version: str = ""
+    task_fp: str = ""
+    setup: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

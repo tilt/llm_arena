@@ -32,6 +32,7 @@ Other entry points:
 - `arena report <run-id> [--cdn] [--json]` rebuilds a report.
 - `arena judge-calibrate` checks an LLM judge against hand labels.
 - `arena mock-email` serves the mock mailbox over HTTP.
+- `arena leaderboard [scenario]` ranks setups per scenario across all runs (also in the app's Leaderboard page).
 - `arena contracts [--check]` exports JSON Schemas, scenario data and conformance vectors for the web UI and other
   engines.
 - `arena run … --docker` runs model-written code in Docker (`--network none`).

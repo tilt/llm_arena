@@ -87,7 +87,9 @@ class Scenario(ABC):
     requires: ClassVar[frozenset[Requirement]] = frozenset()
     param_choices: ClassVar[dict[str, list[Any]]] = {}
     tokens_per_trial: ClassVar[int] = 3000  # rough prompt+completion estimate for cost previews
-    supports_decisions: ClassVar[bool] = False  # accepts a control policy (PipelineConfig.decisions)
+    supports_decisions: ClassVar[bool] = False
+    # Bump when prompts, tools or evaluators change: leaderboards only pool trials of the same version.
+    version: ClassVar[str] = "1"  # accepts a control policy (PipelineConfig.decisions)
 
     @abstractmethod
     def load_tasks(self) -> list[Task]: ...
@@ -128,6 +130,7 @@ class Scenario(ABC):
             requires=sorted(self.requires),
             open_ended=self.open_ended,
             supports_decisions=self.supports_decisions,
+            version=self.version,
             tasks=self.task_count(),
             wiki=list({link.url: link for link in [*PATTERN_LINKS.get(self.pattern, []), *EVALUATION_LINKS]}.values()),
         )

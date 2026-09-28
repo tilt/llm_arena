@@ -52,6 +52,15 @@ class DecisionConfig(BaseModel):
         stages = {self.primary, self.fallback} if self.policy == "cascade" else {self.policy}
         return {stage for stage in SERVICES if stage in stages}
 
+    def llm_roles(self) -> set[str]:
+        """Roles whose models this policy calls (the others are bound only by fallback and stay unused)."""
+        if self.policy == "llm":
+            return {DECIDER_ROLE}
+        if self.policy != "cascade":
+            return set()
+        roles = {DECIDER_ROLE} if self.primary == "llm" else set()
+        return roles | ({ESCALATION_ROLE} if self.fallback == "llm" else set())
+
     def service_model(self, service: Service) -> str:
         return self.jev_model if service == "jev" else self.ollaya_model
 

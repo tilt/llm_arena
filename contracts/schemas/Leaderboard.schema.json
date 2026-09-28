@@ -1,0 +1,162 @@
+{
+  "$defs": {
+    "LeaderboardEntry": {
+      "properties": {
+        "ci_high": {
+          "title": "Ci High",
+          "type": "number"
+        },
+        "ci_low": {
+          "title": "Ci Low",
+          "type": "number"
+        },
+        "config": {
+          "description": "name of the config in its latest run",
+          "title": "Config",
+          "type": "string"
+        },
+        "delta_vs_leader": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "pass-rate difference on the shared tasks",
+          "title": "Delta Vs Leader"
+        },
+        "fingerprint": {
+          "title": "Fingerprint",
+          "type": "string"
+        },
+        "latency_p50_s": {
+          "title": "Latency P50 S",
+          "type": "number"
+        },
+        "mean_cost_usd": {
+          "title": "Mean Cost Usd",
+          "type": "number"
+        },
+        "mean_tokens": {
+          "title": "Mean Tokens",
+          "type": "number"
+        },
+        "names": {
+          "description": "every name this setup ran under",
+          "items": {
+            "type": "string"
+          },
+          "title": "Names",
+          "type": "array"
+        },
+        "p_vs_leader": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "paired permutation test on the shared tasks",
+          "title": "P Vs Leader"
+        },
+        "pass_rate": {
+          "description": "mean over tasks of the per-task pass share",
+          "title": "Pass Rate",
+          "type": "number"
+        },
+        "rank": {
+          "title": "Rank",
+          "type": "integer"
+        },
+        "runs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Runs",
+          "type": "array"
+        },
+        "setup": {
+          "additionalProperties": true,
+          "description": "roles (model + call settings), params and control policy",
+          "title": "Setup",
+          "type": "object"
+        },
+        "shared_tasks": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "tasks shared with the leader",
+          "title": "Shared Tasks"
+        },
+        "tasks": {
+          "title": "Tasks",
+          "type": "integer"
+        },
+        "trials": {
+          "title": "Trials",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "rank",
+        "fingerprint",
+        "config",
+        "names",
+        "setup",
+        "runs",
+        "trials",
+        "tasks",
+        "pass_rate",
+        "ci_low",
+        "ci_high",
+        "mean_cost_usd",
+        "mean_tokens",
+        "latency_p50_s"
+      ],
+      "title": "LeaderboardEntry",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/LeaderboardEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "scenario": {
+      "title": "Scenario",
+      "type": "string"
+    },
+    "scenario_version": {
+      "title": "Scenario Version",
+      "type": "string"
+    },
+    "tasks": {
+      "description": "distinct tasks run by any entry",
+      "title": "Tasks",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "scenario",
+    "scenario_version",
+    "tasks",
+    "entries"
+  ],
+  "title": "Leaderboard",
+  "type": "object"
+}

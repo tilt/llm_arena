@@ -10,6 +10,7 @@ export interface Contracts {
   CatalogEntry?: CatalogEntry;
   Estimate?: Estimate;
   ExperimentConfig?: ExperimentConfig;
+  Leaderboard?: Leaderboard;
   ModelSpec?: ModelSpec;
   RunBundle?: RunBundle;
   RunEvent?: RunEvent;
@@ -220,6 +221,65 @@ export interface DecisionConfig {
   thresholds?: {
     [k: string]: number | undefined;
   };
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "Leaderboard".
+ */
+export interface Leaderboard {
+  entries: LeaderboardEntry[];
+  scenario: string;
+  scenario_version: string;
+  /**
+   * distinct tasks run by any entry
+   */
+  tasks: number;
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "LeaderboardEntry".
+ */
+export interface LeaderboardEntry {
+  ci_high: number;
+  ci_low: number;
+  /**
+   * name of the config in its latest run
+   */
+  config: string;
+  /**
+   * pass-rate difference on the shared tasks
+   */
+  delta_vs_leader?: number | null;
+  fingerprint: string;
+  latency_p50_s: number;
+  mean_cost_usd: number;
+  mean_tokens: number;
+  /**
+   * every name this setup ran under
+   */
+  names: string[];
+  /**
+   * paired permutation test on the shared tasks
+   */
+  p_vs_leader?: number | null;
+  /**
+   * mean over tasks of the per-task pass share
+   */
+  pass_rate: number;
+  rank: number;
+  runs: string[];
+  /**
+   * roles (model + call settings), params and control policy
+   */
+  setup: {
+    [k: string]: unknown | undefined;
+  };
+  /**
+   * tasks shared with the leader
+   */
+  shared_tasks?: number | null;
+  tasks: number;
+  trials: number;
 }
 /**
  * Everything the report viewer needs for one run; export/import format between runtimes.
@@ -527,6 +587,10 @@ export interface ScenarioManifest {
   supports_decisions?: boolean;
   tasks: number;
   title: string;
+  /**
+   * bumped when prompts, tools or evaluators change
+   */
+  version?: string;
   wiki?: WikiLink[];
 }
 /**

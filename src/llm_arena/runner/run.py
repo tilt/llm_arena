@@ -41,6 +41,7 @@ from llm_arena.runner.events import (
     TrialStarted,
     ignore,
 )
+from llm_arena.runner.fingerprint import fingerprint, setup_of, task_fingerprint
 from llm_arena.runner.ports import RunStore, Runtime, TrialRecord
 from llm_arena.scenarios.base import RunContext, Scenario, get_scenario
 
@@ -262,6 +263,11 @@ class ExperimentRunner:
         criteria = set(spec.scenario.pass_criteria)
         graded = [score for score in scores if score.name in criteria and score.passed is not None]
         passed = status == "ok" and bool(graded) and all(score.passed for score in graded)
+        policy = spec.config.decisions
+        decisions = policy.model_dump(mode="json") if policy else None
+        # Decision roles count only when the policy calls them, so an unused decider never splits a setup.
+        unused = {DECIDER_ROLE, ESCALATION_ROLE} - (policy.llm_roles() if policy else set())
+        setup = setup_of({r: m for r, m in spec.bindings.items() if r not in unused}, spec.params, decisions)
         record = TrialRecord(
             trial_id=spec.trial_id,
             scenario=spec.scenario.name,
@@ -278,6 +284,10 @@ class ExperimentRunner:
             judge_cost_usd=judge_trace.totals()["cost_usd"],
             roles={role: model.name for role, model in spec.bindings.items()},
             params=spec.params,
+            fingerprint=fingerprint(setup),
+            scenario_version=spec.scenario.version,
+            task_fp=task_fingerprint(spec.task),
+            setup=setup,
         )
         extra = {
             "env_state": output.env_state,

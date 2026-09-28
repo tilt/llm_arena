@@ -30,6 +30,7 @@
   "supports_decisions": false,
   "tasks": 60,
   "title": "HumanEval (code)",
+  "version": "1",
   "wiki": [
     {
       "title": "Evaluation harnesses",

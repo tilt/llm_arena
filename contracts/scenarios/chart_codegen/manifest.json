@@ -53,6 +53,7 @@
   "supports_decisions": false,
   "tasks": 4,
   "title": "Chart code with a vision critic",
+  "version": "1",
   "wiki": [
     {
       "title": "Code as an action",

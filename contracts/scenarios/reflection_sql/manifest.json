@@ -44,6 +44,7 @@
   "supports_decisions": false,
   "tasks": 10,
   "title": "Text-to-SQL with execution feedback",
+  "version": "1",
   "wiki": [
     {
       "title": "Reflection and reviewer patterns",

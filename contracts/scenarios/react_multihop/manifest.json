@@ -39,6 +39,7 @@
   "supports_decisions": false,
   "tasks": 16,
   "title": "Multi-hop QA with ReAct",
+  "version": "1",
   "wiki": [
     {
       "title": "ReAct: reason, act, observe",

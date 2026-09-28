@@ -177,6 +177,12 @@
       "title": "Title",
       "type": "string"
     },
+    "version": {
+      "default": "1",
+      "description": "bumped when prompts, tools or evaluators change",
+      "title": "Version",
+      "type": "string"
+    },
     "wiki": {
       "items": {
         "$ref": "#/$defs/WikiLink"

@@ -36,6 +36,10 @@ def trial_row(run_id: str, record: TrialRecord) -> dict[str, Any]:
         "judge_cost_usd": record.judge_cost_usd,
         "roles_json": json.dumps(record.roles),
         "params_json": json.dumps(record.params, default=str),
+        "fingerprint": record.fingerprint,
+        "scenario_version": record.scenario_version,
+        "task_fp": record.task_fp,
+        "setup_json": json.dumps(record.setup, default=str, sort_keys=True),
     }
 
 

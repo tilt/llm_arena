@@ -59,6 +59,7 @@
   "supports_decisions": false,
   "tasks": 3,
   "title": "Trip planning with replanning",
+  "version": "1",
   "wiki": [
     {
       "title": "Planning",

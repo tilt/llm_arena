@@ -20,6 +20,7 @@ from llm_arena.llm.catalog import Catalog
 from llm_arena.llm.pricing import known_price, price_per_mtok
 from llm_arena.llm.spec import ModelSpec
 from llm_arena.report.aggregate import ConfigSummary, PairedTest, summarize
+from llm_arena.report.leaderboard import Leaderboard, build_leaderboards
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import EventSink, ignore
 from llm_arena.runner.ports import RunStore, Runtime
@@ -161,6 +162,17 @@ class ArenaService:
     def cancel(self, run_id: str) -> None:
         if run_id in self._runners:
             self._runners[run_id].cancel()
+
+    def leaderboards(self, run_ids: list[str], *, scenario: str | None = None) -> list[Leaderboard]:
+        """Pool the trials of the given runs into per-scenario leaderboards (unreadable runs are skipped)."""
+        trials: list[dict[str, Any]] = []
+        for run_id in run_ids:
+            try:
+                rows = self.store_factory(run_id).load_run().trials
+            except Exception:  # a run being written by another process, or a damaged run directory
+                continue
+            trials += [{**row, "run_id": row.get("run_id") or run_id} for row in rows]
+        return build_leaderboards(trials, scenario)
 
     def run_bundle(self, run_id: str, *, max_traces: int = 400) -> RunBundle:
         store = self.store_factory(run_id)

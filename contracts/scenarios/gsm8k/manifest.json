@@ -28,6 +28,7 @@
   "supports_decisions": false,
   "tasks": 100,
   "title": "GSM8K (maths word problems)",
+  "version": "1",
   "wiki": [
     {
       "title": "Evaluation harnesses",

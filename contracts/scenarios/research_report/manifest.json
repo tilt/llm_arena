@@ -60,6 +60,7 @@
   "supports_decisions": false,
   "tasks": 4,
   "title": "Research report with sources",
+  "version": "1",
   "wiki": [
     {
       "title": "Tool use and function calling",

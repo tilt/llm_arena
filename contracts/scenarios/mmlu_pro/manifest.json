@@ -28,6 +28,7 @@
   "supports_decisions": false,
   "tasks": 140,
   "title": "MMLU-Pro (knowledge)",
+  "version": "1",
   "wiki": [
     {
       "title": "Evaluation harnesses",

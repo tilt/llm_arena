@@ -46,6 +46,7 @@
   "supports_decisions": true,
   "tasks": 10,
   "title": "Email assistant (tool use)",
+  "version": "1",
   "wiki": [
     {
       "title": "Tool use and function calling",

@@ -38,6 +38,7 @@
   "supports_decisions": false,
   "tasks": 6,
   "title": "Customer service via code actions",
+  "version": "1",
   "wiki": [
     {
       "title": "Code as an action",

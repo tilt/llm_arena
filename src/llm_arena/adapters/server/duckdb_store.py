@@ -25,7 +25,7 @@ from llm_arena.runner.ports import RunData, TrialRecord
 _TRIAL_COLUMNS = (
     "trial_id", "run_id", "scenario", "pattern", "config", "task_id", "repeat", "status", "passed", "error", "final",
     "duration_s", "llm_calls", "tool_calls", "prompt_tokens", "completion_tokens", "cost_usd", "llm_latency_s",
-    "judge_cost_usd", "roles_json", "params_json",
+    "judge_cost_usd", "roles_json", "params_json", "fingerprint", "scenario_version", "task_fp", "setup_json",
 )  # fmt: skip
 
 _SCHEMA = """
@@ -38,6 +38,11 @@ CREATE TABLE IF NOT EXISTS trials (
     llm_calls INTEGER, tool_calls INTEGER, prompt_tokens INTEGER, completion_tokens INTEGER,
     cost_usd DOUBLE, llm_latency_s DOUBLE, judge_cost_usd DOUBLE, roles_json TEXT, params_json TEXT
 );
+-- Added later; runs created before get empty values (the leaderboard treats them as legacy).
+ALTER TABLE trials ADD COLUMN IF NOT EXISTS fingerprint TEXT;
+ALTER TABLE trials ADD COLUMN IF NOT EXISTS scenario_version TEXT;
+ALTER TABLE trials ADD COLUMN IF NOT EXISTS task_fp TEXT;
+ALTER TABLE trials ADD COLUMN IF NOT EXISTS setup_json TEXT;
 CREATE TABLE IF NOT EXISTS scores (
     trial_id TEXT, name TEXT, level TEXT, value DOUBLE, passed BOOLEAN, rationale TEXT
 );
@@ -91,7 +96,10 @@ class DuckDBStore:
             db.execute("DELETE FROM decisions WHERE trial_id = ?", [record.trial_id])
             db.execute("DELETE FROM trials WHERE trial_id = ?", [record.trial_id])
             placeholders = ", ".join("?" for _ in _TRIAL_COLUMNS)
-            db.execute(f"INSERT INTO trials VALUES ({placeholders})", [row[column] for column in _TRIAL_COLUMNS])
+            db.execute(
+                f"INSERT INTO trials ({', '.join(_TRIAL_COLUMNS)}) VALUES ({placeholders})",
+                [row[column] for column in _TRIAL_COLUMNS],
+            )
             if scores:
                 db.executemany(
                     "INSERT INTO scores VALUES (?, ?, ?, ?, ?, ?)",

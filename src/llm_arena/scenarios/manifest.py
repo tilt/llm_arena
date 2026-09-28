@@ -85,6 +85,7 @@ class ScenarioManifest(BaseModel):
     pass_criteria: list[str]
     requires: list[Requirement] = Field(default_factory=list)
     open_ended: bool = False
+    version: str = Field(default="1", description="bumped when prompts, tools or evaluators change")
     supports_decisions: bool = Field(default=False, description="accepts a control policy (config.decisions)")
     tasks: int
     wiki: list[WikiLink] = Field(default_factory=list)

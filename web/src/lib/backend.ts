@@ -3,6 +3,7 @@
 import type {
   CatalogEntry,
   Estimate,
+  Leaderboard,
   ExperimentConfig,
   ModelSpec,
   RunBundle,
@@ -37,6 +38,8 @@ export interface ArenaBackend {
   cancel(runId: string): Promise<void>;
   runs(): Promise<RunListing[]>;
   bundle(runId: string): Promise<RunBundle>;
+  /** Per-scenario leaderboards pooled over all runs this backend knows (comparable trials only). */
+  leaderboard(): Promise<Leaderboard[]>;
   /** Static HTML report, where the backend can render one (local app only). */
   reportUrl(runId: string): string | null;
 }
@@ -109,6 +112,10 @@ export class HttpBackend implements ArenaBackend {
 
   bundle(runId: string): Promise<RunBundle> {
     return this.request("GET", `/api/runs/${encodeURIComponent(runId)}/bundle`);
+  }
+
+  leaderboard(): Promise<Leaderboard[]> {
+    return this.request("GET", "/api/leaderboard");
   }
 
   reportUrl(runId: string): string {

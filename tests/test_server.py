@@ -114,3 +114,7 @@ def test_allowed_origins_follow_the_configured_port() -> None:
     assert local_origins(9001) == [
         "http://127.0.0.1:9001", "http://localhost:9001", "http://127.0.0.1:5173", "http://localhost:5173",
     ]  # fmt: skip
+
+
+def test_leaderboard_endpoint_lists_boards(client: TestClient) -> None:
+    assert client.get("/api/leaderboard").json() == []

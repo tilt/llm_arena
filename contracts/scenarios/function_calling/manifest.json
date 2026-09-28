@@ -28,6 +28,7 @@
   "supports_decisions": false,
   "tasks": 16,
   "title": "Function calling",
+  "version": "1",
   "wiki": [
     {
       "title": "Evaluation harnesses",

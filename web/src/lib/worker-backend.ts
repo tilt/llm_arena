@@ -3,9 +3,7 @@
 // are kept in IndexedDB and can be exported/imported as RunBundle files.
 import type { ArenaBackend, ModelsResponse } from "./backend";
 import { BackendError } from "./backend";
-import type {
-  Estimate, ExperimentConfig, RunBundle, RunEvent, RunListing, RuntimeResponse, ScenarioManifest, StartRun,
-} from "./contracts";
+import type { Estimate, ExperimentConfig, Leaderboard, RunBundle, RunEvent, RunListing, RuntimeResponse, ScenarioManifest, StartRun } from "./contracts";
 import type { EngineMethod, EngineReply } from "../engine/protocol";
 import { listBundles, loadBundle, saveBundle } from "./idb";
 
@@ -69,6 +67,12 @@ export class WorkerBackend implements ArenaBackend {
   async bundle(runId: string): Promise<RunBundle> {
     const saved = await loadBundle(runId);
     return saved ?? this.json("bundle", runId);
+  }
+
+  /** Pools the trials of every run saved in this browser; the engine applies the same rules as the local app. */
+  async leaderboard(): Promise<Leaderboard[]> {
+    const trials = (await listBundles()).flatMap((b) => b.trials.map((t) => ({ ...t, run_id: t.run_id ?? b.run.run_id })));
+    return this.json("leaderboard", JSON.stringify(trials));
   }
 
   async importBundle(file: File): Promise<string> {
