@@ -160,7 +160,8 @@ class BrowserArena:
         return TypeAdapter(list[Leaderboard]).dump_json(boards).decode()
 
     def bundle(self, run_id: str) -> str:
-        return self.service.run_bundle(run_id).model_dump_json()
+        # Browser runs live only in this tab: the bundle carries traces and files into IndexedDB / exports.
+        return self.service.run_bundle(run_id, artifacts=True).model_dump_json()
 
     async def selftest(self, vectors_json: str) -> str:
         """Replay the conformance cases in this runtime and compare with the Python engine's vectors."""

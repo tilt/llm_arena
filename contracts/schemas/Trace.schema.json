@@ -1,7 +1,49 @@
 {
   "$defs": {
+    "ArtifactRef": {
+      "properties": {
+        "key": {
+          "default": "",
+          "description": "store key (<trial>/<seq>-<name>); empty when not stored",
+          "title": "Key",
+          "type": "string"
+        },
+        "media_type": {
+          "title": "Media Type",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "note": {
+          "default": "",
+          "description": "why it was not stored, if it was not",
+          "title": "Note",
+          "type": "string"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "media_type",
+        "size"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
     "Span": {
       "properties": {
+        "artifacts": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Artifacts",
+          "type": "array"
+        },
         "attrs": {
           "additionalProperties": true,
           "title": "Attrs",

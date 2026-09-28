@@ -14,6 +14,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from llm_arena.core.artifacts import MAX_FILE_BYTES, MAX_TRIAL_BYTES, ArtifactRef, ArtifactSink
+
 SpanKind = Literal["llm_call", "tool_call", "code_exec", "handoff", "plan", "critique", "step", "judge", "decision"]
 
 
@@ -33,6 +35,7 @@ class Span(BaseModel):
     duration_s: float = 0.0
     parent: int | None = None  # index of the enclosing span
     step: str | None = None  # workflow step (scenarios/workflow.py) this span belongs to
+    artifacts: list[ArtifactRef] = Field(default_factory=list)  # files the step used or produced
 
     @property
     def ok(self) -> bool:
@@ -43,10 +46,31 @@ class Trace(BaseModel):
     spans: list[Span] = Field(default_factory=list)
     _stack: list[int] = []
     _steps: list[str] = []
+    _sink: ArtifactSink | None = None
+    _stored: int = 0
 
     def model_post_init(self, __context: Any) -> None:
         self._stack = []
         self._steps = []
+        self._sink = None
+        self._stored = 0
+
+    def store_artifacts_with(self, sink: ArtifactSink | None) -> None:
+        """The runner connects the trial's store; without one, attachments are listed but not kept."""
+        self._sink = sink
+
+    def attach(self, span: Span, name: str, data: bytes, media_type: str) -> ArtifactRef:
+        """Keep a file with the span that used or produced it (within the size caps)."""
+        size = len(data)
+        if self._sink is None:
+            ref = ArtifactRef(name=name, media_type=media_type, size=size, note="not stored (no artifact store)")
+        elif size > MAX_FILE_BYTES or self._stored + size > MAX_TRIAL_BYTES:
+            ref = ArtifactRef(name=name, media_type=media_type, size=size, note="not stored (size limit)")
+        else:
+            ref = self._sink(name, data, media_type)
+            self._stored += size
+        span.artifacts.append(ref)
+        return ref
 
     def add(self, span: Span) -> Span:
         if span.parent is None and self._stack:

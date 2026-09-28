@@ -147,9 +147,29 @@ def create_app(
         return {"run_id": run_id, "status": "cancelling"}
 
     @app.get("/api/runs/{run_id}/bundle", response_model=RunBundle)
-    def bundle(run_id: str) -> RunBundle:
+    def bundle(run_id: str, traces: bool = True, artifacts: bool = False) -> RunBundle:
+        """`traces=false` for the in-app report (traces load per trial); `artifacts=true` for a full export."""
         _require_run(runs_dir, run_id)
-        return service.run_bundle(run_id)
+        return service.run_bundle(run_id, traces=traces, artifacts=artifacts)
+
+    @app.get("/api/runs/{run_id}/trials/{trial_id}/trace")
+    def trial_trace(run_id: str, trial_id: str) -> dict[str, Any]:
+        _require_run(runs_dir, run_id)
+        trace = service.trial_trace(run_id, trial_id)
+        if trace is None:
+            raise HTTPException(status_code=404, detail=f"no trace for trial {trial_id}")
+        return trace
+
+    @app.get("/api/runs/{run_id}/artifacts/{key:path}")
+    def artifact(run_id: str, key: str) -> Response:
+        _require_run(runs_dir, run_id)
+        found = service.artifact(run_id, key)
+        if found is None:
+            raise HTTPException(status_code=404, detail="no such artifact")
+        data, media_type = found
+        # Artifacts are model-generated: never let the browser sniff them into something executable.
+        headers = {"X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; sandbox"}
+        return Response(content=data, media_type=media_type, headers=headers)
 
     @app.get("/api/runs/{run_id}/report")
     def report(run_id: str) -> FileResponse:

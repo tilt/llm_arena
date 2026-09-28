@@ -9,6 +9,8 @@ long-held connection would stop a report or the local app from reading progress 
 from __future__ import annotations
 
 import json
+import mimetypes
+import shutil
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -16,6 +18,7 @@ from typing import Any
 
 import duckdb
 
+from llm_arena.core.artifacts import ArtifactRef, artifact_key, safe_name, valid_key
 from llm_arena.core.trace import Trace
 from llm_arena.decisions.records import DECISION_COLUMNS, decision_rows
 from llm_arena.eval.base import Score
@@ -147,6 +150,24 @@ class DuckDBStore:
                 battles=_rows(db, "SELECT * FROM battles"),
                 decisions=_rows(db, "SELECT * FROM decisions ORDER BY trial_id, span, question"),
             )
+
+    def clear_artifacts(self, trial_id: str) -> None:
+        shutil.rmtree(self.run_dir / "artifacts" / safe_name(trial_id), ignore_errors=True)
+
+    def save_artifact(self, trial_id: str, name: str, data: bytes, media_type: str) -> ArtifactRef:
+        folder = self.run_dir / "artifacts" / safe_name(trial_id)
+        folder.mkdir(parents=True, exist_ok=True)
+        key = artifact_key(trial_id, len(list(folder.iterdir())), name)
+        (self.run_dir / "artifacts" / key).write_bytes(data)
+        return ArtifactRef(name=name, media_type=media_type, size=len(data), key=key)
+
+    def load_artifact(self, key: str) -> tuple[bytes, str] | None:
+        """Keys arrive from URLs: validated, and resolved strictly inside this run's artifact folder."""
+        root = (self.run_dir / "artifacts").resolve()
+        path = (root / key).resolve()
+        if not valid_key(key) or root not in path.parents or not path.is_file():
+            return None
+        return path.read_bytes(), mimetypes.guess_type(path.name)[0] or "application/octet-stream"
 
     def load_trace(self, trial_id: str) -> dict[str, Any] | None:
         path = self.run_dir / "traces" / f"{trial_id}.json"

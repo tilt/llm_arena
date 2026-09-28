@@ -6,10 +6,12 @@ lets one pipeline run under many model configurations.
 
 from __future__ import annotations
 
+import base64
+import re
 from typing import Any
 
 from llm_arena.core.errors import ConfigError
-from llm_arena.core.trace import Trace
+from llm_arena.core.trace import Span, Trace
 from llm_arena.llm.client import LLMClient
 from llm_arena.llm.spec import ModelSpec
 from llm_arena.llm.types import LLMResponse, Message
@@ -37,7 +39,7 @@ class TracedLLM:
         max_tokens: int | None = None,
     ) -> LLMResponse:
         with self.trace.span("llm_call", self.role, role=self.role, model=self.spec.name) as span:
-            span.input = _redact_images(messages)
+            span.input = self._keep_images(span, messages)
             span.attrs["n_tools"] = len(tools or [])
             response = await self._client.complete(
                 messages, tools=tools, response_format=response_format, temperature=temperature, max_tokens=max_tokens
@@ -55,6 +57,26 @@ class TracedLLM:
                 }
             )
             return response
+
+    def _keep_images(self, span: Span, messages: list[Message]) -> list[Message]:
+        """Keep traces small: each inline image becomes an artifact of the span, referenced as artifact:<key>."""
+        kept: list[Message] = []
+        for message in messages:
+            content = message.get("content")
+            if isinstance(content, list):
+                parts = []
+                for part in content:
+                    decoded = _data_url(part["image_url"]["url"]) if part.get("type") == "image_url" else None
+                    if decoded is None:
+                        parts.append(part)
+                        continue
+                    data, media = decoded
+                    extension = media.split("/")[-1].split("+")[0]
+                    ref = self.trace.attach(span, f"input-image.{extension}", data, media)
+                    parts.append({"type": "image_url", "image_url": {"url": f"artifact:{ref.key or ref.name}"}})
+                message = {**message, "content": parts}
+            kept.append(message)
+        return kept
 
 
 class RoleModels:
@@ -75,18 +97,11 @@ class RoleModels:
         return role in self._clients
 
 
-def _redact_images(messages: list[Message]) -> list[Message]:
-    """Keep traces small: base64 images are replaced by a placeholder."""
-    redacted: list[Message] = []
-    for message in messages:
-        content = message.get("content")
-        if isinstance(content, list):
-            content = [
-                {"type": "image_url", "image_url": {"url": "<image omitted>"}}
-                if part.get("type") == "image_url"
-                else part
-                for part in content
-            ]
-            message = {**message, "content": content}
-        redacted.append(message)
-    return redacted
+def _data_url(url: str) -> tuple[bytes, str] | None:
+    match = re.fullmatch(r"data:([\w/+.-]+);base64,(.*)", url, flags=re.DOTALL)
+    if not match:
+        return None
+    try:
+        return base64.b64decode(match.group(2)), match.group(1)
+    except ValueError:
+        return None

@@ -298,6 +298,12 @@ export interface LeaderboardEntry {
  * via the `definition` "RunBundle".
  */
 export interface RunBundle {
+  /**
+   * artifact key -> file, for the included traces (exports, browser storage)
+   */
+  artifacts?: {
+    [k: string]: BundledArtifact | undefined;
+  };
   battles: {
     [k: string]: unknown | undefined;
   }[];
@@ -314,12 +320,26 @@ export interface RunBundle {
     [k: string]: unknown | undefined;
   }[];
   summary: BundleSummary;
-  traces: {
+  /**
+   * trial id -> trace (empty when loaded lazily)
+   */
+  traces?: {
     [k: string]: unknown | undefined;
   };
   trials: {
     [k: string]: unknown | undefined;
   }[];
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "BundledArtifact".
+ */
+export interface BundledArtifact {
+  /**
+   * base64
+   */
+  data: string;
+  media_type: string;
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema
@@ -752,6 +772,7 @@ export interface Trace {
  * via the `definition` "Span".
  */
 export interface Span {
+  artifacts?: ArtifactRef[];
   attrs?: {
     [k: string]: unknown | undefined;
   };
@@ -773,4 +794,21 @@ export interface Span {
   role?: string | null;
   started_at?: number;
   step?: string | null;
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "ArtifactRef".
+ */
+export interface ArtifactRef {
+  /**
+   * store key (<trial>/<seq>-<name>); empty when not stored
+   */
+  key?: string;
+  media_type: string;
+  name: string;
+  /**
+   * why it was not stored, if it was not
+   */
+  note?: string;
+  size: number;
 }

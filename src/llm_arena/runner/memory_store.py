@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from llm_arena.core.artifacts import ArtifactRef, artifact_key, safe_name
 from llm_arena.core.trace import Trace
 from llm_arena.decisions.records import decision_rows
 from llm_arena.eval.base import Score
@@ -60,6 +61,7 @@ class MemoryStore:
         self.battles: list[dict[str, Any]] = []
         self.traces: dict[str, dict[str, Any]] = {}
         self.decisions: dict[str, list[dict[str, Any]]] = {}
+        self.artifacts: dict[str, tuple[bytes, str]] = {}  # key -> (data, media type); travels in the run bundle
 
     def start_run(self, run_id: str, name: str, config_json: str) -> None:
         self.run = self.run or {"run_id": run_id, "name": name, "created_at": "", "config_json": config_json}
@@ -115,3 +117,16 @@ class MemoryStore:
 
     def load_trace(self, trial_id: str) -> dict[str, Any] | None:
         return self.traces.get(trial_id)
+
+    def clear_artifacts(self, trial_id: str) -> None:
+        prefix = f"{safe_name(trial_id)}/"
+        self.artifacts = {k: v for k, v in self.artifacts.items() if not k.startswith(prefix)}
+
+    def save_artifact(self, trial_id: str, name: str, data: bytes, media_type: str) -> ArtifactRef:
+        prefix = f"{safe_name(trial_id)}/"
+        key = artifact_key(trial_id, sum(k.startswith(prefix) for k in self.artifacts), name)
+        self.artifacts[key] = (data, media_type)
+        return ArtifactRef(name=name, media_type=media_type, size=len(data), key=key)
+
+    def load_artifact(self, key: str) -> tuple[bytes, str] | None:
+        return self.artifacts.get(key)

@@ -44,6 +44,25 @@
       "title": "BundleSummary",
       "type": "object"
     },
+    "BundledArtifact": {
+      "properties": {
+        "data": {
+          "description": "base64",
+          "title": "Data",
+          "type": "string"
+        },
+        "media_type": {
+          "title": "Media Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "media_type",
+        "data"
+      ],
+      "title": "BundledArtifact",
+      "type": "object"
+    },
     "CalibrationBin": {
       "properties": {
         "high": {
@@ -396,6 +415,14 @@
   },
   "description": "Everything the report viewer needs for one run; export/import format between runtimes.",
   "properties": {
+    "artifacts": {
+      "additionalProperties": {
+        "$ref": "#/$defs/BundledArtifact"
+      },
+      "description": "artifact key -> file, for the included traces (exports, browser storage)",
+      "title": "Artifacts",
+      "type": "object"
+    },
     "battles": {
       "items": {
         "additionalProperties": true,
@@ -431,6 +458,7 @@
     },
     "traces": {
       "additionalProperties": true,
+      "description": "trial id -> trace (empty when loaded lazily)",
       "title": "Traces",
       "type": "object"
     },
@@ -448,8 +476,7 @@
     "summary",
     "trials",
     "scores",
-    "battles",
-    "traces"
+    "battles"
   ],
   "title": "RunBundle",
   "type": "object"

@@ -9,7 +9,8 @@ in through the Runtime and a RunStore factory.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+import base64
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -62,6 +63,11 @@ class BundleSummary(BaseModel):
     decisions: list[DecisionSummary] = Field(default_factory=list, description="control-policy decision quality")
 
 
+class BundledArtifact(BaseModel):
+    media_type: str
+    data: str = Field(description="base64")
+
+
 class RunBundle(BaseModel):
     """Everything the report viewer needs for one run; export/import format between runtimes."""
 
@@ -71,7 +77,10 @@ class RunBundle(BaseModel):
     scores: list[dict[str, Any]]
     battles: list[dict[str, Any]]
     decisions: list[dict[str, Any]] = Field(default_factory=list, description="one row per control decision × question")
-    traces: dict[str, Any]
+    traces: dict[str, Any] = Field(default_factory=dict, description="trial id -> trace (empty when loaded lazily)")
+    artifacts: dict[str, BundledArtifact] = Field(
+        default_factory=dict, description="artifact key -> file, for the included traces (exports, browser storage)"
+    )
 
 
 class ArenaService:
@@ -174,11 +183,33 @@ class ArenaService:
             trials += [{**row, "run_id": row.get("run_id") or run_id} for row in rows]
         return build_leaderboards(trials, scenario)
 
-    def run_bundle(self, run_id: str, *, max_traces: int = 400) -> RunBundle:
+    def run_bundle(
+        self,
+        run_id: str,
+        *,
+        max_traces: int = 400,
+        traces: bool = True,
+        artifacts: bool = False,
+        max_artifact_bytes: int = 50 * 1024 * 1024,
+    ) -> RunBundle:
+        """`traces=False` for a light bundle (the UI then loads traces per trial); `artifacts=True` embeds the
+        files the included traces reference, up to `max_artifact_bytes` (exports, browser storage)."""
         store = self.store_factory(run_id)
         data = store.load_run()
         summary = summarize(data)
-        traces = {trial["trial_id"]: store.load_trace(trial["trial_id"]) for trial in data.trials[:max_traces]}
+        trial_traces = (
+            {trial["trial_id"]: store.load_trace(trial["trial_id"]) for trial in data.trials[:max_traces]}
+            if traces
+            else {}
+        )
+        files: dict[str, BundledArtifact] = {}
+        budget = max_artifact_bytes
+        for key in _artifact_keys(trial_traces.values()) if artifacts else []:
+            loaded = store.load_artifact(key)
+            if loaded is None or len(loaded[0]) > budget:
+                continue
+            budget -= len(loaded[0])
+            files[key] = BundledArtifact(media_type=loaded[1], data=base64.b64encode(loaded[0]).decode("ascii"))
         return RunBundle(
             run=data.run,
             summary=BundleSummary(
@@ -191,8 +222,15 @@ class ArenaService:
             scores=data.scores,
             battles=data.battles,
             decisions=data.decisions,
-            traces=traces,
+            traces=trial_traces,
+            artifacts=files,
         )
+
+    def trial_trace(self, run_id: str, trial_id: str) -> dict[str, Any] | None:
+        return self.store_factory(run_id).load_trace(trial_id)
+
+    def artifact(self, run_id: str, key: str) -> tuple[bytes, str] | None:
+        return self.store_factory(run_id).load_artifact(key)
 
     def _runner(
         self, experiment: ExperimentConfig, *, run_id: str, sink: EventSink = ignore, live: bool = False
@@ -217,3 +255,14 @@ def _cost(spec: ModelSpec, tokens: float, unknown: set[str]) -> float:
         unknown.add(spec.name)
     input_price, output_price = price_per_mtok(spec)
     return (tokens * 0.8 * input_price + tokens * 0.2 * output_price) / 1_000_000
+
+
+def _artifact_keys(traces: Iterable[dict[str, Any] | None]) -> list[str]:
+    return [
+        ref["key"]
+        for trace in traces
+        if trace
+        for span in trace.get("spans", [])
+        for ref in span.get("artifacts", [])
+        if ref.get("key")
+    ]

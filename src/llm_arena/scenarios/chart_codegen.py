@@ -123,6 +123,9 @@ class ChartCodegen(Scenario):
                 )
                 span.output = result.observation()
                 span.attrs.update({"ok": result.ok, "png": "chart.png" in result.files})
+                for name, media in (("chart.png", "image/png"), ("figure_spec.json", "application/json")):
+                    if name in result.files:
+                        ctx.trace.attach(span, name, result.files[name], media)
             attempts.append(result)
             codes.append(code)
             return code

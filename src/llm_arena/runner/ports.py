@@ -10,6 +10,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from llm_arena.core.artifacts import ArtifactRef
 from llm_arena.core.trace import Trace
 from llm_arena.decisions.config import ServiceFactory
 from llm_arena.eval.base import Score
@@ -75,6 +76,12 @@ class RunStore(Protocol):
     def load_run(self) -> RunData: ...
 
     def load_trace(self, trial_id: str) -> dict[str, Any] | None: ...
+
+    def clear_artifacts(self, trial_id: str) -> None: ...
+
+    def save_artifact(self, trial_id: str, name: str, data: bytes, media_type: str) -> ArtifactRef: ...
+
+    def load_artifact(self, key: str) -> tuple[bytes, str] | None: ...
 
 
 @dataclass

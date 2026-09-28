@@ -153,7 +153,7 @@
 </div>
 <div class="card">
   {#each visible.slice(0, 300) as t (t.trial_id)}
-    <TraceDetails trial={t} scores={bundle.scores.filter((s) => s.trial_id === t.trial_id)} trace={bundle.traces[t.trial_id]} />
+    <TraceDetails trial={t} scores={bundle.scores.filter((s) => s.trial_id === t.trial_id)} trace={bundle.traces?.[t.trial_id]} />
   {/each}
 </div>
 

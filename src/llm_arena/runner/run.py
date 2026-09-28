@@ -12,6 +12,7 @@ import contextlib
 import hashlib
 import itertools
 import json
+import mimetypes
 import time
 import traceback
 from collections.abc import Iterable
@@ -244,6 +245,8 @@ class ExperimentRunner:
 
     async def _run_trial(self, spec: TrialSpec, store: RunStore) -> TrialRecord:
         trace = Trace()
+        store.clear_artifacts(spec.trial_id)  # a retried trial starts clean
+        trace.store_artifacts_with(lambda name, data, media: store.save_artifact(spec.trial_id, name, data, media))
         salt_token = cache_salt.set(f"repeat={spec.repeat}")
         started = time.perf_counter()
         status, error, output = "ok", None, TrialOutput(final="")
@@ -263,6 +266,12 @@ class ExperimentRunner:
         finally:
             cache_salt.reset(salt_token)
         duration = time.perf_counter() - started
+        if output.artifacts or output.final:
+            # The result as its own step, so the inspector shows the final answer and produced files.
+            with trace.in_step("end"), trace.span("step", "result") as result_span:
+                result_span.output = output.final
+                for name, data in output.artifacts.items():
+                    trace.attach(result_span, name, data, mimetypes.guess_type(name)[0] or "application/octet-stream")
 
         judge_trace = Trace()
         scores = await self._evaluate(spec, output, trace, judge_trace) if status == "ok" else []
