@@ -9,6 +9,7 @@
   import HomeView from "./views/HomeView.svelte";
   import LeaderboardView from "./views/LeaderboardView.svelte";
   import ScenarioView from "./views/ScenarioView.svelte";
+  import SettingsView from "./views/SettingsView.svelte";
   import ModelsView from "./views/ModelsView.svelte";
   import RunsView from "./views/RunsView.svelte";
   import RunView from "./views/RunView.svelte";
@@ -42,6 +43,7 @@
     { href: "#/models", label: "Models", match: "models" },
     { href: "#/runs", label: "Runs", match: "runs" },
     { href: "#/leaderboard", label: "Leaderboard", match: "leaderboard" },
+    { href: "#/settings", label: "Baselines", match: "settings" },
   ];
 </script>
 
@@ -82,6 +84,7 @@
     {:else if router.route.name === "models"}<ModelsView />
     {:else if router.route.name === "runs"}<RunsView />
     {:else if router.route.name === "leaderboard"}<LeaderboardView />
+    {:else if router.route.name === "settings"}<SettingsView />
     {:else if router.route.name === "scenario"}{#key router.route.id}<ScenarioView id={router.route.id} tab={router.route.tab} />{/key}
     {:else if router.route.name === "run"}<RunView id={router.route.id} trial={router.route.trial} step={router.route.step} />
     {:else if router.route.name === "selftest"}<SelftestView />

@@ -14,7 +14,7 @@ from llm_arena.eval.base import EvalContext, Score, Task, TrialOutput
 from llm_arena.llm.client import system, user
 from llm_arena.llm.types import LLMResponse
 from llm_arena.patterns.roles import RoleModels
-from llm_arena.scenarios.base import RunContext, register
+from llm_arena.scenarios.base import RoleRequirement, RunContext, register
 from llm_arena.scenarios.brief import Expectation, bullet, text
 
 
@@ -186,6 +186,7 @@ class FunctionCallingBench(Benchmark):
     description = "Own synthetic suite: simple/multiple/parallel/irrelevance tool calls, AST-style argument check."
     sample_size = len(CASES)
 
+    roles = [RoleRequirement("model", "the model under test", kind="agent")]
     grading: ClassVar[str] = "exactly the expected tool calls with matching arguments (none for irrelevant requests)"
 
     def expected(self, task: Task) -> list[Expectation]:

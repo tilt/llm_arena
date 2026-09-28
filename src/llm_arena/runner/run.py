@@ -31,6 +31,7 @@ from llm_arena.llm.client import LLMClient
 from llm_arena.llm.registry import resolve_base_url, resolve_concurrency, resolve_model
 from llm_arena.llm.spec import ModelSpec
 from llm_arena.patterns.roles import RoleModels, TracedLLM
+from llm_arena.runner.baselines import DEFAULT_BASELINES, BaselineProfile
 from llm_arena.runner.budget import BudgetExceededError, BudgetGuard
 from llm_arena.runner.config import ExperimentConfig, PipelineConfig
 from llm_arena.runner.events import (
@@ -80,6 +81,7 @@ class ExperimentRunner:
         model_specs: dict[str, ModelSpec] | None = None,
         catalog: Catalog | None = None,
         sink: EventSink = ignore,
+        baselines: dict[str, BaselineProfile] | None = None,
     ) -> None:
         self.experiment = experiment
         self.runtime = runtime
@@ -89,6 +91,7 @@ class ExperimentRunner:
         self.model_specs = model_specs or {}
         self.catalog = catalog
         self.sink = sink
+        self.baselines = {**(baselines or DEFAULT_BASELINES), **experiment.baselines}
         self.budget = BudgetGuard(experiment.max_cost_usd)
         self._clients: dict[str, LLMClient] = {}
         self._cancelled = False
@@ -105,6 +108,7 @@ class ExperimentRunner:
     def unresolved_refs(self) -> set[str]:
         """References that are not curated aliases, i.e. need discovery to get real capabilities."""
         refs = {ref for config in self.experiment.configs for ref in config.roles.values()}
+        refs |= {ref for c in self.experiment.configs if c.baseline for ref in self._profile(c).models.values()}
         refs |= {ref for c in self.experiment.configs for roles in c.scenario_roles.values() for ref in roles.values()}
         refs |= {ref for ref in (self.experiment.judge, self.experiment.arena.judge) if ref}
         return {ref for ref in refs if ref not in self.model_specs}
@@ -152,12 +156,23 @@ class ExperimentRunner:
         for role, ref in roles.items():
             if role in role_names:
                 bindings[role] = self._spec(ref)
+        if config.baseline:
+            # Precedence: per-scenario binding > config role > baseline model for the role's kind > "*".
+            profile = self._profile(config)
+            for requirement in scenario.roles:
+                if requirement.name not in bindings:
+                    bindings[requirement.name] = self._spec(profile.model_for(requirement.kind))
         if WILDCARD_ROLE in roles:
             for requirement in scenario.roles:
                 # Optional roles with a fallback keep their fallback semantics (e.g. critic = generator).
                 if requirement.name not in bindings and requirement.fallback is None:
                     bindings[requirement.name] = self._spec(roles[WILDCARD_ROLE])
         return bindings
+
+    def _profile(self, config: PipelineConfig) -> BaselineProfile:
+        if config.baseline not in self.baselines:
+            raise ConfigError(f"{config.name}: unknown baseline {config.baseline!r}; known: {sorted(self.baselines)}")
+        return self.baselines[config.baseline]
 
     def _spec(self, ref: str) -> ModelSpec:
         try:

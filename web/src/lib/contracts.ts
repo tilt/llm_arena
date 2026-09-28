@@ -108,6 +108,12 @@ export interface Estimate {
  */
 export interface ExperimentConfig {
   arena?: ArenaConfig;
+  /**
+   * profiles defined in the experiment itself (override the runtime's)
+   */
+  baselines?: {
+    [k: string]: BaselineProfile | undefined;
+  };
   configs: PipelineConfig[];
   judge?: string | null;
   /**
@@ -141,12 +147,34 @@ export interface ArenaConfig {
   max_pairs_per_task?: number;
 }
 /**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "BaselineProfile".
+ */
+export interface BaselineProfile {
+  /**
+   * 'ollaya:<model>' or 'jev:<model>': the dedicated decision model, if any
+   */
+  decision_service?: string | null;
+  description?: string;
+  label: string;
+  /**
+   * step kind -> model reference
+   */
+  models: {
+    [k: string]: string | undefined;
+  };
+}
+/**
  * One contestant: a name, a role → model binding, and pattern parameters.
  *
  * This interface was referenced by `Contracts`'s JSON-Schema
  * via the `definition` "PipelineConfig".
  */
 export interface PipelineConfig {
+  /**
+   * baseline profile: roles not bound explicitly run on its model for their kind
+   */
+  baseline?: string | null;
   /**
    * control policy for scenarios that support one; None: the agent decides
    */
@@ -161,7 +189,7 @@ export interface PipelineConfig {
   /**
    * role -> model alias or 'provider:model'
    */
-  roles: {
+  roles?: {
     [k: string]: string | undefined;
   };
   /**
@@ -685,6 +713,10 @@ export interface RoleManifest {
    * optional role: reuses this role's model when unbound
    */
   fallback?: string | null;
+  /**
+   * what the role does, for baseline profiles: text, vision, code, agent, decision
+   */
+  kind?: "text" | "vision" | "code" | "agent" | "decision";
   name: string;
   /**
    * capabilities the bound model must have

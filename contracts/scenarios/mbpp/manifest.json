@@ -36,6 +36,7 @@
     {
       "description": "the model under test",
       "fallback": null,
+      "kind": "code",
       "name": "model",
       "needs": []
     }

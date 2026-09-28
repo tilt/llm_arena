@@ -53,12 +53,14 @@
     {
       "description": "writes and revises SQL",
       "fallback": null,
+      "kind": "code",
       "name": "generator",
       "needs": []
     },
     {
       "description": "reviews the query",
       "fallback": "generator",
+      "kind": "text",
       "name": "critic",
       "needs": []
     }

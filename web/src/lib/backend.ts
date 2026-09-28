@@ -1,6 +1,7 @@
 // The one seam between the UI and an arena engine. Views only ever use ArenaBackend, so the local
 // app (HttpBackend) and the in-browser engine (WorkerBackend, Pyodide) are interchangeable.
 import type {
+  BaselineProfile,
   CatalogEntry,
   Estimate,
   Leaderboard,
@@ -49,6 +50,10 @@ export interface ArenaBackend {
   cancel(runId: string): Promise<void>;
   runs(): Promise<RunListing[]>;
   bundle(runId: string): Promise<RunBundle>;
+  /** Baseline profiles: one model per kind of step. */
+  baselines(): Promise<Record<string, BaselineProfile>>;
+  /** Save a profile (null: back to the shipped version, or removed if it is your own). */
+  saveBaseline(name: string, profile: BaselineProfile | null): Promise<Record<string, BaselineProfile>>;
   /** A scenario's tasks with their expected outcomes (benchmarks may download their subset first). */
   tasks(scenario: string): Promise<TaskView[]>;
   /** One trial's trace, loaded on demand. */
@@ -137,6 +142,15 @@ export class HttpBackend implements ArenaBackend {
 
   tasks(scenario: string): Promise<TaskView[]> {
     return this.request("GET", `/api/scenarios/${encodeURIComponent(scenario)}/tasks`);
+  }
+
+  baselines(): Promise<Record<string, BaselineProfile>> {
+    return this.request("GET", "/api/baselines");
+  }
+
+  saveBaseline(name: string, profile: BaselineProfile | null): Promise<Record<string, BaselineProfile>> {
+    const path = `/api/baselines/${encodeURIComponent(name)}`;
+    return profile ? this.request("PUT", path, profile) : this.request("DELETE", path);
   }
 
   async trace(runId: string, trialId: string): Promise<TrialTrace | null> {

@@ -55,12 +55,14 @@
     {
       "description": "writes and revises plotting code",
       "fallback": null,
+      "kind": "code",
       "name": "generator",
       "needs": []
     },
     {
       "description": "reviews the rendered chart image",
       "fallback": null,
+      "kind": "vision",
       "name": "critic",
       "needs": [
         "vision"

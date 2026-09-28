@@ -10,17 +10,21 @@ from pydantic import BaseModel, Field, model_validator
 
 from llm_arena.core.errors import ConfigError
 from llm_arena.decisions.config import DecisionConfig
+from llm_arena.runner.baselines import BaselineProfile
 
 
 class PipelineConfig(BaseModel):
     """One contestant: a name, a role → model binding, and pattern parameters."""
 
     name: str
-    roles: dict[str, str] = Field(description="role -> model alias or 'provider:model'")
+    roles: dict[str, str] = Field(default_factory=dict, description="role -> model alias or 'provider:model'")
     params: dict[str, Any] = Field(
         default_factory=dict, description="pattern params, applied to every scenario that knows the key"
     )
     scenario_params: dict[str, dict[str, Any]] = Field(default_factory=dict, description="per-scenario overrides")
+    baseline: str | None = Field(
+        default=None, description="baseline profile: roles not bound explicitly run on its model for their kind"
+    )
     scenario_roles: dict[str, dict[str, str]] = Field(
         default_factory=dict, description="scenario -> role -> model: per-scenario bindings that override `roles`"
     )
@@ -58,6 +62,9 @@ class ExperimentConfig(BaseModel):
     arena: ArenaConfig = Field(default_factory=ArenaConfig)
     max_parallel_trials: int = 4
     max_cost_usd: float | None = Field(default=None, description="stop the run once model spend reaches this limit")
+    baselines: dict[str, BaselineProfile] = Field(
+        default_factory=dict, description="profiles defined in the experiment itself (override the runtime's)"
+    )
     trial_timeout_s: float = 900.0
     seed: int = 0
 

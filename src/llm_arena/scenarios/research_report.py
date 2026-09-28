@@ -66,7 +66,7 @@ class ResearchReport(Scenario):
     pattern = "tool_use+reflection"
     description = "Research with search tools, write a cited report, review and revise it."
     roles = [
-        RoleRequirement("researcher", "searches and reads sources"),
+        RoleRequirement("researcher", "searches and reads sources", kind="agent"),
         RoleRequirement("writer", "writes and revises the cited report", fallback="researcher"),
         RoleRequirement("reviewer", "critiques the report against its sources", fallback="writer"),
     ]

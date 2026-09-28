@@ -11,10 +11,12 @@ from __future__ import annotations
 import asyncio
 import base64
 from collections.abc import Callable, Iterable
+from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field
 
+from llm_arena.core.errors import ConfigError
 from llm_arena.decisions.config import SERVICES
 from llm_arena.decisions.records import DecisionSummary
 from llm_arena.llm.catalog import Catalog
@@ -22,6 +24,7 @@ from llm_arena.llm.pricing import known_price, price_per_mtok
 from llm_arena.llm.spec import ModelSpec
 from llm_arena.report.aggregate import ConfigSummary, PairedTest, summarize
 from llm_arena.report.leaderboard import Leaderboard, build_leaderboards
+from llm_arena.runner.baselines import DEFAULT_BASELINES, BaselineProfile, save_profile
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import EventSink, ignore
 from llm_arena.runner.ports import RunStore, Runtime
@@ -91,10 +94,15 @@ class ArenaService:
         *,
         store_factory: Callable[[str], RunStore],
         model_specs: dict[str, ModelSpec] | None = None,
+        baselines: dict[str, BaselineProfile] | None = None,
+        baselines_file: Path | None = None,
     ) -> None:
+        """`baselines_file`: where edited profiles are saved (local app); None: profiles are read-only here."""
         self.runtime = runtime
         self.store_factory = store_factory
         self.model_specs = model_specs or {}
+        self.baselines = dict(baselines or DEFAULT_BASELINES)
+        self.baselines_file = baselines_file
         self._catalog: Catalog | None = None
         self._runners: dict[str, ExperimentRunner] = {}
         self._tasks: dict[str, asyncio.Task[str]] = {}
@@ -249,7 +257,21 @@ class ArenaService:
             model_specs=self.model_specs,
             catalog=self._catalog,
             sink=sink,
+            baselines=self.baselines,
         )
+
+    def save_baseline(self, name: str, profile: BaselineProfile | None) -> dict[str, BaselineProfile]:
+        """Create, change or (None) reset a profile; persisted in the local override file."""
+        if self.baselines_file is None:
+            raise ConfigError("baseline profiles cannot be saved in this runtime")
+        save_profile(self.baselines_file, name, profile)
+        if profile is not None:
+            self.baselines[name] = profile
+        elif name in DEFAULT_BASELINES:
+            self.baselines[name] = DEFAULT_BASELINES[name]
+        else:
+            self.baselines.pop(name, None)
+        return self.baselines
 
 
 def _cost(spec: ModelSpec, tokens: float, unknown: set[str]) -> float:

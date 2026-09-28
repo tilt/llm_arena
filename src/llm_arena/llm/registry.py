@@ -80,12 +80,28 @@ def load_model_specs(path: str | Path) -> dict[str, ModelSpec]:
     return specs
 
 
+# Call settings a reference may carry after '#', e.g. "ollama:qwen3:4b#reasoning=none" (thinking off) or
+# "openai:gpt-5-mini#reasoning=low,temperature=0": portable across runtimes, no alias file needed.
+_SETTINGS = {"reasoning": "reasoning_effort", "tools": "tool_mode", "temperature": "temperature"}
+
+
 def resolve_model(ref: str, specs: dict[str, ModelSpec], discovered: dict[str, ModelSpec] | None = None) -> ModelSpec:
     """Resolve a model reference: curated YAML alias → discovered model → ad-hoc 'provider:model'.
 
     Discovered specs carry real capabilities (tools, vision, thinking) from the server; an ad-hoc
-    reference only gets defaults, so discovery should run before planning when possible.
+    reference only gets defaults, so discovery should run before planning when possible. Settings after
+    '#' apply on top of whatever the base reference resolves to.
     """
+    base, _, settings = ref.partition("#")
+    if settings:
+        spec = resolve_model(base, specs, discovered)
+        update: dict[str, object] = {"name": ref}
+        for item in filter(None, settings.split(",")):
+            key, _, value = item.partition("=")
+            if key not in _SETTINGS or not value:
+                raise KeyError(f"{ref!r}: unknown setting {key!r}; use {', '.join(_SETTINGS)} (e.g. #reasoning=none)")
+            update[_SETTINGS[key]] = float(value) if key == "temperature" else value
+        return ModelSpec.model_validate({**spec.model_dump(), **update})
     if ref in specs:
         return specs[ref]
     if discovered and ref in discovered:

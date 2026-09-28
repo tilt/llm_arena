@@ -88,8 +88,8 @@ class ChartCodegen(Scenario):
         "Matplotlib chart generation; a (vision) critic reviews the rendered chart; graded by figure introspection."
     )
     roles = [
-        RoleRequirement("generator", "writes and revises plotting code"),
-        RoleRequirement("critic", "reviews the rendered chart image", needs=frozenset({"vision"})),
+        RoleRequirement("generator", "writes and revises plotting code", kind="code"),
+        RoleRequirement("critic", "reviews the rendered chart image", needs=frozenset({"vision"}), kind="vision"),
     ]
     default_params = {"reflection_rounds": 1, "critic_sees_image": True, "timeout_s": 60}
     pass_criteria = ["chart_rendered", "spec_compliance"]

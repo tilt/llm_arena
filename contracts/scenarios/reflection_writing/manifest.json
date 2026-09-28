@@ -45,12 +45,14 @@
     {
       "description": "drafts and revises",
       "fallback": null,
+      "kind": "text",
       "name": "writer",
       "needs": []
     },
     {
       "description": "reviews drafts against the brief",
       "fallback": "writer",
+      "kind": "text",
       "name": "critic",
       "needs": []
     }

@@ -9,7 +9,7 @@ from llm_arena.benchmarks.hf import HUMANEVAL, MBPP, load_rows, stratified_sampl
 from llm_arena.eval.base import EvalContext, Score, Task
 from llm_arena.patterns.codeact import extract_code
 from llm_arena.sandbox.base import Sandbox
-from llm_arena.scenarios.base import register
+from llm_arena.scenarios.base import RoleRequirement, register
 from llm_arena.scenarios.brief import Expectation, code, text
 
 
@@ -30,6 +30,7 @@ class HumanEvalBench(Benchmark):
     description = "HumanEval subset (MIT): complete a Python function; graded by the reference unit tests."
     sample_size = 60
 
+    roles = [RoleRequirement("model", "the model under test", kind="code")]
     grading: ClassVar[str] = "the completed function passes the reference unit tests"
 
     def expected(self, task: Task) -> list[Expectation]:
@@ -66,6 +67,7 @@ class MBPPBench(Benchmark):
     description = "MBPP sanitized test subset (CC-BY-4.0): write a function from a description and one example test."
     sample_size = 60
 
+    roles = [RoleRequirement("model", "the model under test", kind="code")]
     grading: ClassVar[str] = "the function passes the reference tests"
 
     def expected(self, task: Task) -> list[Expectation]:

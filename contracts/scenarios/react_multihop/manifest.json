@@ -50,6 +50,7 @@
     {
       "description": "reasons and acts with text-protocol tools",
       "fallback": null,
+      "kind": "agent",
       "name": "agent",
       "needs": []
     }

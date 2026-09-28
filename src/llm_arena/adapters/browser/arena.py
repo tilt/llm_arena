@@ -30,6 +30,7 @@ from llm_arena.llm.protocols.anthropic_messages import API_VERSION
 from llm_arena.llm.spec import ModelSpec
 from llm_arena.llm.transport import ChatTransport, HttpResponse
 from llm_arena.report.leaderboard import Leaderboard, build_leaderboards
+from llm_arena.runner.baselines import BaselineProfile
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import RunEvent, RunFinished
 from llm_arena.runner.memory_store import MemoryStore
@@ -158,6 +159,10 @@ class BrowserArena:
     async def tasks(self, scenario: str) -> str:
         await self._prefetch([scenario])  # benchmarks: fetch the pinned files first
         return TypeAdapter(list[TaskView]).dump_json(self.service.tasks(scenario)).decode()
+
+    def baselines(self) -> str:
+        """The shipped profiles; the UI adds the ones edited in this browser (local storage)."""
+        return TypeAdapter(dict[str, BaselineProfile]).dump_json(self.service.baselines).decode()
 
     def leaderboard(self, trials_json: str) -> str:
         """Leaderboards over trial rows the UI collected from this tab's runs and saved bundles."""

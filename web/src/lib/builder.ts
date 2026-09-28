@@ -3,7 +3,8 @@
 import { stringify } from "yaml";
 
 import type { CatalogItem } from "./backend";
-import type { DecisionConfig, ExperimentConfig, ScenarioManifest } from "./contracts";
+import { modelFor } from "./baselines";
+import type { BaselineProfile, DecisionConfig, ExperimentConfig, ScenarioManifest } from "./contracts";
 
 export const DEFAULT_ROLE = "*";
 
@@ -29,6 +30,8 @@ export interface ConfigDraft {
   scenarioRoles: Record<string, Record<string, string>>;
   /** control policy for scenarios that support one; null = the agent decides everything */
   decisions: DecisionConfig | null;
+  /** baseline profile: roles not bound explicitly run on its model for their kind; "" = none */
+  baseline?: string;
 }
 
 export const POLICIES: { value: NonNullable<DecisionConfig["policy"]>; label: string }[] = [
@@ -110,6 +113,7 @@ export function validate(
   if (new Set(names).size !== names.length) errors.push("Configuration names must be unique.");
   const slots = roleSlots(manifests, state.scenarios);
   for (const config of state.configs) {
+    if (config.baseline) continue; // a baseline binds every role that is not set explicitly
     for (const manifest of manifests.filter((m) => state.scenarios.includes(m.id))) {
       for (const role of manifest.roles.filter((r) => !r.fallback)) {
         if (!boundModel(config, manifest.id, role.name)) {
@@ -135,9 +139,13 @@ export function validate(
   return errors;
 }
 
-/** The model a role runs on in one scenario: per-scenario binding, then config-wide role, then the default. */
-export function boundModel(config: ConfigDraft, scenario: string, role: string): string {
-  return config.scenarioRoles[scenario]?.[role] || config.roles[role] || config.roles[DEFAULT_ROLE] || "";
+/** The model a role runs on in one scenario: per-scenario binding, config-wide role, baseline (by the role's kind),
+ *  then the default model. Mirrors ExperimentRunner._bind. */
+export function boundModel(
+  config: ConfigDraft, scenario: string, role: string, kind = "text", profiles: Record<string, BaselineProfile> = {},
+): string {
+  return config.scenarioRoles[scenario]?.[role] || config.roles[role]
+    || (config.baseline ? modelFor(profiles[config.baseline], kind) : "") || config.roles[DEFAULT_ROLE] || "";
 }
 
 /** Roles a control policy calls (mirrors DecisionConfig.llm_roles). */
@@ -162,7 +170,9 @@ export function controllableScenarios(state: BuilderState, manifests: ScenarioMa
   return manifests.filter((m) => state.scenarios.includes(m.id) && m.supports_decisions).map((m) => m.id);
 }
 
-export function toExperiment(state: BuilderState, manifests: ScenarioManifest[] = []): ExperimentConfig {
+export function toExperiment(
+  state: BuilderState, manifests: ScenarioManifest[] = [], profiles: Record<string, BaselineProfile> = {},
+): ExperimentConfig {
   const controllable = controllableScenarios(state, manifests);
   const experiment: ExperimentConfig = {
     name: state.name.trim(),
@@ -184,6 +194,7 @@ export function toExperiment(state: BuilderState, manifests: ScenarioManifest[] 
         roles,
         ...(Object.keys(scenarioParams).length ? { scenario_params: scenarioParams } : {}),
         ...(Object.keys(scenarioRoles).length ? { scenario_roles: scenarioRoles } : {}),
+        ...(config.baseline ? { baseline: config.baseline } : {}),
         // A control policy applies only where a scenario supports one, so such a config runs only those scenarios.
         ...(config.decisions ? { decisions: { ...config.decisions }, scenarios: controllable } : {}),
       };
@@ -194,6 +205,9 @@ export function toExperiment(state: BuilderState, manifests: ScenarioManifest[] 
   if (state.arena) experiment.arena = { enabled: true };
   if (state.maxCostUsd) experiment.max_cost_usd = state.maxCostUsd;
   if (state.split !== "all") experiment.split = state.split;
+  // Profiles travel with the experiment, so edited ones work in every runtime and the YAML is self-contained.
+  const used = [...new Set(state.configs.map((c) => c.baseline).filter((b): b is string => !!b && !!profiles[b]))];
+  if (used.length) experiment.baselines = Object.fromEntries(used.map((b) => [b, profiles[b]!]));
   return experiment;
 }
 

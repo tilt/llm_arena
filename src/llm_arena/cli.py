@@ -21,6 +21,7 @@ from llm_arena.llm.pricing import load_prices
 from llm_arena.llm.probe import ProbeResult, probe_model
 from llm_arena.llm.registry import PROVIDERS, load_model_specs, resolve_model
 from llm_arena.llm.spec import ModelSpec
+from llm_arena.runner.baselines import load_baselines
 from llm_arena.runner.ports import Runtime
 
 app = typer.Typer(help="Evaluate local and remote LLMs on benchmarks and agentic patterns.", no_args_is_help=True)
@@ -30,6 +31,7 @@ console = Console()
 
 ModelsFile = Annotated[Path, typer.Option("--models", help="Model specs YAML")]
 DEFAULT_MODELS = Path("configs/models.yaml")
+BASELINES = (Path("configs/baselines.yaml"), Path("configs/baselines.local.yaml"))  # shipped extras, then your edits
 PRICES_FILE = Path("configs/prices.yaml")
 
 
@@ -176,6 +178,7 @@ def run(
         runner = ExperimentRunner(
             experiment, server_runtime(docker_sandbox=docker), run_id=run_id, live=live,
             model_specs=_specs(Path(experiment.models_file)), sink=RichProgressSink(console, str(run_dir)),
+            baselines=load_baselines(*BASELINES),
         )  # fmt: skip
         if dry_run:
             asyncio.run(runner.prepare())
@@ -319,8 +322,9 @@ def ui(
     from llm_arena.service import ArenaService
 
     service = ArenaService(
-        server_runtime(), store_factory=lambda run_id: DuckDBStore(runs_dir / run_id), model_specs=_specs(models_file)
-    )
+        server_runtime(), store_factory=lambda run_id: DuckDBStore(runs_dir / run_id), model_specs=_specs(models_file),
+        baselines=load_baselines(*BASELINES), baselines_file=BASELINES[1],
+    )  # fmt: skip
     static_dir = static or next((d for d in (Path("web/dist"), _bundled_web()) if (d / "index.html").exists()), None)
     url = f"http://127.0.0.1:{port}"
     console.print(f"LLM Arena at [link={url}]{url}[/link]  (runs in {runs_dir}/, Ctrl+C to stop)")

@@ -1,0 +1,19 @@
+# Baseline profiles: one model per kind of step (text, vision, code, agent, decision).
+#
+# Two profiles ship built in: local-small (Qwen3 4B without thinking, Qwen3-VL 8B for images, winnow via Ollaya
+# for decisions) and openai-mini (GPT-5 mini, low reasoning). Add your own here, or edit profiles on the app's
+# Settings page, which saves them to configs/baselines.local.yaml (git-ignored).
+#
+# Use one in an experiment config:  configs: [{name: base, baseline: local-small}]
+# Model references may carry call settings after '#': reasoning=none|minimal|low|medium|high, tools=json, temperature.
+profiles:
+  # local-medium:
+  #   label: Local medium
+  #   description: Qwen3 14B without thinking; Gemma 3 12B for images.
+  #   models:
+  #     text: "ollama:qwen3:14b#reasoning=none"
+  #     code: "ollama:qwen3:14b#reasoning=none"
+  #     agent: "ollama:qwen3:14b#reasoning=none"
+  #     decision: "ollama:qwen3:14b#reasoning=none"
+  #     vision: "ollama:gemma3:12b"
+  #   decision_service: "ollaya:winnow:e4b"

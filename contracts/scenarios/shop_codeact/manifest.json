@@ -46,6 +46,7 @@
     {
       "description": "writes and runs Python against the shop API",
       "fallback": null,
+      "kind": "code",
       "name": "agent",
       "needs": []
     }

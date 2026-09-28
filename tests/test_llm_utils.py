@@ -16,7 +16,7 @@ from llm_arena.llm.pricing import cost_usd
 from llm_arena.llm.protocols.openai_chat import parse_response
 from llm_arena.llm.reasoning import sampling_params, split_think
 from llm_arena.llm.registry import load_model_specs, parse_model_ref, resolve_base_url
-from llm_arena.llm.spec import ModelSpec
+from llm_arena.llm.spec import Capabilities, ModelSpec
 from llm_arena.llm.testing import ScriptedLLM
 from llm_arena.llm.tool_mode import parse_json_tool_reply, tool_result_message, wire_messages
 from llm_arena.llm.types import LLMResponse, ToolCall
@@ -178,3 +178,18 @@ def test_exhausted_quota_is_not_retried() -> None:
     quota = openai.RateLimitError("no credits", response=response, body={"code": "insufficient_quota"})
     throttled = openai.RateLimitError("slow down", response=response, body={"code": "rate_limit_exceeded"})
     assert not is_transient(quota) and is_transient(throttled)
+
+
+def test_model_references_carry_call_settings() -> None:
+    from llm_arena.llm.registry import resolve_model
+
+    base = ModelSpec(name="vl", provider="ollama", model="qwen3-vl:8b", capabilities=Capabilities(vision=True))
+    spec = resolve_model("ollama:qwen3-vl:8b#reasoning=none", {"ollama:qwen3-vl:8b": base})
+    assert (spec.name, spec.reasoning_effort, spec.capabilities.vision) == (
+        "ollama:qwen3-vl:8b#reasoning=none",
+        "none",
+        True,
+    )
+    assert resolve_model("openai:gpt-5-mini#reasoning=low,temperature=0", {}).temperature == 0.0
+    with pytest.raises(KeyError, match="unknown setting"):
+        resolve_model("openai:gpt-5-mini#speed=fast", {})

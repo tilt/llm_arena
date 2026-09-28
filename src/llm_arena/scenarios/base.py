@@ -36,6 +36,9 @@ from llm_arena.scenarios.manifest import (
 from llm_arena.scenarios.workflow import Workflow, single_call
 
 Capability = Literal["tools", "vision", "json_schema"]
+# What kind of work a role does, so baseline profiles can bind a model per kind:
+# text (prompt → text), vision (image + prompt → text), code (prompt → code), agent (tool use), decision (control).
+RoleKind = Literal["text", "vision", "code", "agent", "decision"]
 
 
 def work_dir() -> Path:
@@ -51,6 +54,7 @@ class RoleRequirement:
     description: str
     needs: frozenset[Capability] = frozenset()
     fallback: str | None = None  # optional role: reuse another role's model when unbound
+    kind: RoleKind = "text"
 
 
 @dataclass
@@ -135,7 +139,9 @@ class Scenario(ABC):
             description=self.description,
             kind=self.kind,
             roles=[
-                RoleManifest(name=r.name, description=r.description, needs=sorted(r.needs), fallback=r.fallback)
+                RoleManifest(
+                    name=r.name, description=r.description, needs=sorted(r.needs), fallback=r.fallback, kind=r.kind
+                )  # fmt: skip
                 for r in self.roles
             ],
             params=[

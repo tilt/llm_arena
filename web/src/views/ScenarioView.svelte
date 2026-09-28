@@ -9,6 +9,7 @@
   import { addToDraft } from "../lib/draft.svelte";
   import { num, pct, usd } from "../lib/format";
   import { go } from "../lib/router.svelte";
+  import { activeBaseline } from "../lib/baselines";
   import { configFromSetup } from "../lib/setups";
   import { CONTROL_PARAM, REVIEW_PARAM, resolve } from "../lib/workflow";
 
@@ -24,7 +25,7 @@
   ]);
   const show = (key: string) => go(`/scenarios/${encodeURIComponent(id)}/${key}`);
 
-  let config = $state<ConfigDraft>({ ...emptyConfig(0), name: "my-setup" });
+  let config = $state<ConfigDraft>({ ...emptyConfig(0), name: "my-setup", baseline: activeBaseline() });
   let limit = $state<number | null>(3);
   let repeats = $state(1);
   let split = $state<"all" | "dev" | "test">("all");
@@ -49,7 +50,7 @@
     name: `${id}-${config.name}`.replace(/[^\w.-]+/g, "-"), scenarios: [id], configs: [config], repeats,
     limit: onlyTask ? null : limit, judge: "", arena: false, maxCostUsd, split: onlyTask ? "all" : split,
   });
-  const experiment = () => ({ ...toExperiment(plan, app.scenarios), ...(onlyTask ? { task_ids: [onlyTask] } : {}) });
+  const experiment = () => ({ ...toExperiment(plan, app.scenarios, app.baselines), ...(onlyTask ? { task_ids: [onlyTask] } : {}) });
   const errors = $derived(manifest ? validate(plan, app.scenarios, app.runtime?.sandbox ?? false,
     Object.fromEntries(Object.entries(app.runtime?.decision_services ?? {}).map(([k, v]) => [k, v?.status ?? ""]))) : []);
   const blocked = $derived((manifest?.requires ?? []).includes("sandbox") && !app.runtime?.sandbox);
@@ -132,8 +133,8 @@
       <TaskList scenario={id} onrun={runTask} />
     {:else if active === "setup"}
       {#if blocked}<p class="note">This scenario executes code and needs a sandbox, which this runtime does not have. Use the local app.</p>{/if}
-      <p class="lead">Choose a model for each step. Steps share a model when they use the same role; unset roles use their
-        fallback or the default model. Parameters and the control policy change the workflow, and the diagram follows.</p>
+      <p class="lead">Start from a baseline, then change the model of any step. Steps share a model when they use the same
+        role. Parameters and the control policy change the workflow, and the diagram follows.</p>
       <label class="name">Setup name <input type="text" bind:value={config.name} /></label>
       <ScenarioSetup {manifest} bind:config showPolicy />
 

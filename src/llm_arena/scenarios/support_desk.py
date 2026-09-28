@@ -38,8 +38,8 @@ SYSTEM_PROMPT = (
 CRITERIA = ["state_correct", "customer_informed", "policy_compliant"]
 
 DECISION_ROLES = [
-    RoleRequirement("decider", "control policy LLM (policy: llm / cascade)", frozenset({"json_schema"}), fallback="agent"),
-    RoleRequirement("escalation", "cascade fallback LLM for uncertain decisions", frozenset({"json_schema"}), fallback="decider"),
+    RoleRequirement("decider", "control policy LLM (policy: llm / cascade)", frozenset({"json_schema"}), fallback="agent", kind="decision"),
+    RoleRequirement("escalation", "cascade fallback LLM for uncertain decisions", frozenset({"json_schema"}), fallback="decider", kind="decision"),
 ]  # fmt: skip
 
 
@@ -52,7 +52,7 @@ class SupportDeskScenario(Scenario):
         "Refunds, cancellations and inquiries via tools. Next action, completion and approval of risky actions "
         "come from the agent or from a control policy; every decision is scored against ground truth."
     )
-    roles = [RoleRequirement("agent", "the tool-using support agent"), *DECISION_ROLES]
+    roles = [RoleRequirement("agent", "the tool-using support agent", kind="agent"), *DECISION_ROLES]
     default_params = {"max_turns": 10}
     pass_criteria = CRITERIA
     supports_decisions = True

@@ -62,24 +62,28 @@
     {
       "description": "delegates and composes the brief",
       "fallback": null,
+      "kind": "agent",
       "name": "orchestrator",
       "needs": []
     },
     {
       "description": "finds market trends",
       "fallback": "orchestrator",
+      "kind": "agent",
       "name": "researcher",
       "needs": []
     },
     {
       "description": "picks the product from the catalog",
       "fallback": "orchestrator",
+      "kind": "agent",
       "name": "analyst",
       "needs": []
     },
     {
       "description": "writes headline and tagline",
       "fallback": "orchestrator",
+      "kind": "text",
       "name": "copywriter",
       "needs": []
     }

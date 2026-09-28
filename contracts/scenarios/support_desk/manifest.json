@@ -49,12 +49,14 @@
     {
       "description": "the tool-using support agent",
       "fallback": null,
+      "kind": "agent",
       "name": "agent",
       "needs": []
     },
     {
       "description": "control policy LLM (policy: llm / cascade)",
       "fallback": "agent",
+      "kind": "decision",
       "name": "decider",
       "needs": [
         "json_schema"
@@ -63,6 +65,7 @@
     {
       "description": "cascade fallback LLM for uncertain decisions",
       "fallback": "decider",
+      "kind": "decision",
       "name": "escalation",
       "needs": [
         "json_schema"

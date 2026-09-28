@@ -1,5 +1,6 @@
 <script lang="ts">
   import { app } from "../lib/app.svelte";
+  import { describeRef, modelFor } from "../lib/baselines";
   import { CONTROLS, DEFAULT_ROLE, POLICIES, eligibleModels, llmRoles, policyLabel, servicesUsed, type ConfigDraft } from "../lib/builder";
   import type { ParamManifest, ScenarioManifest } from "../lib/contracts";
   import { CONTROL_PARAM, REVIEW_PARAM, resolve, stepRoles } from "../lib/workflow";
@@ -9,8 +10,8 @@
   // Edits `config` in place: per-step models in config.scenarioRoles[id], parameters in config.scenarioParams[id],
   // and (with showPolicy) the control policy in config.decisions.
   let {
-    manifest, config = $bindable(), showPolicy = false, showDefault = true,
-  }: { manifest: ScenarioManifest; config: ConfigDraft; showPolicy?: boolean; showDefault?: boolean } = $props();
+    manifest, config = $bindable(), showPolicy = false, showDefault = true, showBaseline = true,
+  }: { manifest: ScenarioManifest; config: ConfigDraft; showPolicy?: boolean; showDefault?: boolean; showBaseline?: boolean } = $props();
 
   const catalog = $derived(app.models?.models ?? []);
   const services = $derived(app.runtime?.decision_services ?? {});
@@ -32,17 +33,35 @@
   );
   const stepsOf = (role: string) => (flow?.steps ?? []).filter((s) => stepRoles(s).includes(role)).map((s) => s.label);
 
+  const profile = $derived(config.baseline ? app.baselines[config.baseline] : undefined);
+  // Mirrors the runner: explicit binding > baseline by kind > fallback role > default model.
   function effective(role: string, seen = new Set<string>()): string {
     const bound = config.scenarioRoles[manifest.id]?.[role] || config.roles[role];
     if (bound) return bound;
-    const fallback = manifest.roles.find((r) => r.name === role)?.fallback;
+    const requirement = manifest.roles.find((r) => r.name === role);
+    if (profile) return modelFor(profile, requirement?.kind ?? "text");
+    const fallback = requirement?.fallback;
     if (fallback && !seen.has(fallback)) return effective(fallback, new Set([...seen, role]));
     return config.roles[DEFAULT_ROLE] || "";
+  }
+  function inherited(role: { name: string; kind?: string; fallback?: string | null }): string {
+    if (profile) return `${profile.label}: ${describeRef(modelFor(profile, role.kind ?? "text"))}`;
+    if (role.fallback) return `same as ${role.fallback} (${describeRef(effective(role.fallback)) || "—"})`;
+    return `default (${describeRef(config.roles[DEFAULT_ROLE] ?? "") || "—"})`;
+  }
+  // The profile's dedicated decision model ("ollaya:winnow:e4b"), offered as a one-click control policy.
+  const service = $derived(profile?.decision_service ? { kind: profile.decision_service.split(":")[0]!, model: profile.decision_service.split(":").slice(1).join(":") } : null);
+  function useService() {
+    if (!service) return;
+    const base = config.decisions ?? { control: "policy", threshold: 0.8, review: true };
+    config.decisions = service.kind === "ollaya"
+      ? { ...base, policy: "ollaya", ollaya_model: service.model }
+      : { ...base, policy: "jev", jev_model: service.model };
   }
   const models = $derived(
     Object.fromEntries(manifest.roles.map((r) => [r.name,
       policyRoles.has(r.name) && config.decisions && !llmRoles(config.decisions).includes(r.name)
-        ? policyLabel(config.decisions) : effective(r.name) || "choose a model"])),
+        ? policyLabel(config.decisions) : describeRef(effective(r.name)) || "choose a model"])),
   );
 
   function roles(): Record<string, string> {
@@ -95,6 +114,9 @@
             {#each POLICIES as p (p.value)}<option value={p.value} disabled={(p.value === "jev" || p.value === "ollaya") && !available(p.value)}>{p.label}</option>{/each}
           </select>
         </label>
+        {#if service && manifest.supports_decisions && !(config.decisions?.policy === service.kind && (config.decisions?.ollaya_model === service.model || config.decisions?.jev_model === service.model))}
+          <button class="link" onclick={useService}>Use the baseline's decision model ({service.model})</button>
+        {/if}
         {#if config.decisions}
           <label class="param">mode
             <select bind:value={config.decisions.control}>{#each CONTROLS as c (c.value)}<option value={c.value}>{c.label}</option>{/each}</select>
@@ -120,7 +142,17 @@
 
     <fieldset>
       <legend>Models per step</legend>
-      {#if showDefault}
+      {#if showBaseline}
+      <div class="role baseline">
+        <label for={`${manifest.id}-baseline`}><strong>start from</strong> <span class="muted">a baseline gives each step a model by the kind of work it does</span></label>
+        <select id={`${manifest.id}-baseline`} bind:value={config.baseline}>
+          <option value="">no baseline: choose models below</option>
+          {#each Object.entries(app.baselines) as [name, p] (name)}<option value={name}>{p.label}</option>{/each}
+        </select>
+        {#if profile}<a class="small" href="#/settings">Edit baselines</a>{/if}
+      </div>
+      {/if}
+      {#if showDefault && !profile}
         <div class="role">
           <span><strong>default</strong> <span class="muted">every step not set below</span></span>
           <ModelSelect bind:value={config.roles[DEFAULT_ROLE]} options={catalog} empty="— choose —" label="Default model" />
@@ -129,10 +161,10 @@
       {#each activeRoles as r (r.name)}
         <div class="role" class:lit={highlight === r.name} role="group" aria-label={`Model for ${r.name}`}
           onmouseenter={() => (highlight = r.name)} onmouseleave={() => (highlight = "")}>
-          <span><strong>{r.name}</strong>{#if (r.needs ?? []).length} <span class="pill">needs {r.needs?.join(", ")}</span>{/if}
+          <span><strong>{r.name}</strong> <span class="pill kind">{r.kind ?? "text"}</span>{#if (r.needs ?? []).length} <span class="pill">needs {r.needs?.join(", ")}</span>{/if}
             <span class="muted small">{stepsOf(r.name).join(" · ") || r.description}</span></span>
           <ModelSelect value={config.scenarioRoles[manifest.id]?.[r.name] ?? ""} options={eligibleModels(catalog, r.needs ?? [])}
-            empty={r.fallback ? `same as ${r.fallback} (${effective(r.fallback) || "—"})` : `default (${config.roles[DEFAULT_ROLE] || "—"})`}
+            empty={inherited(r)}
             label={`Model for ${r.name}`} onchange={(ref) => (roles()[r.name] = ref)} />
         </div>
       {/each}
@@ -161,6 +193,10 @@
   .role { display: grid; gap: 4px; padding: 6px; border-radius: 8px; font-size: 13px; }
   .role span { display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
   .role.lit { background: var(--surface-2); }
+  .role.baseline { border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 4px; }
+  .role.baseline select { width: 100%; }
+  .kind { font-size: 11px; }
+  .link { background: none; border: none; color: var(--accent); padding: 0; text-decoration: underline; cursor: pointer; font-size: 13px; justify-self: start; }
   .role :global(select) { width: 100%; min-width: 0; }
   .small { font-size: 12px; }
   .diagram { padding: 12px; position: sticky; top: 64px; }

@@ -161,6 +161,19 @@
           "description": "optional role: reuses this role's model when unbound",
           "title": "Fallback"
         },
+        "kind": {
+          "default": "text",
+          "description": "what the role does, for baseline profiles: text, vision, code, agent, decision",
+          "enum": [
+            "text",
+            "vision",
+            "code",
+            "agent",
+            "decision"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
         "name": {
           "title": "Name",
           "type": "string"

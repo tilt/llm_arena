@@ -9,6 +9,7 @@
   } from "../lib/builder";
   import type { Estimate } from "../lib/contracts";
   import { usd } from "../lib/format";
+  import { activeBaseline } from "../lib/baselines";
   import { draft } from "../lib/draft.svelte";
   import { go } from "../lib/router.svelte";
 
@@ -30,7 +31,7 @@
   const errors = $derived(validate(draft, app.scenarios, sandbox, serviceStatus));
   const controllable = $derived(controllableScenarios(draft, app.scenarios));
   const hasSplits = $derived(controllable.length > 0);
-  const experiment = () => toExperiment(draft, app.scenarios);
+  const experiment = () => toExperiment(draft, app.scenarios, app.baselines);
 
   const SERVICES_SHOWN: Service[] = ["jev", "ollaya"];
 
@@ -45,7 +46,7 @@
   }
   function addConfig() {
     const base = draft.configs.at(-1);
-    draft.configs = [...draft.configs, { ...emptyConfig(draft.configs.length), roles: { ...emptyConfig(0).roles, ...(base?.roles ?? {}) } }];
+    draft.configs = [...draft.configs, { ...emptyConfig(draft.configs.length), roles: { ...emptyConfig(0).roles, ...(base?.roles ?? {}) }, baseline: base?.baseline ?? activeBaseline() }];
   }
 
   async function runEstimate() {
@@ -119,9 +120,18 @@
     </div>
     <div class="roles">
       <div class="role">
+        <label class="role-name" for={`baseline-${index}`}>Start from <span class="muted">(a baseline gives each step a model by the kind of work it does; <a href="#/settings">edit baselines</a>)</span></label>
+        <select id={`baseline-${index}`} bind:value={config.baseline}>
+          <option value="">no baseline: one default model</option>
+          {#each Object.entries(app.baselines) as [name, p] (name)}<option value={name}>{p.label}</option>{/each}
+        </select>
+      </div>
+      {#if !config.baseline}
+      <div class="role">
         <span class="role-name">Default model <span class="muted">(every step not set per scenario below{defaultRoleNeeds(slots, config).length ? `; needs ${defaultRoleNeeds(slots, config).join(", ")}` : ""})</span></span>
         <ModelSelect bind:value={config.roles[DEFAULT_ROLE]} options={eligibleModels(catalog, defaultRoleNeeds(slots, config))} empty="— choose —" label="Default model" />
       </div>
+      {/if}
     </div>
     {#if controllable.length}
       <div class="params control">
@@ -163,7 +173,7 @@
     {#each selected as s (s.id)}
       <details class="scenario-setup" open={selected.length === 1}>
         <summary><strong>{s.title}</strong> <span class="muted">— steps, models and parameters</span></summary>
-        <ScenarioSetup manifest={s} bind:config={draft.configs[index]!} showDefault={false} />
+        <ScenarioSetup manifest={s} bind:config={draft.configs[index]!} showDefault={false} showBaseline={false} />
       </details>
     {/each}
   </section>

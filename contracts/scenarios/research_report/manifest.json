@@ -60,18 +60,21 @@
     {
       "description": "searches and reads sources",
       "fallback": null,
+      "kind": "agent",
       "name": "researcher",
       "needs": []
     },
     {
       "description": "writes and revises the cited report",
       "fallback": "researcher",
+      "kind": "text",
       "name": "writer",
       "needs": []
     },
     {
       "description": "critiques the report against its sources",
       "fallback": "writer",
+      "kind": "text",
       "name": "reviewer",
       "needs": []
     }

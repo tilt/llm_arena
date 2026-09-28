@@ -96,9 +96,9 @@ class EmailAssistant(Scenario):
     pattern = "tool_use"
     description = "Mailbox chores via tools; graded by final mailbox state and tool hygiene."
     roles = [
-        RoleRequirement("agent", "the tool-using assistant (native or JSON tool mode)"),
-        RoleRequirement("decider", "control policy LLM (policy: llm / cascade)", frozenset({"json_schema"}), fallback="agent"),
-        RoleRequirement("escalation", "cascade fallback LLM", frozenset({"json_schema"}), fallback="decider"),
+        RoleRequirement("agent", "the tool-using assistant (native or JSON tool mode)", kind="agent"),
+        RoleRequirement("decider", "control policy LLM (policy: llm / cascade)", frozenset({"json_schema"}), fallback="agent", kind="decision"),
+        RoleRequirement("escalation", "cascade fallback LLM", frozenset({"json_schema"}), fallback="decider", kind="decision"),
     ]  # fmt: skip
     default_params = {"max_turns": 10}
     pass_criteria = ["state_correct", "no_collateral", "answer_correct"]

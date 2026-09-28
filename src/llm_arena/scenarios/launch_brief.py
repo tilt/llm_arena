@@ -199,9 +199,9 @@ class LaunchBrief(Scenario):
     pattern = "multi_agent"
     description = "Orchestrator + researcher/analyst/copywriter with typed handoffs vs a single agent with all tools."
     roles = [
-        RoleRequirement("orchestrator", "delegates and composes the brief"),
-        RoleRequirement("researcher", "finds market trends", fallback="orchestrator"),
-        RoleRequirement("analyst", "picks the product from the catalog", fallback="orchestrator"),
+        RoleRequirement("orchestrator", "delegates and composes the brief", kind="agent"),
+        RoleRequirement("researcher", "finds market trends", fallback="orchestrator", kind="agent"),
+        RoleRequirement("analyst", "picks the product from the catalog", fallback="orchestrator", kind="agent"),
         RoleRequirement("copywriter", "writes headline and tagline", fallback="orchestrator"),
     ]
     default_params = {

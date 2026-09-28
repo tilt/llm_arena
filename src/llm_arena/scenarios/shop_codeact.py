@@ -70,7 +70,7 @@ class ShopCodeAct(Scenario):
     requires = frozenset({"sandbox"})
     pattern = "code_execution"
     description = "Customer service by writing Python against a shop API in a sandbox; graded by final DB state."
-    roles = [RoleRequirement("agent", "writes and runs Python against the shop API")]
+    roles = [RoleRequirement("agent", "writes and runs Python against the shop API", kind="code")]
     default_params = {"max_steps": 6, "timeout_s": 20}
     pass_criteria = ["state_correct", "policy_ok"]
 

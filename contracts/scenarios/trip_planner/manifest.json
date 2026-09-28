@@ -63,12 +63,14 @@
     {
       "description": "writes and repairs the plan, writes the final summary",
       "fallback": null,
+      "kind": "text",
       "name": "planner",
       "needs": []
     },
     {
       "description": "executes plan steps with the booking tools",
       "fallback": "planner",
+      "kind": "agent",
       "name": "executor",
       "needs": []
     }

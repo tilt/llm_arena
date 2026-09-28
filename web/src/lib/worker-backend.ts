@@ -3,8 +3,9 @@
 // are kept in IndexedDB and can be exported/imported as RunBundle files.
 import type { ArenaBackend, ModelsResponse, Persistence, TrialTrace } from "./backend";
 import { BackendError } from "./backend";
-import type { Estimate, ExperimentConfig, Leaderboard, RunBundle, RunEvent, RunListing, RuntimeResponse, ScenarioManifest, StartRun, TaskView } from "./contracts";
+import type { BaselineProfile, Estimate, ExperimentConfig, Leaderboard, RunBundle, RunEvent, RunListing, RuntimeResponse, ScenarioManifest, StartRun, TaskView } from "./contracts";
 import type { EngineMethod, EngineReply } from "../engine/protocol";
+import { editedProfiles, storeEditedProfiles } from "./baselines";
 import { listBundles, loadBundle, saveBundle } from "./idb";
 
 const REMEMBERED = "llm-arena.keys";
@@ -79,6 +80,18 @@ export class WorkerBackend implements ArenaBackend {
   }
 
   async tasks(scenario: string): Promise<TaskView[]> { return this.json("tasks", scenario); }
+
+  /** Shipped profiles from the engine, overlaid with the ones edited in this browser. */
+  async baselines(): Promise<Record<string, BaselineProfile>> {
+    return { ...(await this.json<Record<string, BaselineProfile>>("baselines")), ...editedProfiles() };
+  }
+
+  async saveBaseline(name: string, profile: BaselineProfile | null): Promise<Record<string, BaselineProfile>> {
+    const edited = editedProfiles();
+    if (profile) edited[name] = profile; else delete edited[name];
+    storeEditedProfiles(edited);
+    return this.baselines();
+  }
 
   async trace(runId: string, trialId: string): Promise<TrialTrace | null> {
     const bundle = await this.bundle(runId);

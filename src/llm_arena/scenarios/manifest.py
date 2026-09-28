@@ -67,6 +67,9 @@ class RoleManifest(BaseModel):
     description: str
     needs: list[str] = Field(default_factory=list, description="capabilities the bound model must have")
     fallback: str | None = Field(default=None, description="optional role: reuses this role's model when unbound")
+    kind: Literal["text", "vision", "code", "agent", "decision"] = Field(
+        default="text", description="what the role does, for baseline profiles: text, vision, code, agent, decision"
+    )
 
 
 class ParamManifest(BaseModel):

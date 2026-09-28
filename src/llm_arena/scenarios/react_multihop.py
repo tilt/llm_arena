@@ -44,7 +44,7 @@ class ReactMultihop(Scenario):
     param_choices = {"variant": ["react", "act", "cot"]}
     pattern = "react"
     description = "Multi-hop QA over a fictional encyclopedia via Thought/Action/Observation."
-    roles = [RoleRequirement("agent", "reasons and acts with text-protocol tools")]
+    roles = [RoleRequirement("agent", "reasons and acts with text-protocol tools", kind="agent")]
     default_params = {"variant": "react", "max_steps": 10}
     pass_criteria = ["exact_match"]
 
