@@ -78,5 +78,22 @@
       "passed": null,
       "value": 0.0
     }
-  }
+  },
+  "steps": [
+    [
+      "llm_call",
+      "writer",
+      "draft"
+    ],
+    [
+      "llm_call",
+      "critic",
+      "critique"
+    ],
+    [
+      "llm_call",
+      "writer",
+      "revise"
+    ]
+  ]
 }

@@ -772,4 +772,5 @@ export interface Span {
   prompt_tokens?: number;
   role?: string | null;
   started_at?: number;
+  step?: string | null;
 }

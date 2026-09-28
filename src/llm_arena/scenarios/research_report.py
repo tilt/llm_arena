@@ -118,6 +118,9 @@ class ResearchReport(Scenario):
                 user(task.prompt),
             ],
             executor,
+            trace=ctx.trace,
+            step="research",
+            tool_step="search",
             max_turns=ctx.params["max_turns"],
         )
         writer, reviewer = models.get("writer", "researcher"), models.get("reviewer", "writer")

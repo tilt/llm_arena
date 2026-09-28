@@ -153,5 +153,32 @@
       "passed": null,
       "value": 0.5
     }
-  }
+  },
+  "steps": [
+    [
+      "llm_call",
+      "agent",
+      "agent"
+    ],
+    [
+      "tool_call",
+      "delete_email",
+      "tools"
+    ],
+    [
+      "llm_call",
+      "agent",
+      "agent"
+    ],
+    [
+      "tool_call",
+      "archive_email",
+      "tools"
+    ],
+    [
+      "llm_call",
+      "agent",
+      "agent"
+    ]
+  ]
 }

@@ -105,6 +105,18 @@
         "started_at": {
           "title": "Started At",
           "type": "number"
+        },
+        "step": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Step"
         }
       },
       "required": [

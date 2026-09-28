@@ -99,5 +99,22 @@
       "passed": null,
       "value": 1.0
     }
-  }
+  },
+  "steps": [
+    [
+      "llm_call",
+      "orchestrator",
+      "solo"
+    ],
+    [
+      "tool_call",
+      "list_products",
+      "tools"
+    ],
+    [
+      "llm_call",
+      "orchestrator",
+      "solo"
+    ]
+  ]
 }

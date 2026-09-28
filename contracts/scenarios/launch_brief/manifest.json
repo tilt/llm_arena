@@ -254,10 +254,10 @@
       },
       {
         "also": [],
-        "description": "invalid handoffs are rejected",
+        "description": "after each worker; invalid ones rejected",
         "id": "handoff",
         "kind": "check",
-        "label": "Typed handoff check",
+        "label": "Typed handoff checks",
         "role": null,
         "when": [
           {

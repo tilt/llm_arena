@@ -77,6 +77,9 @@ def parse_react_reply(text: str) -> tuple[str | None, ToolCall | None]:
     return None, ToolCall(name=action_match.group(1), args=args, raw_args=raw_args)
 
 
+_STEP = {"react": "think", "act": "act", "cot": "cot"}  # workflow step of the model call per variant
+
+
 async def run_react(
     llm: LLMClient,
     task: str,
@@ -94,18 +97,20 @@ async def run_react(
     ]
     invalid = 0
     for step in range(1, max_steps + 1):
-        response = await llm.complete(history)
+        with trace.in_step(_STEP[variant]):
+            response = await llm.complete(history)
         history.append({"role": "assistant", "content": response.content})
         final, action = parse_react_reply(response.content)
         if final is not None:
             return ReactResult(final, "final", step, invalid, history)
         if action is None or variant == "cot":
             invalid += 1
-            with trace.span("step", "invalid_action", attrs={"step": step}) as span:
+            with trace.in_step(_STEP[variant]), trace.span("step", "invalid_action", attrs={"step": step}) as span:
                 span.error = "reply had neither a parseable Action nor a Final Answer"
             history.append({"role": "user", "content": "Observation: invalid format. Follow the protocol exactly."})
             continue
-        outcome = await executor.execute(action)
+        with trace.in_step("tools"):
+            outcome = await executor.execute(action)
         history.append({"role": "user", "content": f"Observation: {outcome.content}"})
     return ReactResult("", "max_steps", max_steps, invalid, history)
 

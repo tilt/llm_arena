@@ -67,5 +67,22 @@
       "passed": false,
       "value": 0.0
     }
-  }
+  },
+  "steps": [
+    [
+      "llm_call",
+      "agent",
+      "code"
+    ],
+    [
+      "code_exec",
+      "python",
+      "exec"
+    ],
+    [
+      "llm_call",
+      "agent",
+      "code"
+    ]
+  ]
 }

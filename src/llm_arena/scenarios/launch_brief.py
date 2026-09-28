@@ -240,6 +240,9 @@ class LaunchBrief(Scenario):
                 ],
                 ToolExecutor(registry, ctx.trace, role="orchestrator"),
                 max_turns=ctx.params["max_turns"] * 2,
+                trace=ctx.trace,
+                step="solo",
+                tool_step="tools",
             )
             return TrialOutput(final=loop.final, extras={"mode": "single_agent", "stop_reason": loop.stop_reason})
 
@@ -253,6 +256,7 @@ class LaunchBrief(Scenario):
                 models.get("researcher", "orchestrator"),
                 ToolExecutor(ToolRegistry(search_tools(corpus)), ctx.trace, role="researcher"),
                 ctx.params["max_turns"],
+                step="research",
             ),
             Worker(
                 "analyst",
@@ -263,6 +267,7 @@ class LaunchBrief(Scenario):
                 models.get("analyst", "orchestrator"),
                 ToolExecutor(ToolRegistry(catalog_tools()), ctx.trace, role="analyst"),
                 ctx.params["max_turns"],
+                step="analyse",
             ),
             Worker(
                 "copywriter",
@@ -271,6 +276,7 @@ class LaunchBrief(Scenario):
                 "for an outdoor brand. Write vivid but truthful copy; the tagline has at most 12 words.",
                 CampaignCopy,
                 models.get("copywriter", "orchestrator"),
+                step="write",
             ),
         ]
         result = await orchestrate(
@@ -306,7 +312,7 @@ class LaunchBrief(Scenario):
                    step("research", "Researcher", "llm", "researcher", "product catalog tools", multi),
                    step("analyse", "Analyst", "llm", "analyst", "trend reports", multi),
                    step("write", "Copywriter", "llm", "copywriter", "tagline", multi),
-                   step("handoff", "Typed handoff check", "check", description="invalid handoffs are rejected",
+                   step("handoff", "Typed handoff checks", "check", description="after each worker; invalid ones rejected",
                         when=multi),
                    step("compose", "Orchestrator composes the brief", "llm", "orchestrator", when=multi),
                    step("solo", "One agent does everything", "llm", "orchestrator", "all tools, no delegation", single),

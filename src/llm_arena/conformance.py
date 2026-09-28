@@ -155,6 +155,12 @@ async def record(case: Case, sandbox: Sandbox | None = None) -> dict[str, Any]:
                 "requests": {role: client.calls for role, client in clients.items()},
                 "final": output.final,
                 "scores": scores,
+                # Which workflow step each model call, tool call, execution and decision belongs to.
+                "steps": [
+                    [span.kind, span.name, span.step]
+                    for span in trace.spans
+                    if span.kind in ("llm_call", "tool_call", "code_exec", "decision")
+                ],  # fmt: skip
                 "decisions": [
                     {
                         "point": span.name,

@@ -12,6 +12,7 @@ from typing import Any
 from llm_arena.benchmarks.base import Benchmark, correct_score
 from llm_arena.eval.base import EvalContext, Score, Task, TrialOutput
 from llm_arena.llm.client import system, user
+from llm_arena.llm.types import LLMResponse
 from llm_arena.patterns.roles import RoleModels
 from llm_arena.scenarios.base import RunContext, register
 
@@ -199,13 +200,20 @@ class FunctionCallingBench(Benchmark):
         return {"tools.json": TOOLS}
 
     async def run(self, task: Task, models: RoleModels, ctx: RunContext) -> TrialOutput:
-        response = await models["model"].complete(
+        with ctx.trace.in_step("answer"):
+            response = await self._answer(task, models)
+        return self._output(response)
+
+    async def _answer(self, task: Task, models: RoleModels) -> LLMResponse:
+        return await models["model"].complete(
             [
                 system("Use a tool only when it is needed to answer. Call all needed tools in one reply."),
                 user(task.prompt),
             ],
             tools=TOOLS,
         )
+
+    def _output(self, response: LLMResponse) -> TrialOutput:
         calls = [{"name": call.name, "args": call.args} for call in response.tool_calls]
         return TrialOutput(final=response.content, extras={"calls": calls})
 

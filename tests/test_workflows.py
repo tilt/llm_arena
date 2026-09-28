@@ -77,3 +77,37 @@ def test_resolution_follows_parameters() -> None:
     policy = {s.id for s in desk.resolve({CONTROL_PARAM: "policy", REVIEW_PARAM: True}).steps}
     assert "decide" not in agent and "review" not in agent
     assert {"decide", "args", "approval", "human", "reply", "review"} <= policy and "agent" not in policy
+
+
+async def test_conformance_spans_belong_to_steps_of_the_resolved_workflow() -> None:
+    from llm_arena.adapters.server.subprocess_sandbox import SubprocessSandbox
+    from llm_arena.conformance import CASES, record
+
+    for case in CASES:
+        vector = await record(case, SubprocessSandbox())
+        scenario = get_scenario(case.scenario)
+        params = {**scenario.default_params, **case.params, CONTROL_PARAM: "agent", REVIEW_PARAM: True}
+        if case.decisions:
+            params |= {
+                CONTROL_PARAM: case.decisions.get("control", "policy"),
+                REVIEW_PARAM: case.decisions.get("review", True),
+            }
+        steps = {s.id for s in scenario.workflow().resolve(params).steps}
+        for kind, name, step in vector["steps"]:
+            assert step in steps, (case.id, kind, name, step, sorted(steps))
+
+
+def test_in_step_nests_and_none_inherits() -> None:
+    from llm_arena.core.trace import Trace
+
+    trace = Trace()
+    with trace.in_step("outer"):
+        with trace.span("step", "a"):
+            pass
+        with trace.in_step("inner"), trace.span("step", "b"):
+            pass
+        with trace.in_step(None), trace.span("step", "c"):
+            pass
+    with trace.span("step", "d"):
+        pass
+    assert [s.step for s in trace.spans] == ["outer", "inner", "outer", None]

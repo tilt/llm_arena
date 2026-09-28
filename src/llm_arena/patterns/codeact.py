@@ -68,14 +68,15 @@ async def run_codeact(
     ]
     executions = failed = 0
     for step in range(1, max_steps + 1):
-        response = await llm.complete(history)
+        with trace.in_step("code"):
+            response = await llm.complete(history)
         history.append({"role": "assistant", "content": response.content})
         code = extract_code(response.content)
         if code is None:
             final_match = _FINAL.search(response.content)
             final = final_match.group(1).strip() if final_match else response.content.strip()
             return CodeActResult(final, "final", step, executions, failed, history)
-        with trace.span("code_exec", "python", input=code, attrs={"step": step}) as span:
+        with trace.in_step("exec"), trace.span("code_exec", "python", input=code, attrs={"step": step}) as span:
             result = await sandbox.run(code, files=environment.files(), collect=("state/*",), timeout_s=timeout_s)
             environment.absorb(result)
             span.output = result.observation()

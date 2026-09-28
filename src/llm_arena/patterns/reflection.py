@@ -47,18 +47,18 @@ async def reflect(
     *, draft: DraftFn, critique: CritiqueFn, revise: ReviseFn, rounds: int, trace: Trace
 ) -> ReflectionResult:
     result = ReflectionResult()
-    with trace.span("step", "draft", attrs={"round": 0}) as span:
+    with trace.in_step("draft"), trace.span("step", "draft", attrs={"round": 0}) as span:
         result.drafts.append(await draft())
         span.output = result.drafts[-1]
     for round_index in range(1, rounds + 1):
-        with trace.span("critique", "critique", attrs={"round": round_index}) as span:
+        with trace.in_step("critique"), trace.span("critique", "critique", attrs={"round": round_index}) as span:
             review = await critique(result.final, round_index)
             span.output = review.model_dump()
             span.attrs.update({"verdict": review.verdict, "n_issues": len(review.issues)})
         result.critiques.append(review)
         if review.verdict == "accept":
             break
-        with trace.span("step", "revise", attrs={"round": round_index}) as span:
+        with trace.in_step("revise"), trace.span("step", "revise", attrs={"round": round_index}) as span:
             result.drafts.append(await revise(result.final, review, round_index))
             span.output = result.drafts[-1]
     return result

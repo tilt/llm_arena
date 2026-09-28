@@ -90,5 +90,32 @@
       "passed": null,
       "value": 2.0
     }
-  }
+  },
+  "steps": [
+    [
+      "llm_call",
+      "generator",
+      "draft"
+    ],
+    [
+      "tool_call",
+      "run_sql",
+      "run"
+    ],
+    [
+      "llm_call",
+      "critic",
+      "critique"
+    ],
+    [
+      "llm_call",
+      "generator",
+      "revise"
+    ],
+    [
+      "tool_call",
+      "run_sql",
+      "run"
+    ]
+  ]
 }

@@ -230,5 +230,42 @@
       "passed": null,
       "value": 0.666667
     }
-  }
+  },
+  "steps": [
+    [
+      "llm_call",
+      "executor",
+      "loop"
+    ],
+    [
+      "tool_call",
+      "search_flights",
+      "tools"
+    ],
+    [
+      "llm_call",
+      "executor",
+      "loop"
+    ],
+    [
+      "tool_call",
+      "book_flight",
+      "tools"
+    ],
+    [
+      "llm_call",
+      "executor",
+      "loop"
+    ],
+    [
+      "tool_call",
+      "book_flight",
+      "tools"
+    ],
+    [
+      "llm_call",
+      "executor",
+      "loop"
+    ]
+  ]
 }

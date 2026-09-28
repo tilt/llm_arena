@@ -146,7 +146,7 @@ class ReflectionSQL(Scenario):
         ]
 
         async def execute(sql: str) -> str:
-            with ctx.trace.span("tool_call", "run_sql", input=sql) as span:
+            with ctx.trace.in_step("run"), ctx.trace.span("tool_call", "run_sql", input=sql) as span:
                 result = run_query(db, sql)
                 span.output = result.preview()
                 span.attrs.update({"ok": result.ok, "error_kind": None if result.ok else "runtime"})

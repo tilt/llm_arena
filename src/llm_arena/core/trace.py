@@ -32,6 +32,7 @@ class Span(BaseModel):
     started_at: float = Field(default_factory=time.time)
     duration_s: float = 0.0
     parent: int | None = None  # index of the enclosing span
+    step: str | None = None  # workflow step (scenarios/workflow.py) this span belongs to
 
     @property
     def ok(self) -> bool:
@@ -41,13 +42,17 @@ class Span(BaseModel):
 class Trace(BaseModel):
     spans: list[Span] = Field(default_factory=list)
     _stack: list[int] = []
+    _steps: list[str] = []
 
     def model_post_init(self, __context: Any) -> None:
         self._stack = []
+        self._steps = []
 
     def add(self, span: Span) -> Span:
         if span.parent is None and self._stack:
             span.parent = self._stack[-1]
+        if span.step is None and self._steps:
+            span.step = self._steps[-1]
         self.spans.append(span)
         return span
 
@@ -65,6 +70,18 @@ class Trace(BaseModel):
         finally:
             current.duration_s = time.perf_counter() - started
             self._stack.pop()
+
+    @contextmanager
+    def in_step(self, step: str | None) -> Iterator[None]:
+        """Spans opened inside belong to this workflow step (the innermost step wins; None inherits)."""
+        if step is None:
+            yield
+            return
+        self._steps.append(step)
+        try:
+            yield
+        finally:
+            self._steps.pop()
 
     def select(self, kind: SpanKind | None = None, name: str | None = None, role: str | None = None) -> list[Span]:
         return [

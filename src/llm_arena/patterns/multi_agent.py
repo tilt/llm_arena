@@ -30,6 +30,7 @@ class Worker:
     llm: LLMClient
     executor: ToolExecutor | None = None  # workers without tools answer from the blackboard alone
     max_turns: int = 6
+    step: str | None = None  # workflow step id (defaults to the worker name)
 
 
 class Assignment(BaseModel):
@@ -74,7 +75,7 @@ async def orchestrate(
         else:
             result.blackboard[worker.name] = output.model_dump()
 
-    with trace.span("step", "compose", role="orchestrator") as span:
+    with trace.in_step("compose"), trace.span("step", "compose", role="orchestrator") as span:
         response = await orchestrator.complete(
             [
                 {"role": "system", "content": compose_instructions},
@@ -100,7 +101,7 @@ async def _delegate(
         },
         {"role": "user", "content": task},
     ]
-    with trace.span("plan", "delegate", role="orchestrator") as span:
+    with trace.in_step("delegate"), trace.span("plan", "delegate", role="orchestrator") as span:
         delegation, _ = await structured(orchestrator, messages, Delegation)
         span.output = delegation.model_dump()
     return delegation
@@ -116,11 +117,14 @@ async def _run_worker(
             "content": f"Overall task: {task}\nYour assignment: {instruction}\n\nEarlier team results:\n{_board(blackboard)}",
         },
     ]
-    with trace.span("step", f"worker:{worker.name}", role=worker.name) as span:
+    with (
+        trace.in_step(worker.step or worker.name),
+        trace.span("step", f"worker:{worker.name}", role=worker.name) as span,
+    ):
         if worker.executor is not None:
             loop = await run_tool_loop(worker.llm, messages, worker.executor, max_turns=worker.max_turns)
             messages = [*loop.messages, {"role": "user", "content": "Now return your result in the required format."}]
-        with trace.span("handoff", worker.name, role=worker.name) as handoff:
+        with trace.in_step("handoff"), trace.span("handoff", worker.name, role=worker.name) as handoff:
             try:
                 output, responses = await structured(worker.llm, messages, worker.output_model, retries=1)
                 handoff.output = output.model_dump()

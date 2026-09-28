@@ -157,5 +157,42 @@
       "passed": null,
       "value": 1.0
     }
-  }
+  },
+  "steps": [
+    [
+      "llm_call",
+      "agent",
+      "think"
+    ],
+    [
+      "tool_call",
+      "read_article",
+      "tools"
+    ],
+    [
+      "llm_call",
+      "agent",
+      "think"
+    ],
+    [
+      "tool_call",
+      "read_article",
+      "tools"
+    ],
+    [
+      "llm_call",
+      "agent",
+      "think"
+    ],
+    [
+      "tool_call",
+      "read_article",
+      "tools"
+    ],
+    [
+      "llm_call",
+      "agent",
+      "think"
+    ]
+  ]
 }

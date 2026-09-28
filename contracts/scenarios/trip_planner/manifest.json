@@ -148,6 +148,14 @@
         "label": "all steps done",
         "loop": false,
         "source": "execute",
+        "target": "synthesise",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "synthesise",
         "target": "end",
         "unless": null,
         "when": []
@@ -274,6 +282,22 @@
         "id": "replan",
         "kind": "llm",
         "label": "Replan after a failed step",
+        "role": "planner",
+        "when": [
+          {
+            "equals": "plan_execute",
+            "gt": null,
+            "one_of": null,
+            "param": "mode"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "",
+        "id": "synthesise",
+        "kind": "llm",
+        "label": "Planner writes the answer",
         "role": "planner",
         "when": [
           {

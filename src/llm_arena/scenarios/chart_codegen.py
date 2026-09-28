@@ -114,7 +114,7 @@ class ChartCodegen(Scenario):
         generator, critic = models["generator"], models["critic"]
 
         async def render(code: str) -> str:
-            with ctx.trace.span("code_exec", "render_chart", input=code) as span:
+            with ctx.trace.in_step("render"), ctx.trace.span("code_exec", "render_chart", input=code) as span:
                 result = await sandbox.run(
                     INTROSPECTION_PRELUDE,
                     files={"user_code.py": code, filename: csv_text},

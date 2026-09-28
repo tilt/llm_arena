@@ -199,5 +199,42 @@
       "passed": null,
       "value": 1.0
     }
-  }
+  },
+  "steps": [
+    [
+      "llm_call",
+      "researcher",
+      "research"
+    ],
+    [
+      "tool_call",
+      "search",
+      "search"
+    ],
+    [
+      "llm_call",
+      "researcher",
+      "research"
+    ],
+    [
+      "tool_call",
+      "fetch_document",
+      "search"
+    ],
+    [
+      "llm_call",
+      "researcher",
+      "research"
+    ],
+    [
+      "llm_call",
+      "writer",
+      "draft"
+    ],
+    [
+      "llm_call",
+      "reviewer",
+      "critique"
+    ]
+  ]
 }

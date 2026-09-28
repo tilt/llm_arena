@@ -140,15 +140,20 @@ async def _make_plan(
         },
     ]
     for attempt in range(max_repairs + 1):
-        with trace.span("plan", "replan" if done else "plan", attrs={"attempt": attempt}) as span:
+        with trace.in_step("replan" if done else "plan"), trace.span("plan", "replan" if done else "plan",
+                                                                   attrs={"attempt": attempt}) as span:  # fmt: skip
             try:
                 plan, _ = await structured(planner, messages, Plan)
             except StructuredOutputError as exc:
                 span.error = str(exc)
                 return None
-            errors = validator(plan)
             span.output = plan.model_dump()
-            span.attrs.update({"valid": not errors, "validation_errors": errors, "n_steps": len(plan.steps)})
+            span.attrs.update({"n_steps": len(plan.steps)})
+        with trace.in_step("validate"), trace.span("step", "validate", input=plan.model_dump()) as check:
+            errors = validator(plan)
+            check.output = errors or "valid"
+            check.attrs.update({"valid": not errors, "validation_errors": errors})
+            span.attrs.update({"valid": not errors, "validation_errors": errors})
         if not errors:
             result.plans.append(plan)
             return plan
@@ -186,8 +191,8 @@ async def _execute_step(
             f"Your step ({step.id}): {step.goal}",
         },
     ]
-    with trace.span("step", f"plan_step_{step.id}", input=step.goal) as span:
-        loop = await run_tool_loop(llm, messages, tool_executor, max_turns=max_turns)
+    with trace.in_step("execute"), trace.span("step", f"plan_step_{step.id}", input=step.goal) as span:
+        loop = await run_tool_loop(llm, messages, tool_executor, max_turns=max_turns, trace=trace, tool_step="tools")
         failed = STEP_FAILED in loop.final or loop.stop_reason == "max_turns"
         span.output = loop.final
         span.attrs.update({"failed": failed, "stop_reason": loop.stop_reason, "turns": loop.turns})
@@ -195,7 +200,7 @@ async def _execute_step(
 
 
 async def _synthesise(planner: LLMClient, task: str, context: str, records: list[StepRecord], trace: Trace) -> str:
-    with trace.span("step", "synthesis") as span:
+    with trace.in_step("synthesise"), trace.span("step", "synthesis") as span:
         response = await planner.complete(
             [
                 {

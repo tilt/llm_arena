@@ -128,6 +128,9 @@ class TripPlanner(Scenario):
                 [system(SYSTEM), user(task.prompt)],
                 executor,
                 max_turns=ctx.params["max_turns"],
+                trace=ctx.trace,
+                step="loop",
+                tool_step="tools",
             )
             final = loop.final
             extras["stop_reason"] = loop.stop_reason
@@ -172,11 +175,12 @@ class TripPlanner(Scenario):
                    step("execute", "Executor runs a step", "llm", "executor", when=planned),
                    step("loop", "Agent plans and books", "llm", "executor", "one tool loop, no explicit plan", single),
                    step("tools", "Flights, hotels, calendar", "tool", description="a flight sells out when booked"),
-                   step("replan", "Replan after a failed step", "llm", "planner", when=planned), END],
+                   step("replan", "Replan after a failed step", "llm", "planner", when=planned),
+                   step("synthesise", "Planner writes the answer", "llm", "planner", when=planned), END],
             edges=[edge("start", "plan"), edge("plan", "validate"), edge("validate", "plan", "rejected", loop=True),
                    edge("validate", "execute", "ok"), edge("execute", "tools", "tool call"),
                    edge("tools", "execute", "result", loop=True), edge("execute", "replan", "step failed"),
-                   edge("replan", "validate", "new plan", loop=True), edge("execute", "end", "all steps done"),
+                   edge("replan", "validate", "new plan", loop=True), edge("execute", "synthesise", "all steps done"), edge("synthesise", "end"),
                    edge("start", "loop"), edge("loop", "tools", "tool call"),
                    edge("tools", "loop", "result", loop=True), edge("loop", "end", "final answer")],
         )  # fmt: skip

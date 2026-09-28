@@ -66,26 +66,35 @@ class GatedExecutor:
         if self.policy is None or item is None or item.permission == "read" or not _valid(item, call):
             return await self.executor.execute(call)
         violation = self.oracle(call.name, call.args)
+        trace = self.executor.trace
         state = {
             "request": self.request,
             "policy": self.rules,
             "action": {"tool": call.name, "arguments": call.args, "kind": item.permission},
             "facts": self.facts(call.name, call.args) if self.facts else {},
         }
-        result = await self.policy.decide(
-            DecisionRequest(point="approval", state=state, questions={"needs_approval": Noul(instructions=APPROVAL_QUESTION)}),
-            labels={"needs_approval": violation is not None},
-        )  # fmt: skip
+        with trace.in_step("approval"):
+            result = await self.policy.decide(
+                DecisionRequest(point="approval", state=state, questions={"needs_approval": Noul(instructions=APPROVAL_QUESTION)}),
+                labels={"needs_approval": violation is not None},
+            )  # fmt: skip
         answer = result.answers["needs_approval"]
         gated = answer.abstained or answer.yes  # no opinion: ask the human (safe default)
         if not gated:
             self.policy.annotate(human=None, executed=True, violation=violation)
             return await self.executor.execute(call)
+        verdict = "approved" if violation is None else "rejected"
+        self.policy.annotate(human=verdict, executed=violation is None, violation=violation)
+        with (
+            trace.in_step("human"),
+            trace.span("step", "human approver", input={"tool": call.name, "arguments": call.args}) as span,
+        ):
+            span.output = verdict if violation is None else f"rejected: {violation}"
+            span.attrs["verdict"] = verdict
         if violation is None:
-            self.policy.annotate(human="approved", executed=True, violation=None)
             return await self.executor.execute(call)
-        self.policy.annotate(human="rejected", executed=False, violation=violation)
-        return _rejected(self.executor.trace, call, item.permission, violation, self.executor.role)
+        with trace.in_step("human"):
+            return _rejected(trace, call, item.permission, violation, self.executor.role)
 
 
 def _valid(item: Any, call: ToolCall) -> bool:
@@ -124,17 +133,20 @@ async def run_controlled_loop(
     steps = max_steps
     for step in range(1, max_steps + 1):
         labels = {"task_complete": complete()} if complete else {}
-        decided = await policy.decide(
-            DecisionRequest(
-                point="step",
-                state={"request": request, "actions_so_far": actions[-12:]},
-                questions={
-                    "next_action": Choice(instructions="Which action should the agent take next?", criteria=options),
-                    "task_complete": Noul(instructions=COMPLETE_QUESTION),
-                },
-            ),
-            labels=labels,
-        )
+        with policy.trace.in_step("decide"):
+            decided = await policy.decide(
+                DecisionRequest(
+                    point="step",
+                    state={"request": request, "actions_so_far": actions[-12:]},
+                    questions={
+                        "next_action": Choice(
+                            instructions="Which action should the agent take next?", criteria=options
+                        ),
+                        "task_complete": Noul(instructions=COMPLETE_QUESTION),
+                    },
+                ),
+                labels=labels,
+            )
         done, choice = decided.answers["task_complete"], decided.answers["next_action"]
         chosen = choice.choice if not choice.abstained and choice.choice in tools else None
         # Stop on "finish", or on "complete" without a tool choice. A tool choice wins over a contradicting
@@ -146,7 +158,8 @@ async def run_controlled_loop(
         directive = (
             f"Next step: call the tool `{chosen}` with the right arguments." if chosen else "Take the next step."
         )
-        response = await agent.complete([*history, user(directive)], tools=schemas)
+        with policy.trace.in_step("args"):
+            response = await agent.complete([*history, user(directive)], tools=schemas)
         history.append(response.raw_message)
         if not response.tool_calls:
             actions.append({"note": "the agent made no tool call", "said": response.content[:300]})
@@ -154,10 +167,15 @@ async def run_controlled_loop(
         for index, call in enumerate(response.tool_calls):
             # One action per step, but every call id needs a result.
             skip = bool(index and chosen)
-            content = "Skipped: one action per step." if skip else (await executor.execute(call)).content
+            if skip:
+                content = "Skipped: one action per step."
+            else:
+                with policy.trace.in_step("tools"):
+                    content = (await executor.execute(call)).content
             history.append(tool_result_message(agent.spec.tool_mode, call, content))
             actions.append({"tool": call.name, "arguments": call.args, "result": content[:400]})
-    response = await agent.complete([*history, user(FINAL_REPLY)])
+    with policy.trace.in_step("reply"):
+        response = await agent.complete([*history, user(FINAL_REPLY)])
     history.append(response.raw_message)
     return LoopResult(response.content, stop, steps, history)
 
@@ -174,6 +192,11 @@ async def review_run(
 ) -> None:
     """Post-run trace review; labels come from the environment's deterministic outcome."""
     state = {"request": request, "actions": actions_from_trace(trace), "final_reply": final}
+    with trace.in_step("review"):
+        await _review(policy, state, accomplished, violations)
+
+
+async def _review(policy: TracedPolicy, state: dict[str, Any], accomplished: bool, violations: list[str]) -> None:
     await policy.decide(
         DecisionRequest(
             point="review",
@@ -203,11 +226,16 @@ async def run_agent(
 ) -> LoopResult:
     """The one entry point for scenarios: no policy or `review` → plain agent loop; `gate` → agent loop with a
     policy-gated approval step; `policy` → the controlled loop (policy decides next action, completion, approvals)."""
+    trace = executor.trace
     if policy is None or control == "review":
-        return await run_tool_loop(agent, messages, executor, max_turns=max_steps)
+        return await run_tool_loop(
+            agent, messages, executor, max_turns=max_steps, trace=trace, step="agent", tool_step="tools"
+        )
     gated = GatedExecutor(executor, policy, oracle, request=request, rules=rules, facts=facts)
     if control == "gate":
-        return await run_tool_loop(agent, messages, gated, max_turns=max_steps)
+        return await run_tool_loop(
+            agent, messages, gated, max_turns=max_steps, trace=trace, step="agent", tool_step="tools"
+        )
     return await run_controlled_loop(
         agent, messages, gated, policy, request=request, complete=complete, max_steps=max_steps
     )

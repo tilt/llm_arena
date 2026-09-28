@@ -35,7 +35,8 @@ class Benchmark(Scenario):
         return self.sample_size  # without downloading the dataset
 
     async def run(self, task: Task, models: RoleModels, ctx: RunContext) -> TrialOutput:
-        response = await models["model"].complete([user(task.prompt)], max_tokens=ctx.params["max_tokens"])
+        with ctx.trace.in_step("answer"):
+            response = await models["model"].complete([user(task.prompt)], max_tokens=ctx.params["max_tokens"])
         return TrialOutput(final=response.content)
 
     def evaluators(self, params: dict[str, Any]) -> list[Evaluator]:

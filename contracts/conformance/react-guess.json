@@ -56,5 +56,12 @@
       "passed": null,
       "value": 0.0
     }
-  }
+  },
+  "steps": [
+    [
+      "llm_call",
+      "agent",
+      "think"
+    ]
+  ]
 }
