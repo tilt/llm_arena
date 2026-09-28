@@ -17,6 +17,7 @@ from llm_arena.mocks.support import POLICY, SupportDesk, approval_rule, build_ta
 from llm_arena.patterns.controlled_loop import review_run, run_agent
 from llm_arena.patterns.roles import RoleModels
 from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario, register
+from llm_arena.scenarios.workflow import Workflow, tool_agent
 from llm_arena.tools.executor import ToolExecutor
 from llm_arena.tools.registry import ToolRegistry
 
@@ -77,6 +78,9 @@ class SupportDeskScenario(Scenario):
         return TrialOutput(
             final=loop.final, env_state=state, extras={"stop_reason": loop.stop_reason, "turns": loop.turns}
         )
+
+    def workflow(self) -> Workflow:
+        return tool_agent(tools="Shop tools (orders, refunds, messages)", controlled=True)
 
     def evaluators(self, params: dict[str, Any]) -> list[Evaluator]:
         return [ToolHygieneEvaluator(), StopReasonEvaluator(), FunctionEvaluator("desk_state", check_desk)]

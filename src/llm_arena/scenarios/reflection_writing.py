@@ -17,6 +17,7 @@ from llm_arena.llm.client import system, user
 from llm_arena.patterns.reflection import Critique, llm_critique, reflect
 from llm_arena.patterns.roles import RoleModels
 from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario, register
+from llm_arena.scenarios.workflow import Workflow, reflection
 
 TASKS: list[dict[str, Any]] = [
     {
@@ -199,6 +200,10 @@ class ReflectionWriting(Scenario):
         return TrialOutput(
             final=outcome.final, extras={"drafts": outcome.drafts, "verdicts": [c.verdict for c in outcome.critiques]}
         )
+
+    def workflow(self) -> Workflow:
+        return reflection(generator="writer", critic="critic", draft="Draft the text", critique="Editor checks the draft",
+                          revise="Rewrite", evidence="draft")  # fmt: skip
 
     def evaluators(self, params: dict[str, Any]) -> list[Evaluator]:
         return [FunctionEvaluator("constraints", score_writing), RubricJudgeEvaluator(WRITING_RUBRIC)]

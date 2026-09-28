@@ -104,6 +104,7 @@ class ExperimentRunner:
     def unresolved_refs(self) -> set[str]:
         """References that are not curated aliases, i.e. need discovery to get real capabilities."""
         refs = {ref for config in self.experiment.configs for ref in config.roles.values()}
+        refs |= {ref for c in self.experiment.configs for roles in c.scenario_roles.values() for ref in roles.values()}
         refs |= {ref for ref in (self.experiment.judge, self.experiment.arena.judge) if ref}
         return {ref for ref in refs if ref not in self.model_specs}
 
@@ -141,15 +142,20 @@ class ExperimentRunner:
 
     def _bind(self, scenario: Scenario, config: PipelineConfig) -> dict[str, ModelSpec]:
         role_names = {requirement.name for requirement in scenario.roles}
+        roles = config.roles_for(scenario.name)  # per-scenario bindings override the config-wide ones
+        if extra := set(config.scenario_roles.get(scenario.name, {})) - role_names - {WILDCARD_ROLE}:
+            raise ConfigError(
+                f"{config.name}: {scenario.name} has no roles {sorted(extra)}; roles: {sorted(role_names)}"
+            )
         bindings: dict[str, ModelSpec] = {}
-        for role, ref in config.roles.items():
+        for role, ref in roles.items():
             if role in role_names:
                 bindings[role] = self._spec(ref)
-        if WILDCARD_ROLE in config.roles:
+        if WILDCARD_ROLE in roles:
             for requirement in scenario.roles:
                 # Optional roles with a fallback keep their fallback semantics (e.g. critic = generator).
                 if requirement.name not in bindings and requirement.fallback is None:
-                    bindings[requirement.name] = self._spec(config.roles[WILDCARD_ROLE])
+                    bindings[requirement.name] = self._spec(roles[WILDCARD_ROLE])
         return bindings
 
     def _spec(self, ref: str) -> ModelSpec:

@@ -16,6 +16,7 @@ from llm_arena.mocks.shop import API_DOC, API_SOURCE, POLICY, TODAY, ShopEnviron
 from llm_arena.patterns.codeact import run_codeact
 from llm_arena.patterns.roles import RoleModels
 from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario, register
+from llm_arena.scenarios.workflow import END, START, Workflow, edge, step
 
 TASKS: list[dict[str, Any]] = [
     {
@@ -102,6 +103,14 @@ class ShopCodeAct(Scenario):
                 "failed": result.failed_executions,
             },
         )
+
+    def workflow(self) -> Workflow:
+        return Workflow(
+            steps=[START, step("code", "Agent writes Python", "llm", "agent", "against the shop API"),
+                   step("exec", "Execute in the sandbox", "code", description="state persists between steps"), END],
+            edges=[edge("start", "code"), edge("code", "exec"), edge("exec", "code", "output", loop=True),
+                   edge("code", "end", "FINAL ANSWER")],
+        )  # fmt: skip
 
     def evaluators(self, params: dict[str, Any]) -> list[Evaluator]:
         return [

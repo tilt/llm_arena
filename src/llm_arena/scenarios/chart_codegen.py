@@ -27,6 +27,7 @@ from llm_arena.patterns.reflection import Critique, llm_critique, reflect
 from llm_arena.patterns.roles import RoleModels
 from llm_arena.sandbox.base import ExecResult
 from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario, register
+from llm_arena.scenarios.workflow import Workflow, reflection, step
 
 DATASETS = {"energy.csv": energy_csv, "roastery.csv": roastery_csv, "weather_sales.csv": weather_sales_csv}
 
@@ -164,6 +165,12 @@ class ChartCodegen(Scenario):
             artifacts=artifacts,
             extras={"specs": [_spec(a) for a in attempts], "ok": [a.ok for a in attempts]},
         )
+
+    def workflow(self) -> Workflow:
+        render = step("render", "Render the chart", "code", description="sandbox; the figure is introspected")
+        return reflection(generator="generator", critic="critic", draft="Write plotting code",
+                          critique="Critic looks at the chart", revise="Fix the code", execute=render,
+                          evidence="image + execution log")  # fmt: skip
 
     def evaluators(self, params: dict[str, Any]) -> list[Evaluator]:
         return [

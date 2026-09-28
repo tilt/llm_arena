@@ -56,5 +56,79 @@
       "title": "LLM-as-judge",
       "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/llm-as-judge"
     }
-  ]
+  ],
+  "workflow": {
+    "edges": [
+      {
+        "label": "",
+        "loop": false,
+        "source": "start",
+        "target": "code",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "code",
+        "target": "exec",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "output",
+        "loop": true,
+        "source": "exec",
+        "target": "code",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "FINAL ANSWER",
+        "loop": false,
+        "source": "code",
+        "target": "end",
+        "unless": null,
+        "when": []
+      }
+    ],
+    "steps": [
+      {
+        "also": [],
+        "description": "",
+        "id": "start",
+        "kind": "start",
+        "label": "Task",
+        "role": null,
+        "when": []
+      },
+      {
+        "also": [],
+        "description": "against the shop API",
+        "id": "code",
+        "kind": "llm",
+        "label": "Agent writes Python",
+        "role": "agent",
+        "when": []
+      },
+      {
+        "also": [],
+        "description": "state persists between steps",
+        "id": "exec",
+        "kind": "code",
+        "label": "Execute in the sandbox",
+        "role": null,
+        "when": []
+      },
+      {
+        "also": [],
+        "description": "scored by the scenario's evaluators",
+        "id": "end",
+        "kind": "end",
+        "label": "Result",
+        "role": null,
+        "when": []
+      }
+    ]
+  }
 }

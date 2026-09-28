@@ -17,6 +17,7 @@ from llm_arena.patterns.planning import basic_validator, plan_and_execute
 from llm_arena.patterns.roles import RoleModels
 from llm_arena.patterns.tool_loop import run_tool_loop
 from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario, register
+from llm_arena.scenarios.workflow import END, START, Workflow, edge, step, when
 from llm_arena.tools.executor import ToolExecutor
 from llm_arena.tools.registry import ToolRegistry
 
@@ -160,6 +161,25 @@ class TripPlanner(Scenario):
             },
             extras=extras,
         )
+
+    def workflow(self) -> Workflow:
+        planned = when("mode", equals="plan_execute")
+        single = when("mode", equals="single_loop")
+        return Workflow(
+            steps=[START,
+                   step("plan", "Planner writes the plan", "llm", "planner", when=planned),
+                   step("validate", "Validate the plan", "check", description="dates, budget, calendar", when=planned),
+                   step("execute", "Executor runs a step", "llm", "executor", when=planned),
+                   step("loop", "Agent plans and books", "llm", "executor", "one tool loop, no explicit plan", single),
+                   step("tools", "Flights, hotels, calendar", "tool", description="a flight sells out when booked"),
+                   step("replan", "Replan after a failed step", "llm", "planner", when=planned), END],
+            edges=[edge("start", "plan"), edge("plan", "validate"), edge("validate", "plan", "rejected", loop=True),
+                   edge("validate", "execute", "ok"), edge("execute", "tools", "tool call"),
+                   edge("tools", "execute", "result", loop=True), edge("execute", "replan", "step failed"),
+                   edge("replan", "validate", "new plan", loop=True), edge("execute", "end", "all steps done"),
+                   edge("start", "loop"), edge("loop", "tools", "tool call"),
+                   edge("tools", "loop", "result", loop=True), edge("loop", "end", "final answer")],
+        )  # fmt: skip
 
     def evaluators(self, params: dict[str, Any]) -> list[Evaluator]:
         return [

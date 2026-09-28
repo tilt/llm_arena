@@ -21,6 +21,7 @@ from llm_arena.patterns.reflection import Critique, llm_critique, reflect
 from llm_arena.patterns.roles import RoleModels
 from llm_arena.patterns.tool_loop import run_tool_loop
 from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario, register
+from llm_arena.scenarios.workflow import END, START, Workflow, edge, reflection, step
 from llm_arena.tools.executor import ToolExecutor
 from llm_arena.tools.registry import Tool, ToolRegistry, tool
 
@@ -162,6 +163,17 @@ class ResearchReport(Scenario):
                 "stop_reason": research.stop_reason,
             },
         )
+
+    def workflow(self) -> Workflow:
+        writing = reflection(generator="writer", critic="reviewer", draft="Write the report",
+                             critique="Reviewer checks sources and claims", revise="Revise the report")  # fmt: skip
+        research = [step("research", "Researcher searches and reads", "llm", "researcher"),
+                    step("search", "Search + fetch (corpus / web / arXiv)", "tool")]  # fmt: skip
+        steps = [START, *research, *[s for s in writing.steps if s.id not in ("start", "end")], END]
+        edges = [edge("start", "research"), edge("research", "search", "tool call"),
+                 edge("search", "research", "results", loop=True), edge("research", "draft", "notes"),
+                 *[e for e in writing.edges if e.source != "start"]]  # fmt: skip
+        return Workflow(steps=steps, edges=edges)
 
     def evaluators(self, params: dict[str, Any]) -> list[Evaluator]:
         return [

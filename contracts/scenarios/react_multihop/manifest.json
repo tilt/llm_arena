@@ -57,5 +57,176 @@
       "title": "LLM-as-judge",
       "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/llm-as-judge"
     }
-  ]
+  ],
+  "workflow": {
+    "edges": [
+      {
+        "label": "",
+        "loop": false,
+        "source": "start",
+        "target": "think",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "start",
+        "target": "act",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "start",
+        "target": "cot",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "action",
+        "loop": false,
+        "source": "think",
+        "target": "tools",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "action",
+        "loop": false,
+        "source": "act",
+        "target": "tools",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "observation",
+        "loop": true,
+        "source": "tools",
+        "target": "think",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "observation",
+        "loop": true,
+        "source": "tools",
+        "target": "act",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "final answer",
+        "loop": false,
+        "source": "think",
+        "target": "end",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "final answer",
+        "loop": false,
+        "source": "act",
+        "target": "end",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "cot",
+        "target": "end",
+        "unless": null,
+        "when": []
+      }
+    ],
+    "steps": [
+      {
+        "also": [],
+        "description": "",
+        "id": "start",
+        "kind": "start",
+        "label": "Task",
+        "role": null,
+        "when": []
+      },
+      {
+        "also": [],
+        "description": "writes its reasoning, then an action",
+        "id": "think",
+        "kind": "llm",
+        "label": "Thought → Action",
+        "role": "agent",
+        "when": [
+          {
+            "equals": "react",
+            "gt": null,
+            "in_": null,
+            "param": "variant"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "acts without written thoughts",
+        "id": "act",
+        "kind": "llm",
+        "label": "Action",
+        "role": "agent",
+        "when": [
+          {
+            "equals": "act",
+            "gt": null,
+            "in_": null,
+            "param": "variant"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "chain of thought, no tools",
+        "id": "cot",
+        "kind": "llm",
+        "label": "Reason, then answer",
+        "role": "agent",
+        "when": [
+          {
+            "equals": "cot",
+            "gt": null,
+            "in_": null,
+            "param": "variant"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "",
+        "id": "tools",
+        "kind": "tool",
+        "label": "Encyclopedia lookup",
+        "role": null,
+        "when": [
+          {
+            "equals": null,
+            "gt": null,
+            "in_": [
+              "react",
+              "act"
+            ],
+            "param": "variant"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "scored by the scenario's evaluators",
+        "id": "end",
+        "kind": "end",
+        "label": "Result",
+        "role": null,
+        "when": []
+      }
+    ]
+  }
 }

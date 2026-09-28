@@ -25,6 +25,7 @@ from llm_arena.patterns.roles import RoleModels
 from llm_arena.patterns.tool_loop import run_tool_loop
 from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario, register
 from llm_arena.scenarios.research_report import search_tools
+from llm_arena.scenarios.workflow import END, START, Workflow, edge, step, when
 from llm_arena.tools.executor import ToolExecutor
 from llm_arena.tools.registry import Tool, ToolRegistry, tool
 
@@ -295,6 +296,26 @@ class LaunchBrief(Scenario):
                 "delegated": [a.worker for a in result.delegation.assignments] if result.delegation else [],
             },
         )
+
+    def workflow(self) -> Workflow:
+        multi = when("mode", equals="multi_agent")
+        single = when("mode", equals="single_agent")
+        return Workflow(
+            steps=[START,
+                   step("delegate", "Orchestrator delegates", "llm", "orchestrator", "auto, or a fixed order", multi),
+                   step("research", "Researcher", "llm", "researcher", "product catalog tools", multi),
+                   step("analyse", "Analyst", "llm", "analyst", "trend reports", multi),
+                   step("write", "Copywriter", "llm", "copywriter", "tagline", multi),
+                   step("handoff", "Typed handoff check", "check", description="invalid handoffs are rejected",
+                        when=multi),
+                   step("compose", "Orchestrator composes the brief", "llm", "orchestrator", when=multi),
+                   step("solo", "One agent does everything", "llm", "orchestrator", "all tools, no delegation", single),
+                   step("tools", "Catalog + trend tools", "tool", when=single), END],
+            edges=[edge("start", "delegate"), edge("delegate", "research"), edge("research", "handoff"),
+                   edge("handoff", "analyse"), edge("analyse", "write"), edge("write", "compose"),
+                   edge("compose", "end"), edge("start", "solo"), edge("solo", "tools", "tool call"),
+                   edge("tools", "solo", "result", loop=True), edge("solo", "end")],
+        )  # fmt: skip
 
     def evaluators(self, params: dict[str, Any]) -> list[Evaluator]:
         return [

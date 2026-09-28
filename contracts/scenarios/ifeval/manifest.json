@@ -42,5 +42,71 @@
       "title": "LLM-as-judge",
       "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/llm-as-judge"
     }
-  ]
+  ],
+  "workflow": {
+    "edges": [
+      {
+        "label": "",
+        "loop": false,
+        "source": "start",
+        "target": "answer",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "answer",
+        "target": "grade",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "grade",
+        "target": "end",
+        "unless": null,
+        "when": []
+      }
+    ],
+    "steps": [
+      {
+        "also": [],
+        "description": "",
+        "id": "start",
+        "kind": "start",
+        "label": "Task",
+        "role": null,
+        "when": []
+      },
+      {
+        "also": [],
+        "description": "",
+        "id": "answer",
+        "kind": "llm",
+        "label": "Model answers",
+        "role": "model",
+        "when": []
+      },
+      {
+        "also": [],
+        "description": "",
+        "id": "grade",
+        "kind": "check",
+        "label": "Grader",
+        "role": null,
+        "when": []
+      },
+      {
+        "also": [],
+        "description": "scored by the scenario's evaluators",
+        "id": "end",
+        "kind": "end",
+        "label": "Result",
+        "role": null,
+        "when": []
+      }
+    ]
+  }
 }

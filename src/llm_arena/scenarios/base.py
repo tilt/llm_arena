@@ -32,6 +32,7 @@ from llm_arena.scenarios.manifest import (
     ScenarioManifest,
     param_type,
 )
+from llm_arena.scenarios.workflow import Workflow, single_call
 
 Capability = Literal["tools", "vision", "json_schema"]
 
@@ -100,6 +101,10 @@ class Scenario(ABC):
     @abstractmethod
     def evaluators(self, params: dict[str, Any]) -> list[Evaluator]: ...
 
+    def workflow(self) -> Workflow:
+        """The pipeline's steps and which role runs each (for UIs; see scenarios/workflow.py)."""
+        return single_call(self.roles[0].name)
+
     def fixtures(self) -> dict[str, Any]:
         """Scenario data as files for other runtimes: name -> str (text) or JSON-able value.
 
@@ -131,6 +136,7 @@ class Scenario(ABC):
             open_ended=self.open_ended,
             supports_decisions=self.supports_decisions,
             version=self.version,
+            workflow=self.workflow(),
             tasks=self.task_count(),
             wiki=list({link.url: link for link in [*PATTERN_LINKS.get(self.pattern, []), *EVALUATION_LINKS]}.values()),
         )

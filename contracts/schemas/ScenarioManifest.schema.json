@@ -1,5 +1,48 @@
 {
   "$defs": {
+    "Condition": {
+      "description": "True when the parameter matches: `equals` / `in_` / `gt` (all given ones must hold).",
+      "properties": {
+        "equals": {
+          "default": null,
+          "title": "Equals"
+        },
+        "gt": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gt"
+        },
+        "in": {
+          "anyOf": [
+            {
+              "items": {},
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "In"
+        },
+        "param": {
+          "title": "Param",
+          "type": "string"
+        }
+      },
+      "required": [
+        "param"
+      ],
+      "title": "Condition",
+      "type": "object"
+    },
     "ParamManifest": {
       "properties": {
         "choices": {
@@ -102,6 +145,145 @@
       ],
       "title": "WikiLink",
       "type": "object"
+    },
+    "Workflow": {
+      "properties": {
+        "edges": {
+          "items": {
+            "$ref": "#/$defs/WorkflowEdge"
+          },
+          "title": "Edges",
+          "type": "array"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/WorkflowStep"
+          },
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "steps",
+        "edges"
+      ],
+      "title": "Workflow",
+      "type": "object"
+    },
+    "WorkflowEdge": {
+      "properties": {
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "loop": {
+          "default": false,
+          "description": "goes back to an earlier step (drawn as a return arc)",
+          "title": "Loop",
+          "type": "boolean"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "unless": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "dropped when this step is part of the resolved workflow",
+          "title": "Unless"
+        },
+        "when": {
+          "items": {
+            "$ref": "#/$defs/Condition"
+          },
+          "title": "When",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source",
+        "target"
+      ],
+      "title": "WorkflowEdge",
+      "type": "object"
+    },
+    "WorkflowStep": {
+      "properties": {
+        "also": {
+          "description": "further roles the step may call (e.g. a fallback)",
+          "items": {
+            "type": "string"
+          },
+          "title": "Also",
+          "type": "array"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "start",
+            "end",
+            "llm",
+            "tool",
+            "code",
+            "check",
+            "decision",
+            "human"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "role whose model runs this step (model and decision steps)",
+          "title": "Role"
+        },
+        "when": {
+          "items": {
+            "$ref": "#/$defs/Condition"
+          },
+          "title": "When",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "kind"
+      ],
+      "title": "WorkflowStep",
+      "type": "object"
     }
   },
   "properties": {
@@ -189,6 +371,18 @@
       },
       "title": "Wiki",
       "type": "array"
+    },
+    "workflow": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Workflow"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "steps, transitions and the role running each step"
     }
   },
   "required": [

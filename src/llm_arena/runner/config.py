@@ -21,10 +21,16 @@ class PipelineConfig(BaseModel):
         default_factory=dict, description="pattern params, applied to every scenario that knows the key"
     )
     scenario_params: dict[str, dict[str, Any]] = Field(default_factory=dict, description="per-scenario overrides")
+    scenario_roles: dict[str, dict[str, str]] = Field(
+        default_factory=dict, description="scenario -> role -> model: per-scenario bindings that override `roles`"
+    )
     scenarios: list[str] | None = Field(default=None, description="restrict to these scenarios")
     decisions: DecisionConfig | None = Field(
         default=None, description="control policy for scenarios that support one; None: the agent decides"
     )
+
+    def roles_for(self, scenario: str) -> dict[str, str]:
+        return {**self.roles, **self.scenario_roles.get(scenario, {})}
 
     def params_for(self, scenario: str, known: set[str]) -> dict[str, Any]:
         shared = {key: value for key, value in self.params.items() if key in known}

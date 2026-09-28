@@ -77,5 +77,222 @@
       "title": "LLM-as-judge",
       "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/llm-as-judge"
     }
-  ]
+  ],
+  "workflow": {
+    "edges": [
+      {
+        "label": "",
+        "loop": false,
+        "source": "start",
+        "target": "plan",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "plan",
+        "target": "validate",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "rejected",
+        "loop": true,
+        "source": "validate",
+        "target": "plan",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "ok",
+        "loop": false,
+        "source": "validate",
+        "target": "execute",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "tool call",
+        "loop": false,
+        "source": "execute",
+        "target": "tools",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "result",
+        "loop": true,
+        "source": "tools",
+        "target": "execute",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "step failed",
+        "loop": false,
+        "source": "execute",
+        "target": "replan",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "new plan",
+        "loop": true,
+        "source": "replan",
+        "target": "validate",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "all steps done",
+        "loop": false,
+        "source": "execute",
+        "target": "end",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "start",
+        "target": "loop",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "tool call",
+        "loop": false,
+        "source": "loop",
+        "target": "tools",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "result",
+        "loop": true,
+        "source": "tools",
+        "target": "loop",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "final answer",
+        "loop": false,
+        "source": "loop",
+        "target": "end",
+        "unless": null,
+        "when": []
+      }
+    ],
+    "steps": [
+      {
+        "also": [],
+        "description": "",
+        "id": "start",
+        "kind": "start",
+        "label": "Task",
+        "role": null,
+        "when": []
+      },
+      {
+        "also": [],
+        "description": "",
+        "id": "plan",
+        "kind": "llm",
+        "label": "Planner writes the plan",
+        "role": "planner",
+        "when": [
+          {
+            "equals": "plan_execute",
+            "gt": null,
+            "in_": null,
+            "param": "mode"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "dates, budget, calendar",
+        "id": "validate",
+        "kind": "check",
+        "label": "Validate the plan",
+        "role": null,
+        "when": [
+          {
+            "equals": "plan_execute",
+            "gt": null,
+            "in_": null,
+            "param": "mode"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "",
+        "id": "execute",
+        "kind": "llm",
+        "label": "Executor runs a step",
+        "role": "executor",
+        "when": [
+          {
+            "equals": "plan_execute",
+            "gt": null,
+            "in_": null,
+            "param": "mode"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "one tool loop, no explicit plan",
+        "id": "loop",
+        "kind": "llm",
+        "label": "Agent plans and books",
+        "role": "executor",
+        "when": [
+          {
+            "equals": "single_loop",
+            "gt": null,
+            "in_": null,
+            "param": "mode"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "a flight sells out when booked",
+        "id": "tools",
+        "kind": "tool",
+        "label": "Flights, hotels, calendar",
+        "role": null,
+        "when": []
+      },
+      {
+        "also": [],
+        "description": "",
+        "id": "replan",
+        "kind": "llm",
+        "label": "Replan after a failed step",
+        "role": "planner",
+        "when": [
+          {
+            "equals": "plan_execute",
+            "gt": null,
+            "in_": null,
+            "param": "mode"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "scored by the scenario's evaluators",
+        "id": "end",
+        "kind": "end",
+        "label": "Result",
+        "role": null,
+        "when": []
+      }
+    ]
+  }
 }

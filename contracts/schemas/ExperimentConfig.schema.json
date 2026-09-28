@@ -168,6 +168,17 @@
           "title": "Scenario Params",
           "type": "object"
         },
+        "scenario_roles": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "description": "scenario -> role -> model: per-scenario bindings that override `roles`",
+          "title": "Scenario Roles",
+          "type": "object"
+        },
         "scenarios": {
           "anyOf": [
             {

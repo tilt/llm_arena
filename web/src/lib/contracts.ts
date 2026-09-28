@@ -174,6 +174,16 @@ export interface PipelineConfig {
       | undefined;
   };
   /**
+   * scenario -> role -> model: per-scenario bindings that override `roles`
+   */
+  scenario_roles?: {
+    [k: string]:
+      | {
+          [k: string]: string | undefined;
+        }
+      | undefined;
+  };
+  /**
    * restrict to these scenarios
    */
   scenarios?: string[] | null;
@@ -592,6 +602,10 @@ export interface ScenarioManifest {
    */
   version?: string;
   wiki?: WikiLink[];
+  /**
+   * steps, transitions and the role running each step
+   */
+  workflow?: Workflow | null;
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema
@@ -627,6 +641,65 @@ export interface RoleManifest {
 export interface WikiLink {
   title: string;
   url: string;
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "Workflow".
+ */
+export interface Workflow {
+  edges: WorkflowEdge[];
+  steps: WorkflowStep[];
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "WorkflowEdge".
+ */
+export interface WorkflowEdge {
+  label?: string;
+  /**
+   * goes back to an earlier step (drawn as a return arc)
+   */
+  loop?: boolean;
+  source: string;
+  target: string;
+  /**
+   * dropped when this step is part of the resolved workflow
+   */
+  unless?: string | null;
+  when?: Condition[];
+}
+/**
+ * True when the parameter matches: `equals` / `in_` / `gt` (all given ones must hold).
+ *
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "Condition".
+ */
+export interface Condition {
+  equals?: {
+    [k: string]: unknown | undefined;
+  };
+  gt?: number | null;
+  in?: unknown[] | null;
+  param: string;
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "WorkflowStep".
+ */
+export interface WorkflowStep {
+  /**
+   * further roles the step may call (e.g. a fallback)
+   */
+  also?: string[];
+  description?: string;
+  id: string;
+  kind: "start" | "end" | "llm" | "tool" | "code" | "check" | "decision" | "human";
+  label: string;
+  /**
+   * role whose model runs this step (model and decision steps)
+   */
+  role?: string | null;
+  when?: Condition[];
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema

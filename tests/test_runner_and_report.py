@@ -208,3 +208,23 @@ async def test_trials_on_a_local_endpoint_run_one_at_a_time() -> None:
     )
     await runner.run()
     assert peak == 1
+
+
+def test_scenario_roles_override_config_roles_per_scenario() -> None:
+    experiment = ExperimentConfig.model_validate({
+        "name": "per-scenario", "scenarios": ["reflection_sql", "reflection_writing"], "limit": 1,
+        "configs": [{"name": "mixed", "roles": {"*": "good"},
+                     "scenario_roles": {"reflection_sql": {"critic": "bad"}, "reflection_writing": {"writer": "bad"}}}],
+    })  # fmt: skip
+    trials = _runner(experiment).plan()
+    by_scenario = {t.scenario.name: {role: spec.name for role, spec in t.bindings.items()} for t in trials}
+    assert by_scenario["reflection_sql"] == {"generator": "good", "critic": "bad"}
+    assert by_scenario["reflection_writing"] == {"writer": "bad", "critic": "bad"}  # critic falls back to the writer
+
+
+def test_unknown_scenario_role_is_a_config_error() -> None:
+    experiment = _experiment(
+        configs=[{"name": "x", "roles": {"*": "good"}, "scenario_roles": {"reflection_sql": {"typo": "good"}}}]
+    )
+    with pytest.raises(ConfigError, match="no roles"):
+        _runner(experiment).plan()

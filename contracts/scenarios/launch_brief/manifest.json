@@ -86,5 +86,245 @@
       "title": "LLM-as-judge",
       "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/llm-as-judge"
     }
-  ]
+  ],
+  "workflow": {
+    "edges": [
+      {
+        "label": "",
+        "loop": false,
+        "source": "start",
+        "target": "delegate",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "delegate",
+        "target": "research",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "research",
+        "target": "handoff",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "handoff",
+        "target": "analyse",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "analyse",
+        "target": "write",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "write",
+        "target": "compose",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "compose",
+        "target": "end",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "start",
+        "target": "solo",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "tool call",
+        "loop": false,
+        "source": "solo",
+        "target": "tools",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "result",
+        "loop": true,
+        "source": "tools",
+        "target": "solo",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "solo",
+        "target": "end",
+        "unless": null,
+        "when": []
+      }
+    ],
+    "steps": [
+      {
+        "also": [],
+        "description": "",
+        "id": "start",
+        "kind": "start",
+        "label": "Task",
+        "role": null,
+        "when": []
+      },
+      {
+        "also": [],
+        "description": "auto, or a fixed order",
+        "id": "delegate",
+        "kind": "llm",
+        "label": "Orchestrator delegates",
+        "role": "orchestrator",
+        "when": [
+          {
+            "equals": "multi_agent",
+            "gt": null,
+            "in_": null,
+            "param": "mode"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "product catalog tools",
+        "id": "research",
+        "kind": "llm",
+        "label": "Researcher",
+        "role": "researcher",
+        "when": [
+          {
+            "equals": "multi_agent",
+            "gt": null,
+            "in_": null,
+            "param": "mode"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "trend reports",
+        "id": "analyse",
+        "kind": "llm",
+        "label": "Analyst",
+        "role": "analyst",
+        "when": [
+          {
+            "equals": "multi_agent",
+            "gt": null,
+            "in_": null,
+            "param": "mode"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "tagline",
+        "id": "write",
+        "kind": "llm",
+        "label": "Copywriter",
+        "role": "copywriter",
+        "when": [
+          {
+            "equals": "multi_agent",
+            "gt": null,
+            "in_": null,
+            "param": "mode"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "invalid handoffs are rejected",
+        "id": "handoff",
+        "kind": "check",
+        "label": "Typed handoff check",
+        "role": null,
+        "when": [
+          {
+            "equals": "multi_agent",
+            "gt": null,
+            "in_": null,
+            "param": "mode"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "",
+        "id": "compose",
+        "kind": "llm",
+        "label": "Orchestrator composes the brief",
+        "role": "orchestrator",
+        "when": [
+          {
+            "equals": "multi_agent",
+            "gt": null,
+            "in_": null,
+            "param": "mode"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "all tools, no delegation",
+        "id": "solo",
+        "kind": "llm",
+        "label": "One agent does everything",
+        "role": "orchestrator",
+        "when": [
+          {
+            "equals": "single_agent",
+            "gt": null,
+            "in_": null,
+            "param": "mode"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "",
+        "id": "tools",
+        "kind": "tool",
+        "label": "Catalog + trend tools",
+        "role": null,
+        "when": [
+          {
+            "equals": "single_agent",
+            "gt": null,
+            "in_": null,
+            "param": "mode"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "scored by the scenario's evaluators",
+        "id": "end",
+        "kind": "end",
+        "label": "Result",
+        "role": null,
+        "when": []
+      }
+    ]
+  }
 }

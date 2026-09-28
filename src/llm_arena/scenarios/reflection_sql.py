@@ -20,6 +20,7 @@ from llm_arena.mocks.sqlite_exec import QueryResult, run_query
 from llm_arena.patterns.reflection import Critique, llm_critique, reflect
 from llm_arena.patterns.roles import RoleModels
 from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario, register, work_dir
+from llm_arena.scenarios.workflow import Workflow, edge, reflection, step, when
 
 # (id, question, gold SQL). Gold SQL is the reference; any query producing the same columns passes.
 QUESTIONS: list[tuple[str, str, str]] = [
@@ -199,6 +200,17 @@ class ReflectionSQL(Scenario):
                 "verdicts": [c.verdict for c in outcome.critiques],
             },
         )
+
+    def workflow(self) -> Workflow:
+        run_sql = step("run", "Run the SQL", "tool", description="SQLite with schema traps")
+        flow = reflection(generator="generator", critic="critic", draft="Write SQL", critique="Critic reviews the SQL",
+                          revise="Revise the SQL", execute=run_sql, evidence="SQL + result")  # fmt: skip
+        for e in flow.edges:
+            if (e.source, e.target) == ("run", "critique"):
+                e.when += when("feedback", equals="execution")
+        rounds = when("reflection_rounds", gt=0)
+        flow.edges.append(edge("run", "critique", "SQL only", when=[*rounds, *when("feedback", equals="sql_only")]))
+        return flow
 
     def evaluators(self, params: dict[str, Any]) -> list[Evaluator]:
         return [FunctionEvaluator("sql_steps", _step_scores), FunctionEvaluator("sql_final", _final_scores)]

@@ -16,6 +16,7 @@ from llm_arena.mocks.world import articles, multihop_tasks
 from llm_arena.patterns.react import run_react
 from llm_arena.patterns.roles import RoleModels
 from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario, register
+from llm_arena.scenarios.workflow import END, START, Workflow, edge, step, when
 from llm_arena.tools.executor import ToolExecutor
 from llm_arena.tools.registry import Tool, ToolRegistry, tool
 
@@ -74,6 +75,22 @@ class ReactMultihop(Scenario):
                 "invalid_actions": result.invalid_actions,
             },
         )
+
+    def workflow(self) -> Workflow:
+        tools = when("variant", in_=["react", "act"])
+        return Workflow(
+            steps=[START,
+                   step("think", "Thought → Action", "llm", "agent", "writes its reasoning, then an action",
+                        when("variant", equals="react")),
+                   step("act", "Action", "llm", "agent", "acts without written thoughts", when("variant", equals="act")),
+                   step("cot", "Reason, then answer", "llm", "agent", "chain of thought, no tools",
+                        when("variant", equals="cot")),
+                   step("tools", "Encyclopedia lookup", "tool", when=tools), END],
+            edges=[edge("start", "think"), edge("start", "act"), edge("start", "cot"),
+                   edge("think", "tools", "action"), edge("act", "tools", "action"),
+                   edge("tools", "think", "observation", loop=True), edge("tools", "act", "observation", loop=True),
+                   edge("think", "end", "final answer"), edge("act", "end", "final answer"), edge("cot", "end")],
+        )  # fmt: skip
 
     def evaluators(self, params: dict[str, Any]) -> list[Evaluator]:
         return [ToolHygieneEvaluator(), StopReasonEvaluator(), FunctionEvaluator("react_answer", score_answer)]

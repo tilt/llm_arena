@@ -68,5 +68,456 @@
       "title": "LLM-as-judge",
       "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/llm-as-judge"
     }
-  ]
+  ],
+  "workflow": {
+    "edges": [
+      {
+        "label": "",
+        "loop": false,
+        "source": "start",
+        "target": "agent",
+        "unless": null,
+        "when": [
+          {
+            "equals": null,
+            "gt": null,
+            "in_": [
+              "agent",
+              "gate",
+              "review"
+            ],
+            "param": "control"
+          }
+        ]
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "start",
+        "target": "decide",
+        "unless": null,
+        "when": [
+          {
+            "equals": "policy",
+            "gt": null,
+            "in_": null,
+            "param": "control"
+          }
+        ]
+      },
+      {
+        "label": "read / write",
+        "loop": false,
+        "source": "agent",
+        "target": "tools",
+        "unless": null,
+        "when": [
+          {
+            "equals": null,
+            "gt": null,
+            "in_": [
+              "agent",
+              "review"
+            ],
+            "param": "control"
+          }
+        ]
+      },
+      {
+        "label": "write",
+        "loop": false,
+        "source": "agent",
+        "target": "approval",
+        "unless": null,
+        "when": [
+          {
+            "equals": "gate",
+            "gt": null,
+            "in_": null,
+            "param": "control"
+          }
+        ]
+      },
+      {
+        "label": "read",
+        "loop": false,
+        "source": "agent",
+        "target": "tools",
+        "unless": null,
+        "when": [
+          {
+            "equals": "gate",
+            "gt": null,
+            "in_": null,
+            "param": "control"
+          }
+        ]
+      },
+      {
+        "label": "tool",
+        "loop": false,
+        "source": "decide",
+        "target": "args",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "read",
+        "loop": false,
+        "source": "args",
+        "target": "tools",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "write",
+        "loop": false,
+        "source": "args",
+        "target": "approval",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "no approval needed",
+        "loop": false,
+        "source": "approval",
+        "target": "tools",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "needs approval",
+        "loop": false,
+        "source": "approval",
+        "target": "human",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "approved",
+        "loop": false,
+        "source": "human",
+        "target": "tools",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "rejected",
+        "loop": true,
+        "source": "human",
+        "target": "agent",
+        "unless": null,
+        "when": [
+          {
+            "equals": null,
+            "gt": null,
+            "in_": [
+              "agent",
+              "gate",
+              "review"
+            ],
+            "param": "control"
+          }
+        ]
+      },
+      {
+        "label": "rejected",
+        "loop": true,
+        "source": "human",
+        "target": "decide",
+        "unless": null,
+        "when": [
+          {
+            "equals": "policy",
+            "gt": null,
+            "in_": null,
+            "param": "control"
+          }
+        ]
+      },
+      {
+        "label": "result",
+        "loop": true,
+        "source": "tools",
+        "target": "agent",
+        "unless": null,
+        "when": [
+          {
+            "equals": null,
+            "gt": null,
+            "in_": [
+              "agent",
+              "gate",
+              "review"
+            ],
+            "param": "control"
+          }
+        ]
+      },
+      {
+        "label": "result",
+        "loop": true,
+        "source": "tools",
+        "target": "decide",
+        "unless": null,
+        "when": [
+          {
+            "equals": "policy",
+            "gt": null,
+            "in_": null,
+            "param": "control"
+          }
+        ]
+      },
+      {
+        "label": "finish",
+        "loop": false,
+        "source": "decide",
+        "target": "reply",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "final answer",
+        "loop": false,
+        "source": "agent",
+        "target": "review",
+        "unless": null,
+        "when": [
+          {
+            "equals": null,
+            "gt": null,
+            "in_": [
+              "gate",
+              "policy",
+              "review"
+            ],
+            "param": "control"
+          },
+          {
+            "equals": true,
+            "gt": null,
+            "in_": null,
+            "param": "review"
+          }
+        ]
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "reply",
+        "target": "review",
+        "unless": null,
+        "when": [
+          {
+            "equals": null,
+            "gt": null,
+            "in_": [
+              "gate",
+              "policy",
+              "review"
+            ],
+            "param": "control"
+          },
+          {
+            "equals": true,
+            "gt": null,
+            "in_": null,
+            "param": "review"
+          }
+        ]
+      },
+      {
+        "label": "final answer",
+        "loop": false,
+        "source": "agent",
+        "target": "end",
+        "unless": "review",
+        "when": []
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "reply",
+        "target": "end",
+        "unless": "review",
+        "when": []
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "review",
+        "target": "end",
+        "unless": null,
+        "when": []
+      }
+    ],
+    "steps": [
+      {
+        "also": [],
+        "description": "",
+        "id": "start",
+        "kind": "start",
+        "label": "Task",
+        "role": null,
+        "when": []
+      },
+      {
+        "also": [],
+        "description": "the agent decides everything itself",
+        "id": "agent",
+        "kind": "llm",
+        "label": "Agent picks a tool",
+        "role": "agent",
+        "when": [
+          {
+            "equals": null,
+            "gt": null,
+            "in_": [
+              "agent",
+              "gate",
+              "review"
+            ],
+            "param": "control"
+          }
+        ]
+      },
+      {
+        "also": [
+          "escalation"
+        ],
+        "description": "choice over the tools + finish; task complete (yes/no)",
+        "id": "decide",
+        "kind": "decision",
+        "label": "Policy: next action? complete?",
+        "role": "decider",
+        "when": [
+          {
+            "equals": "policy",
+            "gt": null,
+            "in_": null,
+            "param": "control"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "only the tool the policy chose",
+        "id": "args",
+        "kind": "llm",
+        "label": "Agent fills in the arguments",
+        "role": "agent",
+        "when": [
+          {
+            "equals": "policy",
+            "gt": null,
+            "in_": null,
+            "param": "control"
+          }
+        ]
+      },
+      {
+        "also": [
+          "escalation"
+        ],
+        "description": "state-changing actions only; scored against the approval oracle",
+        "id": "approval",
+        "kind": "decision",
+        "label": "Policy: needs approval?",
+        "role": "decider",
+        "when": [
+          {
+            "equals": null,
+            "gt": null,
+            "in_": [
+              "gate",
+              "policy"
+            ],
+            "param": "control"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "approves exactly the compliant actions",
+        "id": "human",
+        "kind": "human",
+        "label": "Human approver (oracle)",
+        "role": null,
+        "when": [
+          {
+            "equals": null,
+            "gt": null,
+            "in_": [
+              "gate",
+              "policy"
+            ],
+            "param": "control"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "",
+        "id": "tools",
+        "kind": "tool",
+        "label": "Mailbox tools",
+        "role": null,
+        "when": []
+      },
+      {
+        "also": [],
+        "description": "",
+        "id": "reply",
+        "kind": "llm",
+        "label": "Agent writes the final reply",
+        "role": "agent",
+        "when": [
+          {
+            "equals": "policy",
+            "gt": null,
+            "in_": null,
+            "param": "control"
+          }
+        ]
+      },
+      {
+        "also": [
+          "escalation"
+        ],
+        "description": "task accomplished? needs human review?",
+        "id": "review",
+        "kind": "decision",
+        "label": "Policy: trace review",
+        "role": "decider",
+        "when": [
+          {
+            "equals": null,
+            "gt": null,
+            "in_": [
+              "gate",
+              "policy",
+              "review"
+            ],
+            "param": "control"
+          },
+          {
+            "equals": true,
+            "gt": null,
+            "in_": null,
+            "param": "review"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "scored by the scenario's evaluators",
+        "id": "end",
+        "kind": "end",
+        "label": "Result",
+        "role": null,
+        "when": []
+      }
+    ]
+  }
 }

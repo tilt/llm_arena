@@ -75,5 +75,170 @@
       "title": "LLM-as-judge",
       "url": "https://tilt.github.io/data-science-wiki/11-generative-ai/llm-as-judge"
     }
-  ]
+  ],
+  "workflow": {
+    "edges": [
+      {
+        "label": "",
+        "loop": false,
+        "source": "start",
+        "target": "draft",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "draft",
+        "target": "render",
+        "unless": null,
+        "when": []
+      },
+      {
+        "label": "image + execution log",
+        "loop": false,
+        "source": "render",
+        "target": "critique",
+        "unless": null,
+        "when": [
+          {
+            "equals": null,
+            "gt": 0.0,
+            "in_": null,
+            "param": "reflection_rounds"
+          }
+        ]
+      },
+      {
+        "label": "revise",
+        "loop": false,
+        "source": "critique",
+        "target": "revise",
+        "unless": null,
+        "when": [
+          {
+            "equals": null,
+            "gt": 0.0,
+            "in_": null,
+            "param": "reflection_rounds"
+          }
+        ]
+      },
+      {
+        "label": "next round",
+        "loop": true,
+        "source": "revise",
+        "target": "render",
+        "unless": null,
+        "when": [
+          {
+            "equals": null,
+            "gt": 0.0,
+            "in_": null,
+            "param": "reflection_rounds"
+          }
+        ]
+      },
+      {
+        "label": "accept / rounds used",
+        "loop": false,
+        "source": "critique",
+        "target": "end",
+        "unless": null,
+        "when": [
+          {
+            "equals": null,
+            "gt": 0.0,
+            "in_": null,
+            "param": "reflection_rounds"
+          }
+        ]
+      },
+      {
+        "label": "",
+        "loop": false,
+        "source": "render",
+        "target": "end",
+        "unless": null,
+        "when": [
+          {
+            "equals": 0,
+            "gt": null,
+            "in_": null,
+            "param": "reflection_rounds"
+          }
+        ]
+      }
+    ],
+    "steps": [
+      {
+        "also": [],
+        "description": "",
+        "id": "start",
+        "kind": "start",
+        "label": "Task",
+        "role": null,
+        "when": []
+      },
+      {
+        "also": [],
+        "description": "",
+        "id": "draft",
+        "kind": "llm",
+        "label": "Write plotting code",
+        "role": "generator",
+        "when": []
+      },
+      {
+        "also": [],
+        "description": "sandbox; the figure is introspected",
+        "id": "render",
+        "kind": "code",
+        "label": "Render the chart",
+        "role": null,
+        "when": []
+      },
+      {
+        "also": [],
+        "description": "accept, or list issues",
+        "id": "critique",
+        "kind": "llm",
+        "label": "Critic looks at the chart",
+        "role": "critic",
+        "when": [
+          {
+            "equals": null,
+            "gt": 0.0,
+            "in_": null,
+            "param": "reflection_rounds"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "rewrite using the critic's issues",
+        "id": "revise",
+        "kind": "llm",
+        "label": "Fix the code",
+        "role": "generator",
+        "when": [
+          {
+            "equals": null,
+            "gt": 0.0,
+            "in_": null,
+            "param": "reflection_rounds"
+          }
+        ]
+      },
+      {
+        "also": [],
+        "description": "scored by the scenario's evaluators",
+        "id": "end",
+        "kind": "end",
+        "label": "Result",
+        "role": null,
+        "when": []
+      }
+    ]
+  }
 }

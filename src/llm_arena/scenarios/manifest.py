@@ -11,6 +11,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from llm_arena.scenarios.workflow import Workflow
+
 WIKI_BASE = os.getenv("ARENA_WIKI_BASE", "https://tilt.github.io/data-science-wiki/11-generative-ai")
 
 Requirement = Literal["sandbox", "live_network", "local_models"]
@@ -86,6 +88,7 @@ class ScenarioManifest(BaseModel):
     requires: list[Requirement] = Field(default_factory=list)
     open_ended: bool = False
     version: str = Field(default="1", description="bumped when prompts, tools or evaluators change")
+    workflow: Workflow | None = Field(default=None, description="steps, transitions and the role running each step")
     supports_decisions: bool = Field(default=False, description="accepts a control policy (config.decisions)")
     tasks: int
     wiki: list[WikiLink] = Field(default_factory=list)
