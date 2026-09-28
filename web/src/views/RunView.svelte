@@ -1,11 +1,14 @@
 <script lang="ts">
   import ReportView from "../components/ReportView.svelte";
+  import StepInspector from "../components/StepInspector.svelte";
+  import type { Persistence } from "../lib/backend";
   import { app } from "../lib/app.svelte";
   import type { RunBundle } from "../lib/contracts";
   import { num, usd } from "../lib/format";
   import { initialProgress, reduce, type RunProgress } from "../lib/progress";
 
-  let { id }: { id: string } = $props();
+  let { id, trial, step }: { id: string; trial?: string; step?: string } = $props();
+  let persistence = $state<Persistence>("server");
 
   let progress = $state<RunProgress>({ ...initialProgress });
   let live = $state(false);
@@ -15,6 +18,7 @@
   async function loadBundle() {
     try {
       bundle = await app.backend!.bundle(id);
+      persistence = await app.backend!.persistence(id);
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     }
@@ -44,6 +48,7 @@
   });
 
   const reportUrl = $derived(app.backend?.reportUrl(id) ?? null);
+  const exportUrl = $derived(app.backend?.exportUrl(id) ?? null);
 </script>
 
 <h1>{id}</h1>
@@ -69,9 +74,15 @@
 {#if bundle}
   <p class="muted">
     {#if reportUrl}Standalone report: <a href={reportUrl} target="_blank" rel="noopener">open HTML report</a> · {/if}
-    <a href={URL.createObjectURL(new Blob([JSON.stringify(bundle)], { type: "application/json" }))} download={`${id}.json`}>Download run bundle</a>
+    <a href={exportUrl ?? URL.createObjectURL(new Blob([JSON.stringify(bundle)], { type: "application/json" }))} download={`${id}.json`}>Download run bundle</a>
+    <span class="muted">(traces and step files included)</span>
   </p>
-  <ReportView {bundle} manifests={app.scenarios} />
+  {#if persistence === "session"}
+    <p class="note" role="status">This run is kept only for this browser session: the browser did not allow saving it (private window or
+      storage full). Download the run bundle to keep its traces and files; you can import it later.</p>
+  {/if}
+  <ReportView {bundle} manifests={app.scenarios} runId={id} />
+  {#if trial}<StepInspector runId={id} trialId={trial} {step} {bundle} />{/if}
 {:else if !live && !error}
   <p class="muted">Loading…</p>
 {/if}

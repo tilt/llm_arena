@@ -5,9 +5,11 @@
   import BarsCI from "./BarsCI.svelte";
   import DecisionQuality from "./DecisionQuality.svelte";
   import Heatmap from "./Heatmap.svelte";
-  import TraceDetails from "./TraceDetails.svelte";
 
-  let { bundle, manifests = [] }: { bundle: RunBundle; manifests?: ScenarioManifest[] } = $props();
+  let { bundle, manifests = [], runId = "" }: { bundle: RunBundle; manifests?: ScenarioManifest[]; runId?: string } = $props();
+  const failedChecks = (trialId: string) =>
+    bundle.scores.filter((s) => s.trial_id === trialId && s.passed === false).map((s) => String(s.name));
+  const inspectHref = (trialId: string) => `#/runs/${encodeURIComponent(runId)}/trial/${encodeURIComponent(trialId)}`;
 
   const scenarioSections = $derived(sections(bundle));
   const overview = $derived(passRateMatrix(bundle));
@@ -142,7 +144,9 @@
   </div>
 {/if}
 
-<h2>Trace explorer</h2>
+<h2>Trials</h2>
+<p class="lead">Open a trial to walk through its workflow step by step: each step's input, output and files (code, tool
+  results, rendered charts, control decisions).</p>
 <div class="filters">
   <select bind:value={filterScenario} aria-label="Filter by scenario"><option value="">All scenarios</option>
     {#each overview.columns as s (s)}<option>{s}</option>{/each}</select>
@@ -151,10 +155,24 @@
   <select bind:value={filterOutcome} aria-label="Filter by outcome"><option value="">All outcomes</option><option value="pass">Passed</option><option value="fail">Failed</option></select>
   <span class="muted">{visible.length} of {rows.length}</span>
 </div>
-<div class="card">
-  {#each visible.slice(0, 300) as t (t.trial_id)}
-    <TraceDetails trial={t} scores={bundle.scores.filter((s) => s.trial_id === t.trial_id)} trace={bundle.traces?.[t.trial_id]} />
-  {/each}
+<div class="card table-wrap">
+  <table class="trials">
+    <thead><tr><th>Outcome</th><th>Scenario</th><th>Config</th><th>Task</th><th class="n">Seconds</th><th class="n">Tokens</th><th>Failed checks</th><th><span class="sr-only">Inspect</span></th></tr></thead>
+    <tbody>
+      {#each visible.slice(0, 300) as t (t.trial_id)}
+        {@const failed = failedChecks(t.trial_id)}
+        <tr>
+          <td><span class={t.passed ? "pass" : "fail"}>{t.passed ? "✓ pass" : t.status === "ok" ? "✗ fail" : `! ${t.status}`}</span></td>
+          <td>{t.scenario}</td><td>{t.config}</td>
+          <td>{t.task_id}{t.repeat ? ` (rep ${t.repeat})` : ""}</td>
+          <td class="n">{num(t.duration_s, 1)}</td><td class="n">{t.tokens.toLocaleString("en-US")}</td>
+          <td class="small">{failed.join(", ") || (t.error ? t.error.split("\n")[0] : "")}</td>
+          <td>{#if runId}<a class="inspect" href={inspectHref(t.trial_id)}>Inspect steps →</a>{/if}</td>
+        </tr>
+      {/each}
+    </tbody>
+  </table>
+  {#if visible.length > 300}<p class="muted">Showing 300 of {visible.length}; narrow the filters to see the rest.</p>{/if}
 </div>
 
 <style>
@@ -164,5 +182,7 @@
   .tile .s { color: var(--text-muted); font-size: 12px; }
   :global(.report-block) + :global(.report-block) { margin-top: 12px; }
   .wiki a { margin-left: 8px; }
+  .trials .small { font-size: 12px; color: var(--text-secondary); max-width: 320px; }
+  .inspect { white-space: nowrap; }
   .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
 </style>

@@ -1,7 +1,7 @@
 // ArenaBackend for browser-only mode: the Python engine runs in a Pyodide worker in this tab.
 // Keys live in the worker's memory (optionally remembered in localStorage on request); finished runs
 // are kept in IndexedDB and can be exported/imported as RunBundle files.
-import type { ArenaBackend, ModelsResponse } from "./backend";
+import type { ArenaBackend, ModelsResponse, Persistence, TrialTrace } from "./backend";
 import { BackendError } from "./backend";
 import type { Estimate, ExperimentConfig, Leaderboard, RunBundle, RunEvent, RunListing, RuntimeResponse, ScenarioManifest, StartRun } from "./contracts";
 import type { EngineMethod, EngineReply } from "../engine/protocol";
@@ -19,6 +19,9 @@ export class WorkerBackend implements ArenaBackend {
   private readonly pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
   private readonly history = new Map<string, RunEvent[]>();
   private readonly listeners = new Map<string, Set<(e: RunEvent) => void>>();
+  // Finished runs whose bundle could not be written to IndexedDB (private window, quota): kept for this session.
+  private readonly unsaved = new Map<string, RunBundle>();
+  private readonly blobUrls = new Map<string, string>();
 
   constructor(wheelUrl: string, onStatus: (message: string) => void = () => {}) {
     this.worker = new Worker(new URL("../engine/engine.worker.ts", import.meta.url), { type: "module" });
@@ -65,7 +68,7 @@ export class WorkerBackend implements ArenaBackend {
   }
 
   async bundle(runId: string): Promise<RunBundle> {
-    const saved = await loadBundle(runId);
+    const saved = this.unsaved.get(runId) ?? (await loadBundle(runId).catch(() => undefined));
     return saved ?? this.json("bundle", runId);
   }
 
@@ -73,6 +76,39 @@ export class WorkerBackend implements ArenaBackend {
   async leaderboard(): Promise<Leaderboard[]> {
     const trials = (await listBundles()).flatMap((b) => b.trials.map((t) => ({ ...t, run_id: t.run_id ?? b.run.run_id })));
     return this.json("leaderboard", JSON.stringify(trials));
+  }
+
+  async trace(runId: string, trialId: string): Promise<TrialTrace | null> {
+    const bundle = await this.bundle(runId);
+    return (bundle.traces?.[trialId] as TrialTrace | undefined) ?? null;
+  }
+
+  /** Artifacts travel inside the bundle (base64); each becomes a blob URL once and is reused. */
+  async artifactUrl(runId: string, key: string): Promise<string | null> {
+    const id = `${runId}|${key}`;
+    if (this.blobUrls.has(id)) return this.blobUrls.get(id)!;
+    const file = key ? (await this.bundle(runId)).artifacts?.[key] : undefined;
+    if (!file) return null;
+    const bytes = Uint8Array.from(atob(file.data), (c) => c.charCodeAt(0));
+    const url = URL.createObjectURL(new Blob([bytes], { type: file.media_type }));
+    this.blobUrls.set(id, url);
+    return url;
+  }
+
+  exportUrl(): null { return null; }
+
+  async persistence(runId: string): Promise<Persistence> {
+    return this.unsaved.has(runId) || !(await loadBundle(runId).catch(() => undefined)) ? "session" : "browser";
+  }
+
+  private async keep(runId: string): Promise<void> {
+    const bundle = await this.json<RunBundle>("bundle", runId);
+    try {
+      await saveBundle(runId, bundle);
+      this.unsaved.delete(runId);
+    } catch {
+      this.unsaved.set(runId, bundle);
+    }
   }
 
   async importBundle(file: File): Promise<string> {
@@ -116,7 +152,7 @@ export class WorkerBackend implements ArenaBackend {
       const { run_id: runId, event } = JSON.parse(reply.raw) as { run_id: string; event: RunEvent };
       this.history.set(runId, [...(this.history.get(runId) ?? []), event]);
       for (const listener of this.listeners.get(runId) ?? []) listener(event);
-      if (event.type === "run_finished") void this.json<RunBundle>("bundle", runId).then((b) => saveBundle(runId, b));
+      if (event.type === "run_finished") void this.keep(runId);
       return;
     }
     const pending = this.pending.get(reply.id);

@@ -12,7 +12,17 @@ import type {
   RuntimeResponse,
   ScenarioManifest,
   StartRun,
+  Trace,
 } from "./contracts";
+
+/** Where a run's traces and artifacts live, so the UI can say whether they survive this session. */
+export type Persistence = "server" | "browser" | "session";
+
+/** One trial's trace as stored (spans plus the trial record and scores). */
+export interface TrialTrace extends Trace {
+  trial?: Record<string, unknown>;
+  scores?: Record<string, unknown>[];
+}
 
 export type CatalogItem = CatalogEntry & { ref: string };
 
@@ -38,6 +48,13 @@ export interface ArenaBackend {
   cancel(runId: string): Promise<void>;
   runs(): Promise<RunListing[]>;
   bundle(runId: string): Promise<RunBundle>;
+  /** One trial's trace, loaded on demand. */
+  trace(runId: string, trialId: string): Promise<TrialTrace | null>;
+  /** A URL for an artifact (image, JSON, …) of a run, or null when it was not stored. */
+  artifactUrl(runId: string, key: string): Promise<string | null>;
+  /** Download URL for the full run bundle (with traces and artifacts), where the backend serves one. */
+  exportUrl(runId: string): string | null;
+  persistence(runId: string): Promise<Persistence>;
   /** Per-scenario leaderboards pooled over all runs this backend knows (comparable trials only). */
   leaderboard(): Promise<Leaderboard[]>;
   /** Static HTML report, where the backend can render one (local app only). */
@@ -111,7 +128,29 @@ export class HttpBackend implements ArenaBackend {
   }
 
   bundle(runId: string): Promise<RunBundle> {
-    return this.request("GET", `/api/runs/${encodeURIComponent(runId)}/bundle`);
+    // Light bundle: traces load per trial when inspected.
+    return this.request("GET", `/api/runs/${encodeURIComponent(runId)}/bundle?traces=false`);
+  }
+
+  async trace(runId: string, trialId: string): Promise<TrialTrace | null> {
+    try {
+      return await this.request("GET", `/api/runs/${encodeURIComponent(runId)}/trials/${encodeURIComponent(trialId)}/trace`);
+    } catch (error) {
+      if (error instanceof BackendError && error.status === 404) return null;
+      throw error;
+    }
+  }
+
+  async artifactUrl(runId: string, key: string): Promise<string | null> {
+    return key ? `${this.base}/api/runs/${encodeURIComponent(runId)}/artifacts/${key.split("/").map(encodeURIComponent).join("/")}` : null;
+  }
+
+  exportUrl(runId: string): string {
+    return `${this.base}/api/runs/${encodeURIComponent(runId)}/bundle?artifacts=true`;
+  }
+
+  async persistence(): Promise<Persistence> {
+    return "server";
   }
 
   leaderboard(): Promise<Leaderboard[]> {
