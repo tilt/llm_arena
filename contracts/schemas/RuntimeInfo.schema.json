@@ -50,6 +50,12 @@
     "sandbox": {
       "title": "Sandbox",
       "type": "boolean"
+    },
+    "sandbox_isolation": {
+      "default": "",
+      "description": "container | process | browser worker ('' without one)",
+      "title": "Sandbox Isolation",
+      "type": "string"
     }
   },
   "required": [

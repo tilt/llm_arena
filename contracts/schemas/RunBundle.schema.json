@@ -447,6 +447,11 @@
           "title": "Delta Latency S",
           "type": "number"
         },
+        "errors": {
+          "default": 0,
+          "title": "Errors",
+          "type": "integer"
+        },
         "p_value": {
           "title": "P Value",
           "type": "number"

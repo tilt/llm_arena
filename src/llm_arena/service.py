@@ -44,6 +44,7 @@ class DecisionServiceInfo(BaseModel):
 class RuntimeInfo(BaseModel):
     runtime: str
     sandbox: bool
+    sandbox_isolation: str = Field(default="", description="container | process | browser worker ('' without one)")
     live_search: bool
     providers: dict[str, str] = Field(description="provider -> 'available' or why not (never key material)")
     decision_services: dict[str, DecisionServiceInfo] = Field(
@@ -132,6 +133,7 @@ class ArenaService:
         return RuntimeInfo(
             runtime=self.runtime.name,
             sandbox=self.runtime.sandbox is not None,
+            sandbox_isolation=getattr(self.runtime.sandbox, "isolation", "") if self.runtime.sandbox else "",
             live_search=self.runtime.live_search is not None,
             providers=providers,
             decision_services=await self._decision_services(),

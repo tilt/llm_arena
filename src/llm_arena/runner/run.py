@@ -43,7 +43,7 @@ from llm_arena.runner.events import (
     TrialStarted,
     ignore,
 )
-from llm_arena.runner.fingerprint import fingerprint, setup_of, task_fingerprint
+from llm_arena.runner.fingerprint import fingerprint, resume_key, setup_of, task_fingerprint
 from llm_arena.runner.ports import RunStore, Runtime, TrialRecord
 from llm_arena.runner.study import expand as expand_study
 from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario, get_scenario
@@ -59,6 +59,19 @@ class TrialSpec:
     repeat: int
     bindings: dict[str, ModelSpec]
     params: dict[str, Any]
+    seed: int = 0
+
+    @property
+    def setup(self) -> dict[str, Any]:
+        policy = self.config.decisions
+        decisions = policy.model_dump(mode="json") if policy else None
+        # Decision roles count only when the policy calls them, so an unused decider never splits a setup.
+        unused = {DECIDER_ROLE, ESCALATION_ROLE} - (policy.llm_roles() if policy else set())
+        return setup_of({r: m for r, m in self.bindings.items() if r not in unused}, self.params, decisions)
+
+    @property
+    def resume_key(self) -> str:
+        return resume_key(fingerprint(self.setup), self.scenario.version, task_fingerprint(self.task), self.seed)
 
     @property
     def trial_id(self) -> str:
@@ -138,7 +151,7 @@ class ExperimentRunner:
                 bindings = scenario.check_roles(self._bind(scenario, config))
                 params = scenario.params(config.params_for(scenario_name, set(scenario.default_params)))
                 trials += [
-                    TrialSpec(scenario, config, task, repeat, bindings, params)
+                    TrialSpec(scenario, config, task, repeat, bindings, params, self.experiment.seed + repeat)
                     for task in tasks
                     for repeat in range(self.experiment.repeats)
                 ]
@@ -246,6 +259,14 @@ class ExperimentRunner:
         trials = self._planned if self._planned is not None else await self.preflight()
         store.start_run(self.run_id, self.experiment.name, self.experiment.model_dump_json())
         done = store.completed_trials()
+        # Resuming may skip a finished trial only if it ran exactly this setup, task version and seed;
+        # otherwise the run would silently mix results of two different experiments under one config name.
+        stale = sorted({t.config.name for t in trials if done.get(t.trial_id) not in (None, "", t.resume_key)})
+        if stale:
+            raise ConfigError(
+                f"run {self.run_id} already has results for {', '.join(stale)} from a different setup (models, "
+                "parameters, control policy, task content or seed changed). Start a new run id instead of resuming."
+            )
         pending = [trial for trial in trials if trial.trial_id not in done]
         self.sink(RunStarted(run_id=self.run_id, total=len(trials), pending=len(pending)))
         gate = asyncio.Semaphore(self.experiment.max_parallel_trials)
@@ -317,11 +338,7 @@ class ExperimentRunner:
         criteria = set(spec.scenario.pass_criteria)
         graded = [score for score in scores if score.name in criteria and score.passed is not None]
         passed = status == "ok" and bool(graded) and all(score.passed for score in graded)
-        policy = spec.config.decisions
-        decisions = policy.model_dump(mode="json") if policy else None
-        # Decision roles count only when the policy calls them, so an unused decider never splits a setup.
-        unused = {DECIDER_ROLE, ESCALATION_ROLE} - (policy.llm_roles() if policy else set())
-        setup = setup_of({r: m for r, m in spec.bindings.items() if r not in unused}, spec.params, decisions)
+        setup = spec.setup
         record = TrialRecord(
             trial_id=spec.trial_id,
             scenario=spec.scenario.name,
@@ -342,6 +359,7 @@ class ExperimentRunner:
             scenario_version=spec.scenario.version,
             task_fp=task_fingerprint(spec.task),
             setup=setup,
+            resume_key=spec.resume_key,
         )
         extra = {
             "env_state": output.env_state,

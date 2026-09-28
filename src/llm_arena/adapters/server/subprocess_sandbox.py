@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import os
+import subprocess
 import sys
 import tempfile
 from collections.abc import Callable
@@ -19,6 +20,14 @@ from llm_arena.sandbox.base import ExecResult, clip
 
 
 class SubprocessSandbox:
+    """Local subprocess with a temp dir, a clean environment, CPU/memory limits and a timeout.
+
+    This guards against accidents (runaway loops, stray files), not against hostile code: the process runs as your
+    user with network access. Use DockerSandbox for isolation.
+    """
+
+    isolation = "process"
+
     """Executes with the arena's own interpreter so matplotlib/pandas are available to the code."""
 
     def __init__(self, python: str = sys.executable, memory_mb: int = 2048) -> None:
@@ -107,13 +116,33 @@ def _clean_env(workdir: Path) -> dict[str, str]:
     }
 
 
+SANDBOX_IMAGE = "llm-arena-sandbox:latest"  # built by `make sandbox-image` (docker/sandbox.Dockerfile)
+
+
+def docker_ready(image: str = SANDBOX_IMAGE) -> str | None:
+    """None when Docker runs and the sandbox image exists; otherwise why not (for the warning)."""
+    try:
+        result = subprocess.run(["docker", "image", "inspect", image], capture_output=True, timeout=5, check=False)
+    except FileNotFoundError:
+        return "Docker is not installed"
+    except subprocess.TimeoutExpired:
+        return "Docker did not answer"
+    if result.returncode == 0:
+        return None
+    if b"Cannot connect" in result.stderr or b"daemon" in result.stderr:
+        return "the Docker daemon is not running"
+    return f"the sandbox image {image} is missing (make sandbox-image)"
+
+
 class DockerSandbox(SubprocessSandbox):
     """Same interface inside `docker run --network none`: for untrusted code or when isolation matters.
 
     The image needs whatever the scenario's code imports (e.g. matplotlib for charts).
     """
 
-    def __init__(self, image: str = "python:3.12-slim", memory_mb: int = 2048) -> None:
+    isolation = "container"
+
+    def __init__(self, image: str = SANDBOX_IMAGE, memory_mb: int = 2048) -> None:
         super().__init__(python="python", memory_mb=memory_mb)
         self.image = image
 
@@ -126,6 +155,14 @@ class DockerSandbox(SubprocessSandbox):
             "none",
             "--memory",
             f"{self.memory_mb}m",
+            "--cpus",
+            "1",
+            "--pids-limit",
+            "256",
+            "--cap-drop",
+            "ALL",
+            "--security-opt",
+            "no-new-privileges",
             "-e",
             "MPLBACKEND=Agg",
             "-v",

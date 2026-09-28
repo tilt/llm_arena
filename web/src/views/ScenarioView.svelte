@@ -133,6 +133,10 @@
       <TaskList scenario={id} onrun={runTask} />
     {:else if active === "setup"}
       {#if blocked}<p class="note">This scenario executes code and needs a sandbox, which this runtime does not have. Use the local app.</p>{/if}
+      {#if (manifest.requires ?? []).includes("sandbox") && app.runtime?.sandbox_isolation === "process"}
+        <p class="note" role="status">Model-written code will run as a local process on this machine, not isolated: it has your
+          user's permissions and network access. For isolation start Docker and run <code>make sandbox-image</code>, then restart the app.</p>
+      {/if}
       <p class="lead">Start from a baseline, then change the model of any step. Steps share a model when they use the same
         role. Parameters and the control policy change the workflow, and the diagram follows.</p>
       <label class="name">Setup name <input type="text" bind:value={config.name} /></label>

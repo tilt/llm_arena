@@ -1,7 +1,7 @@
 SHELL := /bin/sh
 PYTHON_VERSION ?= 3.12
 
-.PHONY: help install format validate lint typecheck test test-live smoke report models contracts ui web web-engine test-web clean
+.PHONY: sandbox-image help install format validate lint typecheck test test-live smoke report models contracts ui web web-engine test-web clean
 
 help:
 	@printf "Targets:\n"
@@ -16,6 +16,7 @@ help:
 	@printf "  make ui          start the local app on http://127.0.0.1:8787 (ARENA_UI_PORT)\n"
 	@printf "  make web         build the web UI (web/dist, served by arena ui)\n"
 	@printf "  make test-web    svelte-check + vitest for the web UI\n"
+	@printf "  make sandbox-image  build the Docker image that isolates model-written code\n"
 
 install:
 	uv sync --all-extras --python $(PYTHON_VERSION)
@@ -59,6 +60,9 @@ test-web:
 
 contracts:
 	uv run arena contracts
+
+sandbox-image:
+	docker build -f docker/sandbox.Dockerfile -t llm-arena-sandbox:latest docker
 
 models:
 	uv run arena models ping

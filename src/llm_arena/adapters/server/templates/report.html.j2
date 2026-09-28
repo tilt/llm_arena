@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="{{ csp }}">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LLM Arena Report</title>
 <style>
@@ -129,7 +130,7 @@ pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2
   <thead><tr><th>Step (role)</th><th>Replaced by</th><th class="n">Baseline</th><th class="n">With swap</th><th class="n">Δ pass rate</th>
     <th class="n">p</th><th class="n">Tasks</th><th class="n">Δ $/trial</th><th class="n">Δ p50 s</th></tr></thead>
   <tbody>{% for e in s.replacements | selectattr("scenario", "equalto", sc) %}<tr>
-    <td>{{ e.role }}</td><td>{{ e.candidate }}</td><td class="n">{{ e.baseline_rate | pct }}</td><td class="n">{{ e.variant_rate | pct }}</td>
+    <td>{{ e.role }}</td><td>{{ e.candidate }}{% if e.errors %} <span class="fail">({{ e.errors }} errored trials)</span>{% endif %}</td><td class="n">{{ e.baseline_rate | pct }}</td><td class="n">{{ e.variant_rate | pct }}</td>
     <td class="n">{% if e.p_value < 0.05 %}<strong class="{{ 'pass' if e.delta > 0 else 'fail' }}">{{ '%+.0f' % (100 * e.delta) }} pts</strong>{% else %}{{ '%+.0f' % (100 * e.delta) }} pts{% endif %}</td>
     <td class="n">{{ e.p_value | num(2) }}</td><td class="n">{{ e.tasks }}</td>
     <td class="n">{{ '%+.4f' % e.delta_cost_usd }}</td><td class="n">{{ '%+.1f' % e.delta_latency_s }}</td>

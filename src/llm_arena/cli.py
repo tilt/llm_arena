@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 import typer
 from dotenv import load_dotenv
@@ -23,6 +23,7 @@ from llm_arena.llm.registry import PROVIDERS, load_model_specs, resolve_model
 from llm_arena.llm.spec import ModelSpec
 from llm_arena.runner.baselines import load_baselines
 from llm_arena.runner.ports import Runtime
+from llm_arena.sandbox.base import Sandbox
 
 app = typer.Typer(help="Evaluate local and remote LLMs on benchmarks and agentic patterns.", no_args_is_help=True)
 models_app = typer.Typer(help="Inspect configured and served models.", no_args_is_help=True)
@@ -31,6 +32,14 @@ console = Console()
 
 ModelsFile = Annotated[Path, typer.Option("--models", help="Model specs YAML")]
 DEFAULT_MODELS = Path("configs/models.yaml")
+SandboxOption = Annotated[
+    str,
+    typer.Option(
+        help="Where model-written code runs: auto (Docker if available, else a local process with a warning), "
+        "docker, or subprocess",
+        envvar="ARENA_SANDBOX",
+    ),
+]
 BASELINES = (Path("configs/baselines.yaml"), Path("configs/baselines.local.yaml"))  # shipped extras, then your edits
 PRICES_FILE = Path("configs/prices.yaml")
 
@@ -40,6 +49,21 @@ def _setup() -> None:
     load_dotenv()
     if PRICES_FILE.exists():
         load_prices(PRICES_FILE)
+
+
+def _sandbox(mode: str) -> Sandbox:
+    from llm_arena.adapters.server.runtime import SandboxMode, choose_sandbox
+
+    if mode not in ("auto", "docker", "subprocess"):
+        raise typer.BadParameter("use auto, docker or subprocess", param_hint="--sandbox")
+    try:
+        sandbox, warning = choose_sandbox(cast("SandboxMode", mode))
+    except ArenaError as exc:
+        console.print(f"[red]{escape(str(exc))}[/red]")
+        raise typer.Exit(1) from exc
+    if warning:
+        console.print(f"[bold yellow]⚠ {escape(warning)}[/bold yellow]")
+    return sandbox
 
 
 def _specs(path: Path) -> dict[str, ModelSpec]:
@@ -159,7 +183,8 @@ def run(
     limit: Annotated[int | None, typer.Option(help="Override tasks per scenario")] = None,
     report: Annotated[bool, typer.Option(help="Build the HTML report afterwards")] = True,
     dry_run: Annotated[bool, typer.Option(help="Only show the trial plan")] = False,
-    docker: Annotated[bool, typer.Option(help="Run model-written code in Docker (--network none)")] = False,
+    sandbox: SandboxOption = "auto",
+    docker: Annotated[bool, typer.Option(help="Shortcut for --sandbox docker")] = False,
     runs_dir: Annotated[Path, typer.Option(help="Where runs are stored")] = Path("runs"),
 ) -> None:
     """Run an experiment: scenarios × model configs × tasks × repeats."""
@@ -176,7 +201,7 @@ def run(
         run_id = run_id or new_run_id(experiment.name)
         run_dir = runs_dir / run_id
         runner = ExperimentRunner(
-            experiment, server_runtime(docker_sandbox=docker), run_id=run_id, live=live,
+            experiment, server_runtime(sandbox=_sandbox("docker" if docker else sandbox)), run_id=run_id, live=live,
             model_specs=_specs(Path(experiment.models_file)), sink=RichProgressSink(console, str(run_dir)),
             baselines=load_baselines(*BASELINES),
         )  # fmt: skip
@@ -305,6 +330,7 @@ def mock_email(port: int = 8025) -> None:
 @app.command()
 def ui(
     port: Annotated[int, typer.Option(help="Port on 127.0.0.1", envvar="ARENA_UI_PORT")] = 8787,
+    sandbox: SandboxOption = "auto",
     runs_dir: Annotated[Path, typer.Option(help="Where runs are stored")] = Path("runs"),
     static: Annotated[Path | None, typer.Option(help="Built web UI directory (default: web/dist or bundled)")] = None,
     open_browser: Annotated[bool, typer.Option("--open/--no-open", help="Open the browser")] = True,
@@ -322,7 +348,8 @@ def ui(
     from llm_arena.service import ArenaService
 
     service = ArenaService(
-        server_runtime(), store_factory=lambda run_id: DuckDBStore(runs_dir / run_id), model_specs=_specs(models_file),
+        server_runtime(sandbox=_sandbox(sandbox)), store_factory=lambda run_id: DuckDBStore(runs_dir / run_id),
+        model_specs=_specs(models_file),
         baselines=load_baselines(*BASELINES), baselines_file=BASELINES[1],
     )  # fmt: skip
     static_dir = static or next((d for d in (Path("web/dist"), _bundled_web()) if (d / "index.html").exists()), None)

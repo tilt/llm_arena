@@ -35,5 +35,11 @@ def fingerprint(setup: dict[str, Any]) -> str:
     return _digest(setup)
 
 
+def resume_key(setup_fingerprint: str, scenario_version: str, task_fp: str, seed: int) -> str:
+    """Everything a finished trial's result depends on besides the models' randomness: a resumed run may skip a
+    trial only when this matches."""
+    return _digest([setup_fingerprint, scenario_version, task_fp, seed], 16)
+
+
 def task_fingerprint(task: Task) -> str:
     return _digest(task.model_dump(mode="json"), 8)

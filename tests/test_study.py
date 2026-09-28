@@ -85,3 +85,20 @@ def test_candidates_only_replace_steps_they_can_do() -> None:
     runner.plan()
     # "strong" has no vision: it may replace the code generator but not the vision critic.
     assert [c.name for c in runner.experiment.configs] == ["baseline", "generator→strong"]
+
+
+async def test_errors_are_reported_with_the_effect() -> None:
+    def out_of_credits(messages: object) -> str:
+        raise RuntimeError("no credits remaining")
+
+    def broken(spec: ModelSpec) -> LLMClient:
+        return ScriptedLLM([out_of_credits], name="strong") if spec.name == "strong" else factory(spec)
+
+    experiment = ExperimentConfig.model_validate({
+        "name": "err", "scenarios": ["reflection_sql"], "task_ids": ["harborview_march_rentals"],
+        "baselines": {"weak": WEAK.model_dump()}, "study": {"baseline": "weak", "candidates": ["strong"], "roles": ["critic"]},
+    })  # fmt: skip
+    store = MemoryStore()
+    await ExperimentRunner(experiment, Runtime(client_factory=broken), store=store, model_specs=SPECS).run()
+    (effect,) = summarize(store.load_run()).replacements
+    assert effect.errors == 1 and effect.tasks == 1

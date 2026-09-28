@@ -551,6 +551,7 @@ export interface ReplacementEffect {
   delta: number;
   delta_cost_usd: number;
   delta_latency_s: number;
+  errors?: number;
   p_value: number;
   role: string;
   scenario: string;
@@ -659,6 +660,10 @@ export interface RuntimeInfo {
   };
   runtime: string;
   sandbox: boolean;
+  /**
+   * container | process | browser worker ('' without one)
+   */
+  sandbox_isolation?: string;
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema
@@ -694,6 +699,10 @@ export interface RuntimeResponse {
   };
   runtime: string;
   sandbox: boolean;
+  /**
+   * container | process | browser worker ('' without one)
+   */
+  sandbox_isolation?: string;
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema

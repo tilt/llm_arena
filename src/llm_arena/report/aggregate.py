@@ -177,6 +177,7 @@ class ReplacementEffect:
     delta_cost_usd: float  # per trial
     delta_latency_s: float  # p50
     step_deltas: dict[str, float] = field(default_factory=dict)  # step metrics: variant - baseline
+    errors: int = 0  # errored or timed-out trials in either config: failures that say nothing about the model
 
 
 def _replacements(configs: list[ConfigSummary], config_json: dict[str, Any]) -> list[ReplacementEffect]:
@@ -204,6 +205,7 @@ def _replacements(configs: list[ConfigSummary], config_json: dict[str, Any]) -> 
                 delta_cost_usd=variant.mean_cost_usd - base.mean_cost_usd,
                 delta_latency_s=variant.latency_p50_s - base.latency_p50_s,
                 step_deltas={k: variant.step_means[k] - base.step_means[k] for k in variant.step_means if k in base.step_means},
+                errors=variant.errors + base.errors,
             ))  # fmt: skip
     return effects
 

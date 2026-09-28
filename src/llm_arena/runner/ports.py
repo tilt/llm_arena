@@ -45,6 +45,7 @@ class TrialRecord:
     scenario_version: str = ""
     task_fp: str = ""
     setup: dict[str, Any] = field(default_factory=dict)
+    resume_key: str = ""
 
 
 @dataclass
@@ -61,7 +62,9 @@ class RunData:
 class RunStore(Protocol):
     def start_run(self, run_id: str, name: str, config_json: str) -> None: ...
 
-    def completed_trials(self) -> set[str]: ...
+    def completed_trials(self) -> dict[str, str]:
+        """Finished trials: trial id -> resume key ("" for runs recorded before resume keys existed)."""
+        ...
 
     def save_trial(
         self, run_id: str, record: TrialRecord, scores: list[Score], trace: Trace, extra: dict[str, Any]

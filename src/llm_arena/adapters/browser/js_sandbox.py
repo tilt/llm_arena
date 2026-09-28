@@ -14,6 +14,8 @@ JsRunner = Callable[[str, str, str, float], Awaitable[str]]
 
 
 class JsSandbox:
+    isolation = "browser worker"
+
     def __init__(self, run_js: JsRunner) -> None:
         self._run_js = run_js
 

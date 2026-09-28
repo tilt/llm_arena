@@ -28,15 +28,35 @@ def build_report(run_dir: Path, *, inline_plotly: bool = True) -> Path:
     environment.filters["num"] = lambda v, d=2: "–" if v is None or _nan(v) else f"{v:,.{d}f}"
     html = environment.get_template("report.html.j2").render(
         s=summary,
-        chart_data=json.dumps(_chart_data(summary), default=_json_default),
+        chart_data=script_json(_chart_data(summary)),
         traces=_trace_views(store, summary),
         plotly_js=_plotly_js() if inline_plotly else None,
         plotly_cdn=PLOTLY_CDN,
         overall=_overall(summary),
+        csp=_csp(inline_plotly),
     )
     target = run_dir / "report.html"
     target.write_text(html, encoding="utf-8")
     return target
+
+
+# Characters that could end a <script> element or break JavaScript parsing inside it.
+_SCRIPT_ESCAPES = {"<": "\\u003c", ">": "\\u003e", "&": "\\u0026", "\u2028": "\\u2028", "\u2029": "\\u2029"}
+
+
+def script_json(value: Any) -> str:
+    """JSON that is safe to embed in an inline <script>: config or model names like '</script><img …>' stay data."""
+    text = json.dumps(value, default=_json_default)
+    for char, escaped in _SCRIPT_ESCAPES.items():
+        text = text.replace(char, escaped)
+    return text
+
+
+def _csp(inline_plotly: bool) -> str:
+    """The report needs only its own inline script and styles (plus the pinned Plotly CDN when not inlined)."""
+    scripts = "'unsafe-inline'" + ("" if inline_plotly else " https://cdn.jsdelivr.net")
+    return (f"default-src 'none'; script-src {scripts}; style-src 'unsafe-inline'; img-src data: blob:; "
+            "font-src data:; base-uri 'none'; form-action 'none'")  # fmt: skip
 
 
 def _nan(value: Any) -> bool:

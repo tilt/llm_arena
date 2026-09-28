@@ -38,6 +38,11 @@ class ExecResult:
 
 
 class Sandbox(Protocol):
+    # How strongly model-written code is separated from the machine: "container" (Docker, no network),
+    # "process" (a local subprocess with limits: protects against accidents, not against hostile code) or
+    # "browser worker" (a separate Pyodide worker in the tab).
+    isolation: str
+
     async def run(
         self,
         code: str,

@@ -41,6 +41,7 @@ def trial_row(run_id: str, record: TrialRecord) -> dict[str, Any]:
         "scenario_version": record.scenario_version,
         "task_fp": record.task_fp,
         "setup_json": json.dumps(record.setup, default=str, sort_keys=True),
+        "resume_key": record.resume_key,
     }
 
 
@@ -66,8 +67,8 @@ class MemoryStore:
     def start_run(self, run_id: str, name: str, config_json: str) -> None:
         self.run = self.run or {"run_id": run_id, "name": name, "created_at": "", "config_json": config_json}
 
-    def completed_trials(self) -> set[str]:
-        return {trial_id for trial_id, row in self.trials.items() if row["status"] == "ok"}
+    def completed_trials(self) -> dict[str, str]:
+        return {trial_id: row.get("resume_key") or "" for trial_id, row in self.trials.items() if row["status"] == "ok"}
 
     def save_trial(
         self, run_id: str, record: TrialRecord, scores: list[Score], trace: Trace, extra: dict[str, Any]

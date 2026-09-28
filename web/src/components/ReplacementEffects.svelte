@@ -27,13 +27,17 @@
           {#each candidates as candidate (candidate)}
             {@const e = cell(role, candidate)}
             <td class="n">
-              {#if e}
+              {#if e && (e.errors ?? 0) >= e.tasks && e.tasks > 0}
+                <div class="fail small" title="Every compared trial errored (e.g. provider quota or a missing model)">not measurable</div>
+                <div class="muted small">{e.errors} errored trials: check the run's errors</div>
+              {:else if e}
                 {@const significant = e.p_value < 0.05}
                 <div class="delta" class:up={significant && e.delta > 0} class:down={significant && e.delta < 0}
                   title={`${pct(e.baseline_rate)} → ${pct(e.variant_rate)} on ${e.tasks} shared tasks; p = ${num(e.p_value, 3)}`}>
                   {points(e.delta)}{#if significant} <span class="sig">{e.delta > 0 ? "▲" : "▼"}</span>{/if}
                 </div>
                 <div class="muted small">p={num(e.p_value, 2)} · {e.tasks} tasks</div>
+                {#if e.errors}<div class="fail small">{e.errors} errored trials count as fails</div>{/if}
                 <div class="muted small">{e.delta_cost_usd >= 0 ? "+" : ""}{usd(e.delta_cost_usd)} · {e.delta_latency_s >= 0 ? "+" : ""}{num(e.delta_latency_s, 1)} s</div>
               {:else}
                 <span class="muted" title="Not run: the baseline already uses this model for this step">—</span>

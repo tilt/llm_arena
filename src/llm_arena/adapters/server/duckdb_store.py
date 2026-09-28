@@ -29,6 +29,7 @@ _TRIAL_COLUMNS = (
     "trial_id", "run_id", "scenario", "pattern", "config", "task_id", "repeat", "status", "passed", "error", "final",
     "duration_s", "llm_calls", "tool_calls", "prompt_tokens", "completion_tokens", "cost_usd", "llm_latency_s",
     "judge_cost_usd", "roles_json", "params_json", "fingerprint", "scenario_version", "task_fp", "setup_json",
+    "resume_key",
 )  # fmt: skip
 
 _SCHEMA = """
@@ -46,6 +47,7 @@ ALTER TABLE trials ADD COLUMN IF NOT EXISTS fingerprint TEXT;
 ALTER TABLE trials ADD COLUMN IF NOT EXISTS scenario_version TEXT;
 ALTER TABLE trials ADD COLUMN IF NOT EXISTS task_fp TEXT;
 ALTER TABLE trials ADD COLUMN IF NOT EXISTS setup_json TEXT;
+ALTER TABLE trials ADD COLUMN IF NOT EXISTS resume_key TEXT;
 CREATE TABLE IF NOT EXISTS scores (
     trial_id TEXT, name TEXT, level TEXT, value DOUBLE, passed BOOLEAN, rationale TEXT
 );
@@ -83,9 +85,10 @@ class DuckDBStore:
                 "INSERT OR IGNORE INTO runs (run_id, name, config_json) VALUES (?, ?, ?)", [run_id, name, config_json]
             )
 
-    def completed_trials(self) -> set[str]:
+    def completed_trials(self) -> dict[str, str]:
         with self._db() as db:
-            return {row[0] for row in db.execute("SELECT trial_id FROM trials WHERE status = 'ok'").fetchall()}
+            rows = db.execute("SELECT trial_id, resume_key FROM trials WHERE status = 'ok'").fetchall()
+        return {str(row[0]): str(row[1] or "") for row in rows}
 
     def save_trial(
         self, run_id: str, record: TrialRecord, scores: list[Score], trace: Trace, extra: dict[str, Any]

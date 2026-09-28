@@ -228,3 +228,20 @@ def test_unknown_scenario_role_is_a_config_error() -> None:
     )
     with pytest.raises(ConfigError, match="no roles"):
         _runner(experiment).plan()
+
+
+async def test_resume_refuses_results_from_a_different_setup(tmp_path: Path) -> None:
+    experiment = _experiment(configs=[{"name": "cfg", "roles": {"*": "good"}}], repeats=1)
+    await _runner(experiment, DuckDBStore(tmp_path / "r"), run_id="r").run()
+    # Same setup: finished trials are skipped (nothing to run).
+    events: list[RunEvent] = []
+    await _runner(experiment, DuckDBStore(tmp_path / "r"), run_id="r", events=events).run()
+    assert next(e for e in events if e.type == "run_started").pending == 0  # type: ignore[union-attr]
+    # Same config name, different model: resuming would mix two experiments.
+    changed = _experiment(configs=[{"name": "cfg", "roles": {"*": "bad"}}], repeats=1)
+    with pytest.raises(ConfigError, match="different setup"):
+        await _runner(changed, DuckDBStore(tmp_path / "r"), run_id="r").run()
+    # A different seed changes the results too.
+    reseeded = _experiment(configs=[{"name": "cfg", "roles": {"*": "good"}}], repeats=1, seed=7)
+    with pytest.raises(ConfigError, match="different setup"):
+        await _runner(reseeded, DuckDBStore(tmp_path / "r"), run_id="r").run()
