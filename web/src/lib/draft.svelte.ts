@@ -17,3 +17,6 @@ export function addToDraft(scenario: string, config: ConfigDraft): void {
   for (let i = 2; taken.has(name) && !untouched; i++) name = `${config.name}-${i}`;
   draft.configs = untouched ? [{ ...config, name }] : [...draft.configs, { ...config, name }];
 }
+
+/** A setup handed from the leaderboard to a scenario page ("Use this setup"); the page takes it once. */
+export const handoff = $state({ setup: null as { scenario: string; config: ConfigDraft; note: string } | null });

@@ -349,7 +349,15 @@ export interface LeaderboardEntry {
    */
   pass_rate: number;
   rank: number;
+  /**
+   * every trial, by task, then run and repeat
+   */
+  results?: TrialResult[];
   runs: string[];
+  /**
+   * ranking score: pass rate adjusted for the number of tasks, (passes + 1) / (tasks + 2)
+   */
+  score?: number;
   /**
    * roles (model + call settings), params and control policy
    */
@@ -362,6 +370,20 @@ export interface LeaderboardEntry {
   shared_tasks?: number | null;
   tasks: number;
   trials: number;
+}
+/**
+ * One trial behind an entry, so a leaderboard can link straight into its run and step inspector.
+ *
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "TrialResult".
+ */
+export interface TrialResult {
+  passed: boolean;
+  repeat: number;
+  run_id: string;
+  status: string;
+  task_id: string;
+  trial_id: string;
 }
 /**
  * Everything the report viewer needs for one run; export/import format between runtimes.
@@ -568,6 +590,10 @@ export interface ReplacementEffect {
 export interface RunStarted {
   pending: number;
   run_id: string;
+  /**
+   * unix time
+   */
+  started_at?: number;
   total: number;
   type?: "run_started";
 }
@@ -630,8 +656,36 @@ export interface RunListing {
   errors: number;
   name: string;
   passed: number;
+  /**
+   * live runs: trials done, running, queued, spend
+   */
+  progress?: RunProgress | null;
   run_id: string;
+  scenarios?: string[];
   trials: number;
+}
+/**
+ * Where a live run stands, from its events (the Runs list and the navigation badge show it).
+ *
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "RunProgress".
+ */
+export interface RunProgress {
+  done: number;
+  errors: number;
+  finished?: boolean;
+  passed: number;
+  queued: number;
+  running: number;
+  spent_usd: number;
+  /**
+   * unix time
+   */
+  started_at?: number | null;
+  /**
+   * trials to run in this session (finished ones of a resumed run excluded)
+   */
+  total: number;
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema

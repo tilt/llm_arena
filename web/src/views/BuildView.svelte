@@ -13,6 +13,7 @@
   import { activeBaseline } from "../lib/baselines";
   import { draft } from "../lib/draft.svelte";
   import { go } from "../lib/router.svelte";
+  import { refreshRuns } from "../lib/runs.svelte";
 
   // The draft lives in a shared store so scenario pages can add configured setups to it.
 
@@ -71,6 +72,7 @@
     busy = true;
     try {
       const runId = await app.backend.startRun({ experiment: experiment(), live });
+      void refreshRuns(); // the Runs badge and list show it at once
       go(`/runs/${encodeURIComponent(runId)}`);
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);

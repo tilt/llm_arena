@@ -1,4 +1,69 @@
 {
+  "$defs": {
+    "RunProgress": {
+      "description": "Where a live run stands, from its events (the Runs list and the navigation badge show it).",
+      "properties": {
+        "done": {
+          "title": "Done",
+          "type": "integer"
+        },
+        "errors": {
+          "title": "Errors",
+          "type": "integer"
+        },
+        "finished": {
+          "default": false,
+          "title": "Finished",
+          "type": "boolean"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "integer"
+        },
+        "queued": {
+          "title": "Queued",
+          "type": "integer"
+        },
+        "running": {
+          "title": "Running",
+          "type": "integer"
+        },
+        "spent_usd": {
+          "title": "Spent Usd",
+          "type": "number"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "unix time",
+          "title": "Started At"
+        },
+        "total": {
+          "description": "trials to run in this session (finished ones of a resumed run excluded)",
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "done",
+        "running",
+        "queued",
+        "passed",
+        "errors",
+        "spent_usd"
+      ],
+      "title": "RunProgress",
+      "type": "object"
+    }
+  },
   "properties": {
     "active": {
       "title": "Active",
@@ -20,9 +85,28 @@
       "title": "Passed",
       "type": "integer"
     },
+    "progress": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RunProgress"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "live runs: trials done, running, queued, spend"
+    },
     "run_id": {
       "title": "Run Id",
       "type": "string"
+    },
+    "scenarios": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Scenarios",
+      "type": "array"
     },
     "trials": {
       "title": "Trials",

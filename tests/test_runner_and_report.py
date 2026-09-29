@@ -245,3 +245,24 @@ async def test_resume_refuses_results_from_a_different_setup(tmp_path: Path) -> 
     reseeded = _experiment(configs=[{"name": "cfg", "roles": {"*": "good"}}], repeats=1, seed=7)
     with pytest.raises(ConfigError, match="different setup"):
         await _runner(reseeded, DuckDBStore(tmp_path / "r"), run_id="r").run()
+
+
+def test_progress_counts_running_queued_and_spend() -> None:
+    from llm_arena.runner.events import RunStarted, TrialStarted, progress
+
+    def finished(i: int, ok: bool) -> TrialFinished:
+        return TrialFinished(trial_id=f"t{i}", scenario="s", config="c", task_id=f"{i}", repeat=0, status="ok" if ok else "error",
+                             passed=ok, duration_s=1.0, cost_usd=0.01, done=i, total=5)  # fmt: skip
+
+    started = [TrialStarted(trial_id=f"t{i}", scenario="s", config="c", task_id=f"{i}", repeat=0) for i in range(3)]
+    events = [
+        RunStarted(run_id="r", total=6, pending=5, started_at=100.0),
+        *started,
+        finished(0, True),
+        finished(1, False),
+    ]
+    p = progress(events)
+    assert (p.total, p.done, p.running, p.queued, p.passed, p.errors) == (5, 2, 1, 2, 1, 1)
+    assert p.spent_usd == pytest.approx(0.02) and p.started_at == 100.0 and not p.finished
+    done = progress([*events, RunFinished(run_id="r", spent_usd=0.05, stopped_early=True)])
+    assert done.finished and done.queued == 0 and done.running == 0 and done.spent_usd == 0.05

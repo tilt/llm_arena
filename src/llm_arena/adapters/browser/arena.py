@@ -18,7 +18,7 @@ from typing import Any
 
 from pydantic import TypeAdapter
 
-from llm_arena.api import KeySource, RunListing, RuntimeResponse, StartRun
+from llm_arena.api import KeySource, RunListing, RuntimeResponse, StartRun, run_listing
 from llm_arena.benchmarks.base import Benchmark
 from llm_arena.benchmarks.hf import HFSource, configure_loader, hub_url
 from llm_arena.conformance import CASES, record
@@ -32,7 +32,7 @@ from llm_arena.llm.transport import ChatTransport, HttpResponse
 from llm_arena.report.leaderboard import Leaderboard, build_leaderboards
 from llm_arena.runner.baselines import BaselineProfile
 from llm_arena.runner.config import ExperimentConfig
-from llm_arena.runner.events import RunEvent, RunFinished
+from llm_arena.runner.events import RunEvent, RunFinished, progress
 from llm_arena.runner.memory_store import MemoryStore
 from llm_arena.runner.ports import Runtime
 from llm_arena.runner.run import new_run_id
@@ -89,6 +89,7 @@ class BrowserArena:
         self._keys: dict[str, str] = {}
         self._stores: dict[str, MemoryStore] = {}
         self._finished: set[str] = set()
+        self._events: dict[str, list[RunEvent]] = {}
         self.datasets = BrowserDatasetLoader(work_dir() / "hf")
         configure_loader(self.datasets)
         runtime = Runtime(client_factory=self._client, discover=self._discover, sandbox=sandbox, name="browser")
@@ -141,19 +142,14 @@ class BrowserArena:
 
     def runs(self) -> str:
         listings = []
-        for run_id, store in reversed(list(self._stores.items())):
+        for run_id, store in self._stores.items():
             data = store.load_run()
-            listings.append(
-                RunListing(
-                    run_id=run_id,
-                    name=str(data.run.get("name", "")),
-                    created_at=str(data.run.get("created_at", "")),
-                    trials=len(data.trials),
-                    passed=sum(bool(t["passed"]) for t in data.trials),
-                    errors=sum(t["status"] != "ok" for t in data.trials),
-                    active=run_id not in self._finished,
-                )
-            )
+            live = run_id not in self._finished
+            listing = run_listing(run_id, data.run, data.trials)
+            listings.append(listing.model_copy(update={
+                "active": live, "progress": progress(self._events.get(run_id, [])) if live else None,
+            }))  # fmt: skip
+        listings.sort(key=lambda r: (r.active, r.created_at, r.run_id), reverse=True)
         return TypeAdapter(list[RunListing]).dump_json(listings).decode()
 
     async def tasks(self, scenario: str) -> str:
@@ -192,6 +188,7 @@ class BrowserArena:
 
     # ---- runtime plumbing -----------------------------------------------------------------
     def _sink(self, run_id: str, event: RunEvent) -> None:
+        self._events.setdefault(run_id, []).append(event)
         if isinstance(event, RunFinished):
             self._finished.add(run_id)
         self._emit(json.dumps({"run_id": run_id, "event": event.model_dump()}))

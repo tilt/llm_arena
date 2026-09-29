@@ -99,3 +99,39 @@ def test_unused_decision_roles_are_not_part_of_the_setup() -> None:
     assert DecisionConfig(policy="rules").llm_roles() == set()
     assert DecisionConfig(policy="llm").llm_roles() == {"decider"}
     assert DecisionConfig(policy="cascade", primary="ollaya", fallback="llm").llm_roles() == {"escalation"}
+
+
+def test_entries_link_every_trial_for_inspection() -> None:
+    rows = [trial("r2", "c", "t2", False, trial_id="x2"), trial("r1", "c", "t1", True, trial_id="x1")]
+    (entry,) = build_leaderboards(rows)[0].entries
+    assert [(r.task_id, r.run_id, r.trial_id, r.passed) for r in entry.results] == [
+        ("t1", "r1", "x1", True),
+        ("t2", "r2", "x2", False),
+    ]
+
+
+def test_one_lucky_task_does_not_outrank_a_well_tested_setup() -> None:
+    rows = [trial("r1", "lucky", "t1", True, fp="lucky")]
+    rows += [trial("r2", "solid", f"t{i}", True, fp="solid") for i in range(1, 4)]
+    (board,) = build_leaderboards(rows)
+    assert [e.config for e in board.entries] == ["solid", "lucky"]  # 3/3 (0.80) above 1/1 (0.67)
+    assert board.entries[1].pass_rate == 1.0  # the shown pass rate is not altered
+
+
+def test_concurrent_readers_and_schema_setup_do_not_collide(tmp_path: Path) -> None:
+    """The app reads runs from several threads (runs list, leaderboard) while stores are created."""
+    import concurrent.futures
+
+    DuckDBStore(tmp_path / "shared").start_run("shared", "shared", "{}")
+
+    def work(i: int) -> str | None:
+        try:
+            store = DuckDBStore(tmp_path / ("shared" if i % 2 else f"new-{i}"))
+            store.load_run()
+            return None
+        except Exception as exc:  # noqa: BLE001 - any failure is the bug
+            return f"{type(exc).__name__}: {exc}"
+
+    with concurrent.futures.ThreadPoolExecutor(12) as pool:
+        errors = [e for e in pool.map(work, range(120)) if e]
+    assert errors == []

@@ -63,6 +63,11 @@
           "title": "Run Id",
           "type": "string"
         },
+        "started_at": {
+          "description": "unix time",
+          "title": "Started At",
+          "type": "number"
+        },
         "total": {
           "title": "Total",
           "type": "integer"

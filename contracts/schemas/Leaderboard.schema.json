@@ -74,12 +74,26 @@
           "title": "Rank",
           "type": "integer"
         },
+        "results": {
+          "description": "every trial, by task, then run and repeat",
+          "items": {
+            "$ref": "#/$defs/TrialResult"
+          },
+          "title": "Results",
+          "type": "array"
+        },
         "runs": {
           "items": {
             "type": "string"
           },
           "title": "Runs",
           "type": "array"
+        },
+        "score": {
+          "default": 0.0,
+          "description": "ranking score: pass rate adjusted for the number of tasks, (passes + 1) / (tasks + 2)",
+          "title": "Score",
+          "type": "number"
         },
         "setup": {
           "additionalProperties": true,
@@ -126,6 +140,45 @@
         "latency_p50_s"
       ],
       "title": "LeaderboardEntry",
+      "type": "object"
+    },
+    "TrialResult": {
+      "description": "One trial behind an entry, so a leaderboard can link straight into its run and step inspector.",
+      "properties": {
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "repeat": {
+          "title": "Repeat",
+          "type": "integer"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "trial_id": {
+          "title": "Trial Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "repeat",
+        "passed",
+        "status",
+        "run_id",
+        "trial_id"
+      ],
+      "title": "TrialResult",
       "type": "object"
     }
   },

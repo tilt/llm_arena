@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Literal
+import json
+from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from llm_arena.runner.config import ExperimentConfig
+from llm_arena.runner.events import RunProgress
 from llm_arena.service import RuntimeInfo
 
 KeySource = Literal["env", "session", "missing"]
@@ -30,6 +32,8 @@ class RunListing(BaseModel):
     passed: int
     errors: int
     active: bool
+    scenarios: list[str] = Field(default_factory=list)
+    progress: RunProgress | None = Field(default=None, description="live runs: trials done, running, queued, spend")
 
 
 class SetKey(BaseModel):
@@ -38,3 +42,17 @@ class SetKey(BaseModel):
 
 class RuntimeResponse(RuntimeInfo):
     keys: dict[str, KeySource]
+
+
+def run_listing(run_id: str, run: dict[str, Any], trials: list[dict[str, Any]]) -> RunListing:
+    config = json.loads(run.get("config_json") or "{}")
+    return RunListing(
+        run_id=run_id,
+        name=str(run.get("name", "")),
+        created_at=str(run.get("created_at", ""))[:19],
+        trials=len(trials),
+        passed=sum(bool(t["passed"]) for t in trials),
+        errors=sum(t["status"] != "ok" for t in trials),
+        active=False,
+        scenarios=list(config.get("scenarios", [])),
+    )

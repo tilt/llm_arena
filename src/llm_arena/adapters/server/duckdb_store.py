@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import mimetypes
 import shutil
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -63,21 +64,37 @@ CREATE TABLE IF NOT EXISTS battles (
 """
 
 
+# DuckDB refuses a second in-process connection to a file with a different mode (read-only vs read-write), and the
+# app reads runs from several threads (runs list, leaderboard, reports) while a run writes. One lock per database
+# file serialises this process's access; connections stay short, so other processes can still open the file.
+_LOCKS: dict[Path, threading.RLock] = {}
+_LOCKS_GUARD = threading.Lock()
+_READY: set[Path] = set()  # databases whose schema this process has already created or migrated
+
+
+def _lock(path: Path) -> threading.RLock:
+    with _LOCKS_GUARD:
+        return _LOCKS.setdefault(path.resolve(), threading.RLock())
+
+
 class DuckDBStore:
     def __init__(self, run_dir: Path) -> None:
         self.run_dir = run_dir
         (run_dir / "traces").mkdir(parents=True, exist_ok=True)
         self.path = run_dir / "arena.duckdb"
-        with self._db() as db:
-            db.execute(_SCHEMA)
+        if self.path.resolve() not in _READY:
+            with self._db() as db:
+                db.execute(_SCHEMA)
+            _READY.add(self.path.resolve())
 
     @contextmanager
     def _db(self, read_only: bool = False) -> Iterator[duckdb.DuckDBPyConnection]:
-        connection = duckdb.connect(str(self.path), read_only=read_only)
-        try:
-            yield connection
-        finally:
-            connection.close()
+        with _lock(self.path):
+            connection = duckdb.connect(str(self.path), read_only=read_only)
+            try:
+                yield connection
+            finally:
+                connection.close()
 
     def start_run(self, run_id: str, name: str, config_json: str) -> None:
         with self._db() as db:

@@ -19,12 +19,13 @@ from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from llm_arena.adapters.server.report_html import build_report
-from llm_arena.api import RunListing, RunStartedResponse, RuntimeResponse, SetKey, StartRun
+from llm_arena.api import RunListing, RunStartedResponse, RuntimeResponse, SetKey, StartRun, run_listing
 from llm_arena.core.errors import ArenaError
 from llm_arena.llm.errors import LLMError
 from llm_arena.report.leaderboard import Leaderboard
 from llm_arena.runner.baselines import BaselineProfile
 from llm_arena.runner.config import ExperimentConfig
+from llm_arena.runner.events import progress
 from llm_arena.runner.run import new_run_id
 from llm_arena.scenarios.brief import TaskView
 from llm_arena.scenarios.manifest import ScenarioManifest
@@ -51,6 +52,7 @@ def create_app(
     app = FastAPI(title="LLM Arena", version="0.1.0")
     app.add_middleware(CORSMiddleware, allow_origins=local_origins(port), allow_methods=["*"], allow_headers=["*"])
     channels = Channels()
+    listing_cache: dict[str, tuple[float, RunListing]] = {}
     keys = keys or KeyStore()
 
     @app.get("/api/runtime", response_model=RuntimeResponse)
@@ -134,25 +136,27 @@ def create_app(
 
     @app.get("/api/runs", response_model=list[RunListing])
     def list_runs() -> list[RunListing]:
+        """Newest first, live runs with their progress. Finished runs are cached by database mtime, so the UI
+        can poll this cheaply while something runs."""
         listings = []
-        for run_dir in sorted(runs_dir.glob("*/arena.duckdb"), reverse=True):
-            run_id = run_dir.parent.name
-            try:
-                data = service.store_factory(run_id).load_run()
-            except Exception:  # a run being written by another process: skip it this time
-                continue
-            listings.append(
-                RunListing(
-                    run_id=run_id,
-                    name=str(data.run.get("name", "")),
-                    created_at=str(data.run.get("created_at", "")),
-                    trials=len(data.trials),
-                    passed=sum(bool(t["passed"]) for t in data.trials),
-                    errors=sum(t["status"] != "ok" for t in data.trials),
-                    active=run_id in channels and not channels.get(run_id).finished,
-                )
-            )
-        return listings
+        for db_file in runs_dir.glob("*/arena.duckdb"):
+            run_id = db_file.parent.name
+            live = run_id in channels and not channels.get(run_id).finished
+            stamp = db_file.stat().st_mtime
+            cached = listing_cache.get(run_id)
+            if cached is None or cached[0] != stamp or live:
+                try:
+                    data = service.store_factory(run_id).load_run()
+                except Exception:  # a run being written by another process: skip it this time
+                    continue
+                cached = (stamp, run_listing(run_id, data.run, data.trials))
+                listing_cache[run_id] = cached
+            listing = cached[1]
+            if run_id in channels:
+                history = channels.get(run_id).history
+                listing = listing.model_copy(update={"active": live, "progress": progress(history) if live else None})
+            listings.append(listing)
+        return sorted(listings, key=lambda r: (r.active, r.created_at, r.run_id), reverse=True)
 
     @app.get("/api/runs/{run_id}/events")
     async def events(run_id: str) -> StreamingResponse:

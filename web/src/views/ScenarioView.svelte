@@ -6,9 +6,10 @@
   import { app } from "../lib/app.svelte";
   import { EVALUATION_PAGES, emptyConfig, toExperiment, validate, type BuilderState, type ConfigDraft } from "../lib/builder";
   import type { Estimate, LeaderboardEntry } from "../lib/contracts";
-  import { addToDraft } from "../lib/draft.svelte";
+  import { addToDraft, handoff } from "../lib/draft.svelte";
   import { num, pct, usd } from "../lib/format";
   import { go } from "../lib/router.svelte";
+  import { refreshRuns } from "../lib/runs.svelte";
   import { activeBaseline } from "../lib/baselines";
   import { configFromSetup } from "../lib/setups";
   import { CONTROL_PARAM, REVIEW_PARAM, resolve } from "../lib/workflow";
@@ -35,6 +36,15 @@
   let message = $state("");
   let busy = $state(false);
   let board = $state<LeaderboardEntry[] | null>(null);
+
+  // A setup sent here from the leaderboard.
+  $effect(() => {
+    if (handoff.setup?.scenario === id) {
+      config = handoff.setup.config;
+      message = handoff.setup.note;
+      handoff.setup = null;
+    }
+  });
 
   $effect(() => {
     if (!app.backend || active !== "results" || board) return;
@@ -67,6 +77,7 @@
     busy = true; message = "";
     try {
       const runId = await app.backend.startRun({ experiment: experiment(), live: false });
+      void refreshRuns(); // the Runs badge and list show it at once
       go(`/runs/${encodeURIComponent(runId)}`);
     } catch (e) { message = e instanceof Error ? e.message : String(e); busy = false; }
   }

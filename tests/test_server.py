@@ -124,3 +124,16 @@ def test_scenario_tasks_endpoint(client: TestClient) -> None:
     tasks = client.get("/api/scenarios/reflection_sql/tasks").json()
     assert tasks and tasks[0]["expected"][0]["format"] == "table"
     assert client.get("/api/scenarios/nope/tasks").status_code == 404
+
+
+def test_runs_are_listed_newest_first_with_their_scenarios(client: TestClient, tmp_path: Path) -> None:
+    from llm_arena.adapters.server.duckdb_store import DuckDBStore
+
+    for run_id, created in (("b-old", "2026-01-01 10:00:00"), ("a-new", "2026-02-01 10:00:00")):
+        store = DuckDBStore(tmp_path / run_id)
+        store.start_run(run_id, run_id, '{"scenarios": ["reflection_sql"]}')
+        with store._db() as db:
+            db.execute("UPDATE runs SET created_at = ?", [created])
+    listed = client.get("/api/runs").json()
+    assert [r["run_id"] for r in listed] == ["a-new", "b-old"]
+    assert listed[0]["scenarios"] == ["reflection_sql"] and listed[0]["progress"] is None

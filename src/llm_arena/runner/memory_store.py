@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from typing import Any
 
 from llm_arena.core.artifacts import ArtifactRef, artifact_key, safe_name
@@ -65,7 +66,8 @@ class MemoryStore:
         self.artifacts: dict[str, tuple[bytes, str]] = {}  # key -> (data, media type); travels in the run bundle
 
     def start_run(self, run_id: str, name: str, config_json: str) -> None:
-        self.run = self.run or {"run_id": run_id, "name": name, "created_at": "", "config_json": config_json}
+        started = datetime.now().isoformat(sep=" ", timespec="seconds")
+        self.run = self.run or {"run_id": run_id, "name": name, "created_at": started, "config_json": config_json}
 
     def completed_trials(self) -> dict[str, str]:
         return {trial_id: row.get("resume_key") or "" for trial_id, row in self.trials.items() if row["status"] == "ok"}

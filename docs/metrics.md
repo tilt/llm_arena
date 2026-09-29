@@ -30,6 +30,8 @@
 - **Tasks:** identified by id *and* content hash, so an edited task counts as a new task.
 - **Pass rate:** mean over tasks of the per-task pass share, so every task weighs the same however often it ran. The
   95% interval bootstraps over tasks. Errors and timeouts count as fails; trials stopped by a spend limit are left out.
+- **Ranking:** by (passes + 1) / (tasks + 2), the pass rate shrunk towards 50% by the amount of evidence: 1 of 1 task
+  (0.67) ranks below 3 of 3 (0.80). The table still shows the plain pass rate.
 - **vs #1:** difference to the leader on the tasks both ran, with a paired permutation test.
 - **Legacy runs** (from before fingerprints) form their own `legacy` board and never mix with versioned results.
 - **Bump `Scenario.version`** whenever prompts, tools, evaluators or pass criteria change; otherwise old and new

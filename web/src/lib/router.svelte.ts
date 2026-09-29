@@ -4,7 +4,7 @@ export type Route =
   | { name: "models" }
   | { name: "build" }
   | { name: "runs" }
-  | { name: "leaderboard" }
+  | { name: "leaderboard"; scenario?: string; entry?: string }
   | { name: "settings" }
   | { name: "scenario"; id: string; tab?: string }
   | { name: "selftest" }
@@ -20,7 +20,9 @@ export function parse(hash: string): Route {
     return { name: "run", id: decodeURIComponent(id), trial, step };
   }
   if (section === "runs") return { name: "runs" };
-  if (section === "leaderboard") return { name: "leaderboard" };
+  if (section === "leaderboard") {
+    return { name: "leaderboard", scenario: id ? decodeURIComponent(id) : undefined, entry: sub ? decodeURIComponent(sub) : undefined };
+  }
   if (section === "settings") return { name: "settings" };
   if (section === "scenarios" && id) return { name: "scenario", id: decodeURIComponent(id), tab: sub };
   if (section === "selftest") return { name: "selftest" };
