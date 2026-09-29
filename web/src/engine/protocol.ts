@@ -1,7 +1,7 @@
 // Messages between the UI thread and the engine worker.
 export type EngineMethod =
   | "init" | "runtime" | "scenarios" | "models" | "set_key" | "clear_key" | "estimate" | "start_run"
-  | "cancel" | "runs" | "bundle" | "leaderboard" | "tasks" | "presets" | "selftest";
+  | "cancel" | "runs" | "bundle" | "leaderboard" | "tasks" | "presets" | "rename" | "selftest";
 
 export interface EngineRequest { id: number; method: EngineMethod; args: unknown[] }
 export type EngineReply =

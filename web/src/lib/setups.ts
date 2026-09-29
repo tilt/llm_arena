@@ -1,6 +1,6 @@
 // Turn a recorded setup (leaderboard entry) back into an editable config.
 import type { ModelSpec } from "./contracts";
-import { DEFAULT_ROLE, emptyConfig, type ConfigDraft } from "./builder";
+import { DEFAULT_ROLE, emptyConfig, suggestName, type ConfigDraft } from "./builder";
 
 type RoleSpec = { provider?: string; model?: string; reasoning_effort?: string | null; tool_mode?: string; temperature?: number | null };
 
@@ -30,4 +30,12 @@ export function configFromSetup(
   config.scenarioParams = { [scenario]: (setup.params ?? {}) as Record<string, unknown> };
   config.decisions = (setup.decisions ?? null) as ConfigDraft["decisions"];
   return { config, exact };
+}
+
+/** The name a recorded setup suggests (what actually ran), like suggestName for a setup being built. */
+export function nameFromSetup(setup: Record<string, unknown>): string {
+  const roles = (setup.roles ?? {}) as Record<string, RoleSpec | string>;
+  const refs = Object.fromEntries(Object.entries(roles).map(([role, spec]) => [role, typeof spec === "string" ? spec
+    : `${spec.provider}:${spec.model}${spec.reasoning_effort ? `#reasoning=${spec.reasoning_effort}` : ""}`]));
+  return suggestName({ ...emptyConfig(0), roles: refs, decisions: (setup.decisions ?? null) as ConfigDraft["decisions"] }, {});
 }

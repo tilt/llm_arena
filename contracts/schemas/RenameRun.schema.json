@@ -1,0 +1,27 @@
+{
+  "properties": {
+    "configs": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "old setup name -> new setup name",
+      "title": "Configs",
+      "type": "object"
+    },
+    "name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "new display name of the run (None: unchanged)",
+      "title": "Name"
+    }
+  },
+  "title": "RenameRun",
+  "type": "object"
+}

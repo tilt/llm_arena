@@ -26,8 +26,9 @@ from llm_arena.report.aggregate import ConfigSummary, PairedTest, ReplacementEff
 from llm_arena.report.leaderboard import Leaderboard, build_leaderboards
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import EventSink, ignore
-from llm_arena.runner.ports import RunStore, Runtime
+from llm_arena.runner.ports import RunData, RunStore, Runtime
 from llm_arena.runner.presets import DEFAULT_PRESETS, ModelPreset, save_preset
+from llm_arena.runner.rename import RenameRun, rename_data, rename_trace
 from llm_arena.runner.run import ExperimentRunner, new_run_id
 from llm_arena.scenarios.base import SCENARIOS, get_scenario
 from llm_arena.scenarios.brief import TaskView
@@ -215,7 +216,6 @@ class ArenaService:
         files the included traces reference, up to `max_artifact_bytes` (exports, browser storage)."""
         store = self.store_factory(run_id)
         data = store.load_run()
-        summary = summarize(data)
         trial_traces = (
             {trial["trial_id"]: store.load_trace(trial["trial_id"]) for trial in data.trials[:max_traces]}
             if traces
@@ -231,13 +231,7 @@ class ArenaService:
             files[key] = BundledArtifact(media_type=loaded[1], data=base64.b64encode(loaded[0]).decode("ascii"))
         return RunBundle(
             run=data.run,
-            summary=BundleSummary(
-                configs=summary.configs,
-                paired_tests=summary.paired_tests,
-                ratings=summary.ratings,
-                decisions=summary.decisions,
-                replacements=summary.replacements,
-            ),  # fmt: skip
+            summary=bundle_summary(data),
             trials=data.trials,
             scores=data.scores,
             battles=data.battles,
@@ -245,6 +239,13 @@ class ArenaService:
             traces=trial_traces,
             artifacts=files,
         )
+
+    def rename_run(self, run_id: str, request: RenameRun) -> None:
+        """New display name and setup names for a finished run (ids, links and results stay)."""
+        task = self._tasks.get(run_id)
+        if task is not None and not task.done():
+            raise ConfigError("this run is still going: rename it once it has finished")
+        self.store_factory(run_id).rename(request)
 
     def trial_trace(self, run_id: str, trial_id: str) -> dict[str, Any] | None:
         return self.store_factory(run_id).load_trace(trial_id)
@@ -278,6 +279,29 @@ class ArenaService:
         else:
             self.presets.pop(name, None)
         return self.presets
+
+
+def bundle_summary(data: RunData) -> BundleSummary:
+    summary = summarize(data)
+    return BundleSummary(
+        configs=summary.configs,
+        paired_tests=summary.paired_tests,
+        ratings=summary.ratings,
+        decisions=summary.decisions,
+        replacements=summary.replacements,
+    )
+
+
+def rename_bundle(bundle: RunBundle, request: RenameRun) -> RunBundle:
+    """A saved bundle (browser storage, imports) with new names; its summary is recomputed from the renamed rows."""
+    rows = RunData(run=bundle.run, trials=bundle.trials, scores=bundle.scores, battles=bundle.battles,
+                   decisions=bundle.decisions)  # fmt: skip
+    data, renames = rename_data(rows, request)
+    return bundle.model_copy(update={
+        "run": data.run, "summary": bundle_summary(data), "trials": data.trials, "battles": data.battles,
+        "decisions": data.decisions,
+        "traces": {trial_id: rename_trace(trace, renames) for trial_id, trace in bundle.traces.items()},
+    })  # fmt: skip
 
 
 def _cost(spec: ModelSpec, tokens: float, unknown: set[str]) -> float:

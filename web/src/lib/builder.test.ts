@@ -130,3 +130,13 @@ describe("suggested setup names", () => {
       .toBe("qwen3-14b");
   });
 });
+
+describe("names for recorded setups", () => {
+  it("names a run's setup after the models it actually ran on", async () => {
+    const { nameFromSetup } = await import("./setups");
+    const qwen = { provider: "ollama", model: "qwen3.8:27b-mlx" };
+    expect(nameFromSetup({ roles: { researcher: qwen, writer: qwen, reviewer: qwen } })).toBe("qwen3.8-27b-mlx");
+    expect(nameFromSetup({ roles: { agent: { provider: "ollama", model: "qwen3:4b", reasoning_effort: "none" } }, decisions: { policy: "rules" } }))
+      .toBe("qwen3-4b-nothink+rules");
+  });
+});

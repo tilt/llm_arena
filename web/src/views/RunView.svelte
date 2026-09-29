@@ -1,4 +1,5 @@
 <script lang="ts">
+  import RenameForm from "../components/RenameForm.svelte";
   import ReportView from "../components/ReportView.svelte";
   import StepInspector from "../components/StepInspector.svelte";
   import type { Persistence } from "../lib/backend";
@@ -6,6 +7,7 @@
   import type { RunBundle } from "../lib/contracts";
   import { num, usd } from "../lib/format";
   import { initialProgress, reduce, type RunProgress } from "../lib/progress";
+  import { refreshRuns } from "../lib/runs.svelte";
 
   let { id, trial, step }: { id: string; trial?: string; step?: string } = $props();
   let persistence = $state<Persistence>("server");
@@ -14,6 +16,7 @@
   let live = $state(false);
   let bundle = $state<RunBundle | null>(null);
   let error = $state("");
+  let renaming = $state(false);
 
   async function loadBundle() {
     try {
@@ -49,9 +52,21 @@
 
   const reportUrl = $derived(app.backend?.reportUrl(id) ?? null);
   const exportUrl = $derived(app.backend?.exportUrl(id) ?? null);
+  const title = $derived(String(bundle?.run.name ?? "") || id);
+  async function renamed(saved: boolean) {
+    renaming = false;
+    if (!saved) return;
+    await loadBundle();
+    void refreshRuns();
+  }
 </script>
 
-<h1>{id}</h1>
+<div class="head">
+  <h1>{title}</h1>
+  {#if bundle && !(live && !progress.finished) && !renaming}<button onclick={() => (renaming = true)}>Rename</button>{/if}
+</div>
+{#if title !== id}<p class="muted small id">Run <code>{id}</code></p>{/if}
+{#if renaming && bundle}<RenameForm runId={id} {bundle} onclose={renamed} />{/if}
 {#if live && !progress.finished}
   <section class="card progress" aria-live="polite">
     <div class="bar"><span style:width={`${progress.total ? (progress.done / progress.total) * 100 : 0}%`}></span></div>
@@ -88,6 +103,9 @@
 {/if}
 
 <style>
+  .head { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .head h1 { margin-bottom: 0; overflow-wrap: anywhere; }
+  .id { margin: 4px 0 12px; font-size: 12px; }
   .progress { margin-top: 12px; }
   .bar { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
   .bar span { display: block; height: 100%; background: var(--accent); transition: width 0.3s; }

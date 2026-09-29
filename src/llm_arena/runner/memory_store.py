@@ -11,6 +11,7 @@ from llm_arena.core.trace import Trace
 from llm_arena.decisions.records import decision_rows
 from llm_arena.eval.base import Score
 from llm_arena.runner.ports import RunData, TrialRecord
+from llm_arena.runner.rename import RenameRun, rename_data, rename_trace
 
 
 def trial_row(run_id: str, record: TrialRecord) -> dict[str, Any]:
@@ -120,6 +121,17 @@ class MemoryStore:
 
     def load_trace(self, trial_id: str) -> dict[str, Any] | None:
         return self.traces.get(trial_id)
+
+    def rename(self, request: RenameRun) -> None:
+        data, renames = rename_data(self.load_run(), request)
+        self.run = data.run
+        self.trials = {row["trial_id"]: row for row in data.trials}
+        self.battles = data.battles
+        self.decisions = {}
+        for row in data.decisions:
+            self.decisions.setdefault(row["trial_id"], []).append(row)
+        for trace in self.traces.values():
+            rename_trace(trace, renames)
 
     def clear_artifacts(self, trial_id: str) -> None:
         prefix = f"{safe_name(trial_id)}/"

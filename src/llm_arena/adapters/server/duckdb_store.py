@@ -25,6 +25,7 @@ from llm_arena.decisions.records import DECISION_COLUMNS, decision_rows
 from llm_arena.eval.base import Score
 from llm_arena.runner.memory_store import trace_payload, trial_row
 from llm_arena.runner.ports import RunData, TrialRecord
+from llm_arena.runner.rename import RenameRun, rename_data, rename_trace
 
 _TRIAL_COLUMNS = (
     "trial_id", "run_id", "scenario", "pattern", "config", "task_id", "repeat", "status", "passed", "error", "final",
@@ -188,6 +189,29 @@ class DuckDBStore:
         if not valid_key(key) or root not in path.parents or not path.is_file():
             return None
         return path.read_bytes(), mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+
+    def rename(self, request: RenameRun) -> None:
+        data, renames = rename_data(self.load_run(), request)
+        # One CASE per column, so swapping two names (a -> b, b -> a) works in a single pass.
+        cases = " ".join("WHEN ? THEN ?" for _ in renames)
+        pairs = [value for old, new in renames.items() for value in (old, new)]
+
+        def swap(column: str) -> str:
+            return f"{column} = CASE {column} {cases} ELSE {column} END"
+
+        with self._db() as db:
+            db.execute("BEGIN TRANSACTION")
+            db.execute("UPDATE runs SET name = ?, config_json = ?", [data.run.get("name"), data.run["config_json"]])
+            if renames:
+                db.execute(f"UPDATE trials SET {swap('config')}", pairs)
+                db.execute(f"UPDATE decisions SET {swap('config')}", pairs)
+                db.execute(f"UPDATE battles SET {swap('config_a')}, {swap('config_b')}", pairs * 2)
+            db.execute("COMMIT")
+        for path in (self.run_dir / "traces").glob("*.json") if renames else []:
+            trace = json.loads(path.read_text(encoding="utf-8"))
+            if (trace.get("trial") or {}).get("config") in renames:
+                rename_trace(trace, renames)
+                path.write_text(json.dumps(trace, default=str, ensure_ascii=False, indent=1), encoding="utf-8")
 
     def load_trace(self, trial_id: str) -> dict[str, Any] | None:
         path = self.run_dir / "traces" / f"{trial_id}.json"

@@ -85,6 +85,7 @@ Details:
   POST /api/runs/{id}/cancel               GET /api/runs/{id}/bundle[?traces=&artifacts=]
   GET  /api/runs/{id}/report               GET /api/runs/{id}/trials/{trial}/trace
   GET  /api/runs/{id}/artifacts/{key}      GET /api/leaderboard
+  PATCH /api/runs/{id}                     (rename a finished run and its setups; ids stay)
   ```
 
 ### Web UI

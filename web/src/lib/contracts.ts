@@ -12,6 +12,7 @@ export interface Contracts {
   ExperimentConfig?: ExperimentConfig;
   Leaderboard?: Leaderboard;
   ModelSpec?: ModelSpec;
+  RenameRun?: RenameRun;
   RunBundle?: RunBundle;
   RunEvent?: RunEvent;
   RunListing?: RunListing;
@@ -384,6 +385,22 @@ export interface TrialResult {
   status: string;
   task_id: string;
   trial_id: string;
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "RenameRun".
+ */
+export interface RenameRun {
+  /**
+   * old setup name -> new setup name
+   */
+  configs?: {
+    [k: string]: string | undefined;
+  };
+  /**
+   * new display name of the run (None: unchanged)
+   */
+  name?: string | null;
 }
 /**
  * Everything the report viewer needs for one run; export/import format between runtimes.

@@ -10,6 +10,7 @@ import type {
   RunBundle,
   RunEvent,
   RunListing,
+  RenameRun,
   RuntimeResponse,
   ScenarioManifest,
   StartRun,
@@ -48,6 +49,8 @@ export interface ArenaBackend {
   /** Subscribe to a run's events (history first, then live). Returns an unsubscribe function. */
   events(runId: string, onEvent: (event: RunEvent) => void): () => void;
   cancel(runId: string): Promise<void>;
+  /** New display name and setup names for a finished run; ids, links and results stay. */
+  renameRun(runId: string, request: RenameRun): Promise<void>;
   runs(): Promise<RunListing[]>;
   bundle(runId: string): Promise<RunBundle>;
   /** Model presets: one model per kind of step. */
@@ -129,6 +132,10 @@ export class HttpBackend implements ArenaBackend {
 
   cancel(runId: string): Promise<void> {
     return this.request("POST", `/api/runs/${encodeURIComponent(runId)}/cancel`);
+  }
+
+  renameRun(runId: string, request: RenameRun): Promise<void> {
+    return this.request("PATCH", `/api/runs/${encodeURIComponent(runId)}`, request);
   }
 
   runs(): Promise<RunListing[]> {

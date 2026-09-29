@@ -3,7 +3,7 @@
 // are kept in IndexedDB and can be exported/imported as RunBundle files.
 import type { ArenaBackend, ModelsResponse, Persistence, TrialTrace } from "./backend";
 import { BackendError } from "./backend";
-import type { ModelPreset, Estimate, ExperimentConfig, Leaderboard, RunBundle, RunEvent, RunListing, RuntimeResponse, ScenarioManifest, StartRun, TaskView } from "./contracts";
+import type { ModelPreset, Estimate, RenameRun, ExperimentConfig, Leaderboard, RunBundle, RunEvent, RunListing, RuntimeResponse, ScenarioManifest, StartRun, TaskView } from "./contracts";
 import type { EngineMethod, EngineReply } from "../engine/protocol";
 import { editedPresets, storeEditedPresets, usablePresets } from "./presets";
 import { listBundles, loadBundle, saveBundle } from "./idb";
@@ -112,6 +112,18 @@ export class WorkerBackend implements ArenaBackend {
   }
 
   exportUrl(): null { return null; }
+
+  /** The engine renames runs of this tab in memory; the saved bundle (IndexedDB) gets the same names. */
+  async renameRun(runId: string, request: RenameRun): Promise<void> {
+    const bundle = await this.bundle(runId);
+    const renamed = await this.json<RunBundle>("rename", runId, JSON.stringify(bundle), JSON.stringify(request));
+    try {
+      if (this.unsaved.has(runId)) throw new Error("not saved");
+      await saveBundle(runId, renamed);
+    } catch {
+      this.unsaved.set(runId, renamed);
+    }
+  }
 
   async persistence(runId: string): Promise<Persistence> {
     return this.unsaved.has(runId) || !(await loadBundle(runId).catch(() => undefined)) ? "session" : "browser";

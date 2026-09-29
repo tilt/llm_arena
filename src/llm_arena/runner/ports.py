@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from llm_arena.core.artifacts import ArtifactRef
 from llm_arena.core.trace import Trace
@@ -19,6 +19,9 @@ from llm_arena.llm.client import LLMClient
 from llm_arena.llm.spec import ModelSpec
 from llm_arena.mocks.search import SearchBackend
 from llm_arena.sandbox.base import Sandbox
+
+if TYPE_CHECKING:
+    from llm_arena.runner.rename import RenameRun
 
 ClientFactory = Callable[[ModelSpec], LLMClient]
 
@@ -85,6 +88,10 @@ class RunStore(Protocol):
     def save_artifact(self, trial_id: str, name: str, data: bytes, media_type: str) -> ArtifactRef: ...
 
     def load_artifact(self, key: str) -> tuple[bytes, str] | None: ...
+
+    def rename(self, request: RenameRun) -> None:
+        """New run and setup names; ids stay (see runner/rename.py)."""
+        ...
 
 
 @dataclass

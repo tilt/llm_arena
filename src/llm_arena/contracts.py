@@ -23,6 +23,7 @@ from llm_arena.llm.spec import ModelSpec
 from llm_arena.report.leaderboard import Leaderboard
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import RunEvent
+from llm_arena.runner.rename import RenameRun
 from llm_arena.sandbox.base import Sandbox
 from llm_arena.scenarios.base import SCENARIOS, get_scenario
 from llm_arena.scenarios.brief import TaskView
@@ -44,6 +45,7 @@ SCHEMA_TYPES: dict[str, Any] = {
     "RuntimeInfo": RuntimeInfo,
     "Estimate": Estimate,
     "StartRun": StartRun,
+    "RenameRun": RenameRun,
     "RunStartedResponse": RunStartedResponse,
     "RunListing": RunListing,
     "RuntimeResponse": RuntimeResponse,

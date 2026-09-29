@@ -35,11 +35,12 @@ from llm_arena.runner.events import RunEvent, RunFinished, progress
 from llm_arena.runner.memory_store import MemoryStore
 from llm_arena.runner.ports import Runtime
 from llm_arena.runner.presets import ModelPreset
+from llm_arena.runner.rename import RenameRun
 from llm_arena.runner.run import new_run_id
 from llm_arena.sandbox.base import Sandbox
 from llm_arena.scenarios.base import get_scenario, work_dir
 from llm_arena.scenarios.brief import TaskView
-from llm_arena.service import ArenaService
+from llm_arena.service import ArenaService, RunBundle, rename_bundle
 
 HttpGet = Callable[[str, dict[str, str]], Awaitable[HttpResponse]]
 GetBytes = Callable[[str], Awaitable[bytes]]
@@ -164,6 +165,13 @@ class BrowserArena:
         """Leaderboards over trial rows the UI collected from this tab's runs and saved bundles."""
         boards = build_leaderboards(json.loads(trials_json))
         return TypeAdapter(list[Leaderboard]).dump_json(boards).decode()
+
+    def rename(self, run_id: str, bundle_json: str, request_json: str) -> str:
+        """Rename a finished run: in this tab's store if it ran here, and in the bundle the UI keeps (returned)."""
+        request = RenameRun.model_validate_json(request_json)
+        if run_id in self._stores:
+            self.service.rename_run(run_id, request)
+        return rename_bundle(RunBundle.model_validate_json(bundle_json), request).model_dump_json()
 
     def bundle(self, run_id: str) -> str:
         # Browser runs live only in this tab: the bundle carries traces and files into IndexedDB / exports.

@@ -26,6 +26,7 @@ from llm_arena.report.leaderboard import Leaderboard
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import progress
 from llm_arena.runner.presets import ModelPreset
+from llm_arena.runner.rename import RenameRun
 from llm_arena.runner.run import new_run_id
 from llm_arena.scenarios.brief import TaskView
 from llm_arena.scenarios.manifest import ScenarioManifest
@@ -168,6 +169,17 @@ def create_app(
                 yield f"event: {event.type}\ndata: {event.model_dump_json()}\n\n"
 
         return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
+
+    @app.patch("/api/runs/{run_id}", status_code=204)
+    def rename_run(run_id: str, body: RenameRun) -> Response:
+        """New display name and setup names for a finished run; ids and links stay."""
+        _require_run(runs_dir, run_id)
+        try:
+            service.rename_run(run_id, body)
+        except ArenaError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        listing_cache.pop(run_id, None)
+        return Response(status_code=204)
 
     @app.post("/api/runs/{run_id}/cancel", status_code=202)
     def cancel(run_id: str) -> dict[str, str]:
