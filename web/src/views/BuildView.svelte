@@ -5,7 +5,7 @@
   import { app } from "../lib/app.svelte";
   import {
     CONTROLS, DEFAULT_ROLE, EVALUATION_PAGES, POLICIES, controllableScenarios, defaultRoleNeeds, eligibleModels, emptyConfig,
-    roleSlots, SERVICE_LABELS, servicesUsed, toExperiment, toYaml, validate, validateStudy, type BuilderState, type ConfigDraft,
+    knownPreset, roleSlots, suggestName, SERVICE_LABELS, servicesUsed, toExperiment, toYaml, validate, validateStudy, type BuilderState, type ConfigDraft,
     type Service,
   } from "../lib/builder";
   import type { Estimate } from "../lib/contracts";
@@ -38,6 +38,17 @@
   const controllable = $derived(controllableScenarios(draft, app.scenarios));
   const hasSplits = $derived(controllable.length > 0);
   const experiment = () => toExperiment(draft, app.scenarios, app.presets);
+  // Configurations are named after their models until the user types a name; equal suggestions get -2, -3.
+  $effect(() => {
+    const taken = new Set(draft.configs.filter((c) => c.named).map((c) => c.name));
+    for (const config of draft.configs.filter((c) => !c.named)) {
+      const base = suggestName(config, app.presets, draft.scenarios);
+      let name = base;
+      for (let i = 2; taken.has(name); i++) name = `${base}-${i}`;
+      taken.add(name);
+      if (config.name !== name) config.name = name;
+    }
+  });
 
   const SERVICES_SHOWN: Service[] = ["jev", "ollaya"];
 
@@ -132,7 +143,9 @@
 {#each draft.configs as config, index (index)}
   <section class="card config">
     <div class="config-head">
-      <input type="text" bind:value={config.name} aria-label="Configuration name" />
+      <input type="text" value={config.name} aria-label="Configuration name" title={config.named ? "" : "Named after its models until you type a name"}
+        oninput={(e) => { config.name = e.currentTarget.value; config.named = true; }} />
+      {#if config.named}<button class="link" onclick={() => (config.named = false)} title="Name it after its models again">↺ auto name</button>{/if}
       {#if draft.configs.length > 1}<button onclick={() => (draft.configs = draft.configs.filter((_, i) => i !== index))}>Remove</button>{/if}
     </div>
     <div class="roles">
@@ -143,7 +156,7 @@
           {#each Object.entries(app.presets) as [name, p] (name)}<option value={name}>{p.label}</option>{/each}
         </select>
       </div>
-      {#if !config.preset}
+      {#if !knownPreset(config, app.presets)}
       <div class="role">
         <span class="role-name">Default model <span class="muted">(every step not set per scenario below{defaultRoleNeeds(slots, config).length ? `; needs ${defaultRoleNeeds(slots, config).join(", ")}` : ""})</span></span>
         <ModelSelect bind:value={config.roles[DEFAULT_ROLE]} options={eligibleModels(catalog, defaultRoleNeeds(slots, config))} empty="— choose —" label="Default model" />
@@ -264,4 +277,5 @@
   .errors { color: var(--critical); font-size: 13px; }
   .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 16px 0 40px; }
   .estimate { font-size: 14px; }
+  .link { background: none; border: none; color: var(--accent); padding: 0; text-decoration: underline; cursor: pointer; font-size: 13px; white-space: nowrap; }
 </style>

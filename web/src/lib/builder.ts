@@ -32,6 +32,8 @@ export interface ConfigDraft {
   decisions: DecisionConfig | null;
   /** model preset: roles not bound explicitly run on its model for their kind; "" = none */
   preset?: string;
+  /** the user typed the name; otherwise it follows the models (suggestName) */
+  named?: boolean;
 }
 
 export const POLICIES: { value: NonNullable<DecisionConfig["policy"]>; label: string }[] = [
@@ -141,6 +143,32 @@ export function eligibleModels(catalog: CatalogItem[], needs: string[]): Catalog
 /** Needs of the default ("*") role: every non-optional role it would fill that is not bound explicitly. */
 export function defaultRoleNeeds(slots: RoleSlot[], config: ConfigDraft): string[] {
   return [...new Set(slots.filter((s) => !s.optional && !config.roles[s.name]).flatMap((s) => s.needs))].sort();
+}
+
+/** "ollama:qwen3.8:27b-mlx" -> "qwen3.8-27b-mlx"; "…#reasoning=none" adds "-nothink", other efforts "-low" etc. */
+export function shortModel(ref: string): string {
+  const [base = "", settings = ""] = ref.split("#", 2);
+  const name = (base.includes(":") ? base.slice(base.indexOf(":") + 1) : base).replace(/[:/]+/g, "-");
+  const reasoning = settings.split(",").find((s) => s.startsWith("reasoning="))?.slice("reasoning=".length);
+  return reasoning === "none" ? `${name}-nothink` : reasoning ? `${name}-${reasoning}` : name;
+}
+
+/** A name that says what runs: the preset or default model, then every step set explicitly, then the control
+ *  policy. "local-small", "qwen3.8-27b-mlx", "local-small+critic-gpt-5-mini", "qwen3-14b+ollaya". */
+export function suggestName(config: ConfigDraft, profiles: Record<string, ModelPreset>, scenarios?: string[]): string {
+  const pinned = new Map<string, string>();
+  for (const [role, ref] of Object.entries(config.roles)) if (ref && role !== DEFAULT_ROLE) pinned.set(role, ref);
+  for (const [scenario, roles] of Object.entries(config.scenarioRoles ?? {})) {
+    if (scenarios && !scenarios.includes(scenario)) continue;
+    for (const [role, ref] of Object.entries(roles)) if (ref) pinned.set(role, ref);
+  }
+  const preset = knownPreset(config, profiles);
+  const base = preset || (config.roles[DEFAULT_ROLE] ? shortModel(config.roles[DEFAULT_ROLE]) : "");
+  const models = [...new Set(pinned.values())];
+  const parts = !base && models.length === 1 ? [shortModel(models[0]!)] // every step on the same model
+    : [base, ...[...pinned].sort(([a], [b]) => a.localeCompare(b)).map(([role, ref]) => `${role}-${shortModel(ref)}`)];
+  if (config.decisions?.policy) parts.push(config.decisions.policy);
+  return parts.filter(Boolean).join("+").slice(0, 80) || "my-setup";
 }
 
 /** The config's preset if this page knows it, else "" (then the config runs on its own models). */

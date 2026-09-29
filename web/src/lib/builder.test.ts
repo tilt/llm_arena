@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
 import type { CatalogItem } from "./backend";
-import { defaultRoleNeeds, eligibleModels, emptyConfig, roleSlots, studyConfigs, toExperiment, toYaml, validate, type BuilderState } from "./builder";
+import { defaultRoleNeeds, eligibleModels, emptyConfig, roleSlots, shortModel, studyConfigs, suggestName, toExperiment, toYaml, validate, type BuilderState, type ConfigDraft } from "./builder";
 import type { ScenarioManifest } from "./contracts";
 
 const manifest = (id: string, roles: ScenarioManifest["roles"], requires: ScenarioManifest["requires"] = []): ScenarioManifest => ({
@@ -103,5 +103,30 @@ describe("replacement studies", () => {
     expect(experiment.study).toEqual({ baseline: "weak", candidates: ["strong"], roles: ["critic"], decision_control: "gate" });
     expect(experiment.configs).toBeUndefined();
     expect(experiment.presets).toEqual({ weak: profile });
+  });
+});
+
+describe("suggested setup names", () => {
+  const presets = { "local-small": { label: "Local small", models: { text: "ollama:qwen3:4b#reasoning=none" } } };
+  const config = (extra: Partial<ConfigDraft>): ConfigDraft => ({ ...emptyConfig(0), ...extra });
+
+  it("names a setup after what runs", () => {
+    expect(shortModel("ollama:qwen3.8:27b-mlx")).toBe("qwen3.8-27b-mlx");
+    expect(shortModel("ollama:qwen3:4b#reasoning=none")).toBe("qwen3-4b-nothink");
+    expect(suggestName(config({ preset: "local-small" }), presets)).toBe("local-small");
+    expect(suggestName(config({ roles: { "*": "ollama:qwen3.8:27b-mlx" } }), presets)).toBe("qwen3.8-27b-mlx");
+    expect(suggestName(config({ preset: "local-small", scenarioRoles: { chart: { critic: "openai:gpt-5-mini" } } }), presets))
+      .toBe("local-small+critic-gpt-5-mini");
+    // A setup loaded from the leaderboard binds every step; one model for all of them reads as that model.
+    expect(suggestName(config({ scenarioRoles: { chart: { generator: "ollama:qwen3:14b", critic: "ollama:qwen3:14b" } } }), presets))
+      .toBe("qwen3-14b");
+    expect(suggestName(config({ roles: { "*": "ollama:qwen3:14b" }, decisions: { policy: "ollaya" } as ConfigDraft["decisions"] }), presets))
+      .toBe("qwen3-14b+ollaya");
+  });
+
+  it("ignores a preset the page does not know and scenarios not selected", () => {
+    expect(suggestName(config({ preset: "gone", roles: { "*": "ollama:gemma4:26b" } }), presets)).toBe("gemma4-26b");
+    expect(suggestName(config({ roles: { "*": "ollama:qwen3:14b" }, scenarioRoles: { other: { critic: "openai:gpt-5-mini" } } }), presets, ["chart"]))
+      .toBe("qwen3-14b");
   });
 });

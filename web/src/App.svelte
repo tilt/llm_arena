@@ -5,6 +5,7 @@
   import SelftestView from "./views/SelftestView.svelte";
   import { router } from "./lib/router.svelte";
   import { activeRuns, watchRuns } from "./lib/runs.svelte";
+  import { update, watchUpdates } from "./lib/update.svelte";
   import { WIKI_HOME } from "./lib/wiki";
   import BuildView from "./views/BuildView.svelte";
   import HomeView from "./views/HomeView.svelte";
@@ -39,6 +40,7 @@
 
   const providers = $derived(Object.entries(app.runtime?.providers ?? {}));
   $effect(() => (app.backend ? watchRuns() : undefined));
+  $effect(() => watchUpdates());
   const live = $derived(activeRuns());
   const liveTitle = $derived(live.length ? `${live.length} run${live.length > 1 ? "s" : ""} in progress: `
     + `${live.reduce((n, r) => n + (r.progress?.running ?? 0), 0)} trials running, `
@@ -83,6 +85,11 @@
 </header>
 
 <main>
+  {#if update.available}
+    <p class="note update" role="status">A newer version of the arena is available; this tab still runs the old one.
+      {#if app.mode === "browser" && live.length}Runs in this tab stop when you reload.{/if}
+      <button class="primary" onclick={() => location.reload()}>Reload</button></p>
+  {/if}
   {#if app.mode === "detecting"}
     <p class="muted">Connecting…</p>
   {:else if app.mode === "browser" && !app.backend}
@@ -123,5 +130,6 @@
   nav a:hover { background: var(--surface-2); }
   nav a.active { background: var(--surface-2); color: var(--text-primary); font-weight: 600; }
   .status { margin-left: auto; }
+  .update { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: space-between; margin: 0 0 16px; }
   main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 80px; }
 </style>

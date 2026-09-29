@@ -4,7 +4,7 @@
   import TaskList from "../components/TaskList.svelte";
   import WorkflowDiagram from "../components/WorkflowDiagram.svelte";
   import { app } from "../lib/app.svelte";
-  import { EVALUATION_PAGES, emptyConfig, toExperiment, validate, type BuilderState, type ConfigDraft } from "../lib/builder";
+  import { EVALUATION_PAGES, emptyConfig, suggestName, toExperiment, validate, type BuilderState, type ConfigDraft } from "../lib/builder";
   import type { Estimate, LeaderboardEntry } from "../lib/contracts";
   import { addToDraft, handoff } from "../lib/draft.svelte";
   import { num, pct, usd } from "../lib/format";
@@ -36,6 +36,10 @@
   let message = $state("");
   let busy = $state(false);
   let board = $state<LeaderboardEntry[] | null>(null);
+
+  // The name follows the models until the user types one, so a changed setup never runs under its old name.
+  const suggested = $derived(suggestName(config, app.presets, [id]));
+  $effect(() => { if (!config.named && config.name !== suggested) config.name = suggested; });
 
   // A setup sent here from the leaderboard.
   $effect(() => {
@@ -150,7 +154,13 @@
       {/if}
       <p class="lead">Start from a preset, then change the model of any step. Steps share a model when they use the same
         role. Parameters and the control policy change the workflow, and the diagram follows.</p>
-      <label class="name">Setup name <input type="text" bind:value={config.name} /></label>
+      <div class="name">
+        <label for="setup-name">Setup name</label>
+        <input id="setup-name" type="text" value={config.name} oninput={(e) => { config.name = e.currentTarget.value; config.named = true; }} />
+        {#if config.named && config.name !== suggested}
+          <button class="link" onclick={() => (config.named = false)} title="Name the setup after its models again">↺ {suggested}</button>
+        {:else}<span class="muted small">named after its models</span>{/if}
+      </div>
       <ScenarioSetup {manifest} bind:config showPolicy />
 
       <h2>Run it</h2>
@@ -220,7 +230,8 @@
   dt { font-family: ui-monospace, monospace; font-size: 12.5px; color: var(--text-secondary); padding-top: 2px; }
   dd { margin: 0; }
   .preview h3 { margin: 0 0 8px; font-size: 14px; }
-  .name { display: flex; gap: 8px; align-items: center; margin: 0 0 12px; font-size: 14px; }
+  .name { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 12px; font-size: 14px; }
+  .name input { min-width: 0; flex: 0 1 320px; }
   .settings { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
   .settings label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
   .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
