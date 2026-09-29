@@ -37,6 +37,16 @@ class PipelineConfig(BaseModel):
         default=None, description="control policy for scenarios that support one; None: the agent decides"
     )
 
+    @model_validator(mode="after")
+    def _preset_or_default(self) -> PipelineConfig:
+        # The preset fills every unbound role before "*" would, so a default model next to it never runs.
+        if self.preset and self.roles.get("*"):
+            raise ValueError(
+                f"{self.name}: set either a preset ({self.preset}) or a default model '*' ({self.roles['*']}), not both;"
+                " to change single steps on top of a preset, bind those roles"
+            )
+        return self
+
     def roles_for(self, scenario: str) -> dict[str, str]:
         return {**self.roles, **self.scenario_roles.get(scenario, {})}
 

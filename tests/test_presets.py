@@ -11,7 +11,7 @@ from llm_arena.core.errors import ConfigError
 from llm_arena.llm.client import LLMClient
 from llm_arena.llm.spec import Capabilities, ModelSpec
 from llm_arena.llm.testing import ScriptedLLM
-from llm_arena.runner.config import ExperimentConfig
+from llm_arena.runner.config import ExperimentConfig, PipelineConfig
 from llm_arena.runner.ports import Runtime
 from llm_arena.runner.presets import DEFAULT_PRESETS, ModelPreset, load_presets, save_preset
 from llm_arena.runner.run import ExperimentRunner
@@ -46,6 +46,13 @@ def test_explicit_bindings_win_over_the_preset() -> None:
     }
     bound = _bindings(config, "reflection_sql")
     assert bound == {"generator": "ollama:qwen3:4b#reasoning=none", "critic": "openai:gpt-5-mini"}
+
+
+def test_a_default_model_next_to_a_preset_is_rejected() -> None:
+    # The preset fills every unbound role first, so the default would silently never run.
+    with pytest.raises(ValueError, match="either a preset"):
+        PipelineConfig.model_validate({"name": "x", "preset": "local-small", "roles": {"*": "ollama:qwen3:14b"}})
+    assert PipelineConfig.model_validate({"name": "x", "preset": "local-small", "roles": {"*": ""}}).preset
 
 
 def test_experiment_profiles_override_and_unknown_profiles_fail() -> None:

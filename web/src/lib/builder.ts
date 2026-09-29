@@ -143,9 +143,14 @@ export function defaultRoleNeeds(slots: RoleSlot[], config: ConfigDraft): string
   return [...new Set(slots.filter((s) => !s.optional && !config.roles[s.name]).flatMap((s) => s.needs))].sort();
 }
 
+/** The config's preset if this page knows it, else "" (then the config runs on its own models). */
+export function knownPreset(config: ConfigDraft, profiles: Record<string, ModelPreset>): string {
+  return config.preset && profiles[config.preset] ? config.preset : "";
+}
+
 export function validate(
   state: BuilderState, manifests: ScenarioManifest[], runtimeHasSandbox: boolean,
-  serviceStatus: Partial<Record<Service, string>> = {},
+  serviceStatus: Partial<Record<Service, string>> = {}, profiles: Record<string, ModelPreset> = {},
 ): string[] {
   const errors: string[] = [];
   if (!state.name.trim()) errors.push("Give the experiment a name.");
@@ -155,7 +160,7 @@ export function validate(
   if (new Set(names).size !== names.length) errors.push("Configuration names must be unique.");
   const slots = roleSlots(manifests, state.scenarios);
   for (const config of state.configs) {
-    if (config.preset) continue; // a preset binds every role that is not set explicitly
+    if (knownPreset(config, profiles)) continue; // a preset binds every role that is not set explicitly
     for (const manifest of manifests.filter((m) => state.scenarios.includes(m.id))) {
       for (const role of manifest.roles.filter((r) => !r.fallback)) {
         if (!boundModel(config, manifest.id, role.name)) {
@@ -187,7 +192,7 @@ export function boundModel(
   config: ConfigDraft, scenario: string, role: string, kind = "text", profiles: Record<string, ModelPreset> = {},
 ): string {
   return config.scenarioRoles[scenario]?.[role] || config.roles[role]
-    || (config.preset ? modelFor(profiles[config.preset], kind) : "") || config.roles[DEFAULT_ROLE] || "";
+    || (knownPreset(config, profiles) ? modelFor(profiles[config.preset!], kind) : "") || config.roles[DEFAULT_ROLE] || "";
 }
 
 /** Roles a control policy calls (mirrors DecisionConfig.llm_roles). */
@@ -222,7 +227,10 @@ export function toExperiment(
     scenarios: [...state.scenarios],
     repeats: state.repeats,
     configs: state.configs.map((config) => {
-      const roles = Object.fromEntries(Object.entries(config.roles).filter(([, ref]) => ref));
+      // What runs is what the page shows: a preset the page does not know (not loaded, removed, not usable in this
+      // runtime) is dropped, and with a known preset the hidden default model is, since the preset outranks it.
+      const preset = knownPreset(config, profiles);
+      const roles = Object.fromEntries(Object.entries(config.roles).filter(([role, ref]) => ref && !(preset && role === DEFAULT_ROLE)));
       const scenarioParams = Object.fromEntries(
         Object.entries(config.scenarioParams).filter(([id, params]) => state.scenarios.includes(id) && Object.keys(params).length),
       );
@@ -237,7 +245,7 @@ export function toExperiment(
         roles,
         ...(Object.keys(scenarioParams).length ? { scenario_params: scenarioParams } : {}),
         ...(Object.keys(scenarioRoles).length ? { scenario_roles: scenarioRoles } : {}),
-        ...(config.preset ? { preset: config.preset } : {}),
+        ...(preset ? { preset } : {}),
         // A control policy applies only where a scenario supports one, so such a config runs only those scenarios.
         ...(config.decisions ? { decisions: { ...config.decisions }, scenarios: controllable } : {}),
       };
@@ -249,7 +257,7 @@ export function toExperiment(
   if (state.maxCostUsd) experiment.max_cost_usd = state.maxCostUsd;
   if (state.split !== "all") experiment.split = state.split;
   // Profiles travel with the experiment, so edited ones work in every runtime and the YAML is self-contained.
-  const used = [...new Set(state.configs.map((c) => c.preset).filter((b): b is string => !!b && !!profiles[b]))];
+  const used = [...new Set(state.configs.map((c) => knownPreset(c, profiles)).filter(Boolean))];
   if (used.length) experiment.presets = Object.fromEntries(used.map((b) => [b, profiles[b]!]));
   return experiment;
 }

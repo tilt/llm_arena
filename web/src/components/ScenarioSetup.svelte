@@ -34,6 +34,9 @@
   const stepsOf = (role: string) => (flow?.steps ?? []).filter((s) => stepRoles(s).includes(role)).map((s) => s.label);
 
   const profile = $derived(config.preset ? app.presets[config.preset] : undefined);
+  // Steps set explicitly keep their model whatever the preset says (e.g. every step of a setup loaded from the leaderboard).
+  const pinned = $derived(Object.entries(config.scenarioRoles[manifest.id] ?? {}).filter(([, ref]) => ref).map(([role]) => role));
+  const unpin = () => (config.scenarioRoles = { ...config.scenarioRoles, [manifest.id]: {} });
   // Mirrors the runner: explicit binding > preset by kind > fallback role > default model.
   function effective(role: string, seen = new Set<string>()): string {
     const bound = config.scenarioRoles[manifest.id]?.[role] || config.roles[role];
@@ -149,6 +152,11 @@
           <option value="">no preset: choose models below</option>
           {#each Object.entries(app.presets) as [name, p] (name)}<option value={name}>{p.label}</option>{/each}
         </select>
+        {#if profile && pinned.length}
+          <p class="note small" role="status">{pinned.length === 1 ? `${pinned[0]} is` : `${pinned.length} steps are`} set below and keep
+            {pinned.length === 1 ? "its model" : "their models"}; the preset only fills the others.
+            <button class="link" onclick={unpin}>Use the preset for every step</button></p>
+        {/if}
         {#if profile}<a class="small" href="#/presets">Edit presets</a>{/if}
       </div>
       {/if}

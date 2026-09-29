@@ -30,7 +30,7 @@
   const services = $derived(app.runtime?.decision_services ?? {});
   const serviceStatus = $derived(Object.fromEntries(Object.entries(services).map(([k, v]) => [k, v?.status ?? ""])) as Record<Service, string>);
   const available = (service: string) => services[service]?.status === "available";
-  const errors = $derived(draft.study ? validateStudy(draft, draft.study) : validate(draft, app.scenarios, sandbox, serviceStatus));
+  const errors = $derived(draft.study ? validateStudy(draft, draft.study) : validate(draft, app.scenarios, sandbox, serviceStatus, app.presets));
   function setMode(study: boolean) {
     draft.study = study ? { baseline: activePreset(), candidates: [""], roles: [], decisionControl: "gate" } : null;
     estimate = null;

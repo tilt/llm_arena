@@ -33,10 +33,21 @@ describe("presets in the builder", () => {
   });
 
   it("accepts a preset instead of a model per role and ships it with the experiment", () => {
-    expect(validate(state, [manifest], true)).toEqual([]);
+    expect(validate(state, [manifest], true, {}, { "local-small": PROFILE })).toEqual([]);
     const experiment = toExperiment(state, [manifest], { "local-small": PROFILE });
     expect(experiment.configs?.[0]).toMatchObject({ preset: "local-small", scenario_roles: { chart: { critic: "openai:gpt-5-mini" } } });
     expect(experiment.presets).toEqual({ "local-small": PROFILE });
+  });
+
+  it("runs what the page shows: an unknown preset is dropped, a known one drops the hidden default model", () => {
+    const withDefault = { ...state, configs: [{ ...config, roles: { "*": "ollama:gemma4:26b" } }] };
+    const unknown = toExperiment(withDefault, [manifest], {}).configs?.[0];
+    expect(unknown).not.toHaveProperty("preset");
+    expect(unknown?.roles).toEqual({ "*": "ollama:gemma4:26b" });
+    const known = toExperiment(withDefault, [manifest], { "local-small": PROFILE }).configs?.[0];
+    expect(known).toMatchObject({ preset: "local-small", roles: {} });
+    // Without the preset loaded, steps need models of their own.
+    expect(validate(state, [manifest], true)).toContainEqual(expect.stringContaining('"generator"'));
   });
 });
 

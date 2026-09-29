@@ -62,7 +62,7 @@
   });
   const experiment = () => ({ ...toExperiment(plan, app.scenarios, app.presets), ...(onlyTask ? { task_ids: [onlyTask] } : {}) });
   const errors = $derived(manifest ? validate(plan, app.scenarios, app.runtime?.sandbox ?? false,
-    Object.fromEntries(Object.entries(app.runtime?.decision_services ?? {}).map(([k, v]) => [k, v?.status ?? ""]))) : []);
+    Object.fromEntries(Object.entries(app.runtime?.decision_services ?? {}).map(([k, v]) => [k, v?.status ?? ""])), app.presets) : []);
   const blocked = $derived((manifest?.requires ?? []).includes("sandbox") && !app.runtime?.sandbox);
 
   async function runEstimate() {
