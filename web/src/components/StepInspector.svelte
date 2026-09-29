@@ -6,6 +6,7 @@
   import { num, usd } from "../lib/format";
   import { executions, stepStats, trialWorkflow } from "../lib/inspect";
   import { go } from "../lib/router.svelte";
+  import ArtifactView from "./ArtifactView.svelte";
   import SpanView from "./SpanView.svelte";
   import WorkflowDiagram from "./WorkflowDiagram.svelte";
 
@@ -38,6 +39,46 @@
     return bound;
   });
   const scores = $derived(bundle.scores.filter((s) => s.trial_id === trialId));
+  // Why a failed trial failed: the pass criteria that failed (with the evaluators' reasons), other telling signals,
+  // and the step where it last went wrong.
+  const SIGNALS: Record<string, string> = {
+    regressed: "A revision broke a result that was already correct.",
+    critic_fp: "The critic asked for changes although the draft was already correct.",
+    critic_fn: "The critic accepted a draft that was wrong.",
+  };
+  const diagnosis = $derived.by(() => {
+    if (!trial || trial.passed) return null;
+    const criteria = new Set(manifest?.pass_criteria ?? []);
+    const failed = scores.filter((s) => criteria.has(String(s.name)) && s.passed === false)
+      .map((s) => ({ name: String(s.name), why: String(s.rationale ?? "") }));
+    const signals = scores.filter((s) => SIGNALS[String(s.name)] && Number(s.value) > 0).map((s) => SIGNALS[String(s.name)]!);
+    let where: { step: string; label: string; run: number; error: string } | null = null;
+    for (let i = spans.length - 1; i >= 0 && !where; i--) {
+      const s = spans[i]!;
+      if (s.step && s.step !== "end" && (s.error || s.attrs?.ok === false)) {
+        const list = executions(spans, s.step);
+        const run = list.findIndex((e) => e.index === i || e.children.some((c) => c.index === i)) + 1;
+        const text = s.error ?? (typeof s.output === "string" ? s.output : "");
+        const last = text.trim().split("\n").filter(Boolean).at(-1) ?? "";
+        where = { step: s.step, label: flow?.steps.find((f) => f.id === s.step)?.label ?? s.step, run, error: last };
+      }
+    }
+    if (!failed.length && !signals.length && !where && !trial.error) return null;
+    return { failed, signals, where };
+  });
+  // When the result has no image (e.g. the final code crashed), show the last one a step produced.
+  const lastImage = $derived.by(() => {
+    for (let i = spans.length - 1; i >= 0; i--) {
+      const s = spans[i]!;
+      const image = s.kind !== "llm_call" && s.step !== "end" ? (s.artifacts ?? []).find((a) => a.media_type.startsWith("image/") && a.key) : undefined;
+      if (image && s.step) {
+        const run = executions(spans, s.step).findIndex((e) => e.index === i || e.children.some((c) => c.index === i)) + 1;
+        return { artifact: image, step: s.step, label: flow?.steps.find((f) => f.id === s.step)?.label ?? s.step, run };
+      }
+    }
+    return null;
+  });
+  const resultHasImage = $derived(spans.some((s) => s.step === "end" && (s.artifacts ?? []).some((a) => a.media_type.startsWith("image/"))));
   const untagged = $derived(spans.filter((s) => !s.step && ["llm_call", "tool_call", "code_exec"].includes(s.kind)).length);
 
   function parse(value: unknown): Record<string, string> & { decisions?: unknown } {
@@ -124,10 +165,31 @@
       {:else if error}
         <p class="note">{error}</p>
       {:else if currentStep}
+        {#if diagnosis}
+          <section class="diagnosis" aria-labelledby="why-title">
+            <h3 id="why-title">Why this trial failed</h3>
+            {#if trial?.error}<p>The trial stopped with an error: <code>{String(trial.error).split("\n")[0]}</code></p>{/if}
+            {#if diagnosis.failed.length}
+              <ul>{#each diagnosis.failed as f (f.name)}<li><strong>{f.name}</strong>{#if f.why}: {f.why}{/if}</li>{/each}</ul>
+            {/if}
+            {#each diagnosis.signals as s (s)}<p class="signal">{s}</p>{/each}
+            {#if diagnosis.where}
+              <p>Last error in <strong>{diagnosis.where.label}</strong>{diagnosis.where.run > 1 ? ` (run ${diagnosis.where.run})` : ""}{#if diagnosis.where.error}: <code>{diagnosis.where.error}</code>{/if}
+                {#if current !== diagnosis.where.step}<button class="link" onclick={() => select(diagnosis!.where!.step)}>Go to this step</button>{/if}</p>
+            {/if}
+          </section>
+        {/if}
         <h3>{currentStep.label}{#if currentStep.role} <span class="pill">{currentStep.role}: {roles[currentStep.role] ?? "—"}</span>{/if}</h3>
         {#if currentStep.description}<p class="muted">{currentStep.description}</p>{/if}
         {#if !runs.length}
           <p class="muted">This step did not run in this trial.</p>
+        {/if}
+        {#if current === "end" && !resultHasImage && lastImage}
+          <article class="card no-result">
+            <p><strong>No final {lastImage.artifact.name.replace(/\.[a-z]+$/, "")}.</strong> The last one that rendered came from
+              <button class="link" onclick={() => select(lastImage!.step)}>{lastImage.label}{lastImage.run > 1 ? `, run ${lastImage.run}` : ""}</button>:</p>
+            <ArtifactView {runId} artifact={lastImage.artifact} />
+          </article>
         {/if}
         {#each runs as execution, i (execution.index)}
           <article class="execution card">
@@ -163,6 +225,16 @@
   .detail { overflow: auto; padding: 14px 18px; display: grid; gap: 12px; align-content: start; }
   h3 { margin: 0; font-size: 16px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
   .execution { display: grid; gap: 8px; }
+  .diagnosis { border: 1px solid color-mix(in srgb, var(--critical) 55%, var(--border)); background: color-mix(in srgb, var(--critical) 7%, var(--surface-1));
+    border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 6px; }
+  .diagnosis h3 { font-size: 15px; }
+  .diagnosis ul { margin: 0; padding-left: 18px; }
+  .diagnosis p { margin: 0; }
+  .diagnosis code { font-size: 12px; overflow-wrap: anywhere; }
+  .signal::before { content: "⚠ "; color: var(--critical); }
+  .no-result { display: grid; gap: 8px; }
+  .no-result p { margin: 0; }
+  .link { background: none; border: none; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; font: inherit; }
   .count { margin: 0; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
   .small { font-size: 12px; }
   .skeleton { height: 140px; border-radius: 10px; background: linear-gradient(90deg, var(--surface-1), var(--surface-2), var(--surface-1)); background-size: 200% 100%; animation: shimmer 1.2s infinite; }

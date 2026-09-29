@@ -230,3 +230,21 @@ async def test_chart_codegen_introspects_figure() -> None:
     assert "chart.png" in output.artifacts
     # The critic received the rendered image.
     assert any(part.get("type") == "image_url" for part in critic.calls[0][-1]["content"])
+
+
+async def test_chart_regression_by_a_wrong_critique_is_explained() -> None:
+    good = (
+        "```python\nimport pandas as pd, matplotlib.pyplot as plt\ndf = pd.read_csv('energy.csv')\nfig, ax = plt.subplots()\n"
+        "for site, g in df.groupby('site'):\n    ax.plot(g['month'], g['kwh'], label=site)\n"
+        "ax.set_title('Monthly output'); ax.set_xlabel('Month'); ax.set_ylabel('kWh'); ax.legend()\n"
+        "plt.savefig('chart.png', dpi=100)\n```"
+    )
+    broken = "```python\nimport pandas as pd\ndf = pd.read_csv('energy.csv')\ndf.mean()\n```"  # text columns: TypeError
+    generator = ScriptedLLM([good, broken])
+    critic = ScriptedLLM(['{"verdict": "revise", "issues": ["December is missing"]}'])
+    _, scores = await _run("chart_codegen", "energy_lines", {"generator": generator, "critic": critic})
+    assert scores["draft_spec_compliance"].passed and not scores["chart_rendered"].passed
+    assert "the final code failed: TypeError" in scores["chart_rendered"].rationale
+    assert "a revision broke it" in scores["chart_rendered"].rationale
+    assert scores["regressed"].value == 1.0 and scores["critic_fp"].value == 1.0
+    assert scores["critic_verdict_correct"].passed is False

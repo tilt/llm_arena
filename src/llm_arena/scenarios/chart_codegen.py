@@ -159,7 +159,7 @@ class ChartCodegen(Scenario):
             )
             return await render(extract_code((await generator.complete([system(_RULES), user(prompt)])).content) or "")
 
-        await reflect(
+        outcome = await reflect(
             draft=draft, critique=critique, revise=revise, rounds=ctx.params["reflection_rounds"], trace=ctx.trace
         )
         final = attempts[-1]
@@ -167,7 +167,12 @@ class ChartCodegen(Scenario):
         return TrialOutput(
             final=codes[-1],
             artifacts=artifacts,
-            extras={"specs": [_spec(a) for a in attempts], "ok": [a.ok for a in attempts]},
+            extras={
+                "specs": [_spec(a) for a in attempts],
+                "ok": [a.ok for a in attempts],
+                "errors": [None if a.ok else _last_error(a) for a in attempts],
+                "verdicts": [c.verdict for c in outcome.critiques],
+            },
         )
 
     def brief(self) -> Brief:
@@ -199,6 +204,14 @@ class ChartCodegen(Scenario):
             FunctionEvaluator("chart_spec", score_chart),
             VisionJudge(RubricJudgeEvaluator(CHART_RUBRIC, include_artifacts=True)),
         ]
+
+
+def _last_error(result: ExecResult) -> str:
+    """The line that says what went wrong (the last line of the traceback), for rationales."""
+    if result.timed_out:
+        return "the code timed out"
+    lines = [line.strip() for line in result.stderr.strip().splitlines() if line.strip()]
+    return lines[-1] if lines else f"exit code {result.returncode}"
 
 
 def _spec(result: ExecResult) -> dict[str, Any] | None:
@@ -248,7 +261,30 @@ def score_chart(ctx: EvalContext) -> list[Score]:
     specs, ok = ctx.output.extras["specs"], ctx.output.extras["ok"]
     draft_failures, final_failures = check_spec(specs[0], expect), check_spec(specs[-1], expect)
     rendered = ok[-1] and "chart.png" in ctx.output.artifacts
+    errors = ctx.output.extras.get("errors") or [None] * len(ok)
+    if rendered:
+        why = "the final code rendered chart.png"
+    elif not ok[-1]:
+        why = f"the final code failed: {errors[-1] or 'error'}"
+    else:
+        why = "the final code ran but saved no chart.png"
+    if len(ok) > 1 and not rendered and ok[0]:
+        why += " (the draft had rendered: a revision broke it)"
+    draft_ok, final_ok = not draft_failures, not final_failures
+    critic: list[Score] = []
+    if verdicts := ctx.output.extras.get("verdicts"):
+        flagged = verdicts[0] == "revise"
+        # Same reviewer indicators as reflection_sql: the report turns their means into precision/recall.
+        critic = [
+            Score(name="critic_tp", value=float(flagged and not draft_ok), level="step"),
+            Score(name="critic_fp", value=float(flagged and draft_ok), level="step",
+                  rationale="asked for changes to a draft that already met the spec" if flagged and draft_ok else ""),
+            Score(name="critic_fn", value=float(not flagged and not draft_ok), level="step"),
+            Score(name="critic_verdict_correct", value=float(flagged != draft_ok), level="step", passed=flagged != draft_ok),
+        ]  # fmt: skip
+    regressed = draft_ok and not final_ok
     return [
+        *critic,
         Score(name="draft_executes", value=float(ok[0]), level="step", passed=ok[0]),
         Score(
             name="draft_spec_compliance",
@@ -257,7 +293,14 @@ def score_chart(ctx: EvalContext) -> list[Score]:
             passed=not draft_failures,
             rationale="; ".join(draft_failures),
         ),
-        Score(name="chart_rendered", value=float(rendered), level="e2e", passed=rendered),
+        Score(name="chart_rendered", value=float(rendered), level="e2e", passed=rendered, rationale=why),
+        Score(
+            name="regressed",
+            value=float(regressed),
+            level="e2e",
+            passed=not regressed,
+            rationale="the draft met the spec, the final chart does not" if regressed else "",
+        ),  # fmt: skip
         Score(
             name="spec_compliance",
             value=float(not final_failures),
