@@ -774,6 +774,10 @@ export interface RuntimeResponse {
    * container | process | browser worker ('' without one)
    */
   sandbox_isolation?: string;
+  /**
+   * build id of the web UI when the server started ('' if none)
+   */
+  ui_build?: string;
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema

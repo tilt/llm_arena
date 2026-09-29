@@ -197,6 +197,11 @@ export class HttpBackend implements ArenaBackend {
     });
     if (!response.ok) {
       const detail = await response.json().then((d: { detail?: unknown }) => d.detail).catch(() => response.statusText);
+      // FastAPI's generic answers for routes it does not have: the page is newer than the running server.
+      if (detail === "Method Not Allowed" || (detail === "Not Found" && path.startsWith("/api/"))) {
+        throw new BackendError("The arena server is older than this page and does not know this action yet. Restart it"
+          + " (stop make ui with Ctrl+C and start it again), then try again.", response.status);
+      }
       throw new BackendError(typeof detail === "string" ? detail : JSON.stringify(detail), response.status);
     }
     return (response.status === 204 ? undefined : await response.json()) as T;

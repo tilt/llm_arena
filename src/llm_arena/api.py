@@ -42,6 +42,7 @@ class SetKey(BaseModel):
 
 class RuntimeResponse(RuntimeInfo):
     keys: dict[str, KeySource]
+    ui_build: str = Field(default="", description="build id of the web UI when the server started ('' if none)")
 
 
 def run_listing(run_id: str, run: dict[str, Any], trials: list[dict[str, Any]]) -> RunListing:

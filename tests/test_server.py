@@ -137,3 +137,17 @@ def test_runs_are_listed_newest_first_with_their_scenarios(client: TestClient, t
     listed = client.get("/api/runs").json()
     assert [r["run_id"] for r in listed] == ["a-new", "b-old"]
     assert listed[0]["scenarios"] == ["reflection_sql"] and listed[0]["progress"] is None
+
+
+def test_runtime_reports_the_ui_build_seen_at_startup(tmp_path: Path) -> None:
+    # The page compares it with its own build: a newer page than server means the server needs a restart.
+    static = tmp_path / "dist"
+    static.mkdir()
+    (static / "index.html").write_text("<!doctype html>")
+    (static / "version.json").write_text('{"build": "b1"}')
+    service = ArenaService(Runtime(client_factory=lambda spec: ScriptedLLM(["x"])),
+                           store_factory=lambda run_id: DuckDBStore(tmp_path / run_id))  # fmt: skip
+    client = TestClient(create_app(service, runs_dir=tmp_path, static_dir=static, keys=KeyStore()))
+    (static / "version.json").write_text('{"build": "b2"}')  # `make web` while the server runs
+    assert client.get("/api/runtime").json()["ui_build"] == "b1"
+    assert client.get("/version.json").json()["build"] == "b2"

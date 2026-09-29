@@ -68,6 +68,12 @@
       "description": "container | process | browser worker ('' without one)",
       "title": "Sandbox Isolation",
       "type": "string"
+    },
+    "ui_build": {
+      "default": "",
+      "description": "build id of the web UI when the server started ('' if none)",
+      "title": "Ui Build",
+      "type": "string"
     }
   },
   "required": [

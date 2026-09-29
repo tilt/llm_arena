@@ -8,6 +8,7 @@ money through configured keys, so it must not be reachable from other machines o
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import AsyncIterator, Awaitable, Callable
 from pathlib import Path
@@ -53,13 +54,16 @@ def create_app(
     app = FastAPI(title="LLM Arena", version="0.1.0")
     app.add_middleware(CORSMiddleware, allow_origins=local_origins(port), allow_methods=["*"], allow_headers=["*"])
     channels = Channels()
+    # The UI is served from disk, the API from the code loaded at startup: after `make web` a reloaded page can be
+    # newer than this process. Reporting the build seen at startup lets the page notice and ask for a restart.
+    ui_build = _ui_build(static_dir)
     listing_cache: dict[str, tuple[float, RunListing]] = {}
     keys = keys or KeyStore()
 
     @app.get("/api/runtime", response_model=RuntimeResponse)
     async def runtime() -> RuntimeResponse:
         info = await service.runtime_info()
-        return RuntimeResponse(**info.model_dump(), keys=keys.status())
+        return RuntimeResponse(**info.model_dump(), keys=keys.status(), ui_build=ui_build)
 
     @app.get("/api/scenarios", response_model=list[ScenarioManifest])
     def scenarios() -> list[ScenarioManifest]:
@@ -234,6 +238,13 @@ def create_app(
             return _PLACEHOLDER
 
     return app
+
+
+def _ui_build(static_dir: Path | None) -> str:
+    try:
+        return str(json.loads((static_dir / "version.json").read_text(encoding="utf-8"))["build"]) if static_dir else ""
+    except (OSError, ValueError, KeyError):
+        return ""
 
 
 def _require_run(runs_dir: Path, run_id: str) -> None:

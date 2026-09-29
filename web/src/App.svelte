@@ -5,7 +5,7 @@
   import SelftestView from "./views/SelftestView.svelte";
   import { router } from "./lib/router.svelte";
   import { activeRuns, watchRuns } from "./lib/runs.svelte";
-  import { update, watchUpdates } from "./lib/update.svelte";
+  import { serverIsOlder, update, watchUpdates } from "./lib/update.svelte";
   import { WIKI_HOME } from "./lib/wiki";
   import BuildView from "./views/BuildView.svelte";
   import HomeView from "./views/HomeView.svelte";
@@ -89,6 +89,9 @@
     <p class="note update" role="status">A newer version of the arena is available; this tab still runs the old one.
       {#if app.mode === "browser" && live.length}Runs in this tab stop when you reload.{/if}
       <button class="primary" onclick={() => location.reload()}>Reload</button></p>
+  {:else if app.mode === "local" && serverIsOlder(app.runtime?.ui_build)}
+    <p class="note update" role="status">The arena server was started before this version of the app, so newer features may fail.
+      Restart it: stop <code>make ui</code> (Ctrl+C) and start it again.</p>
   {/if}
   {#if app.mode === "detecting"}
     <p class="muted">Connecting…</p>
