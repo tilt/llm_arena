@@ -37,6 +37,13 @@
   });
 
   const providers = $derived(Object.entries(app.runtime?.providers ?? {}));
+  // Where model-written code runs (chart, CodeAct and coding-benchmark scenarios).
+  const SANDBOX: Record<string, { label: string; title: string; warn: boolean }> = {
+    container: { label: "sandbox: Docker", title: "Model-written code runs in Docker: no network, no host files, resource limits.", warn: false },
+    process: { label: "sandbox: local process", title: "Model-written code runs as a local process with your user's permissions and network access, not isolated. Start Docker and run make sandbox-image, then restart the app (or use --sandbox docker).", warn: true },
+    "browser worker": { label: "sandbox: browser worker", title: "Model-written code runs in a separate Pyodide worker in this tab.", warn: false },
+  };
+  const sandbox = $derived(SANDBOX[app.runtime?.sandbox_isolation ?? ""] ?? null);
   const nav = [
     { href: "#/", label: "Scenarios", match: "home" },
     { href: "#/build", label: "Build", match: "build" },
@@ -57,10 +64,12 @@
   </nav>
   <span class="status">
     {#if app.mode === "local"}
-      <span class="pill on">local app</span>
+      <span class="pill on" title="Connected to the arena server on this machine (arena ui): local models and keys from .env">local app</span>
+      {#if sandbox}<span class="pill" class:warn={sandbox.warn} title={sandbox.title}>{sandbox.warn ? "⚠ " : ""}{sandbox.label}</span>{/if}
       {#each providers as [name, state] (name)}<span class="pill" title={state}>{state === "available" ? "●" : "○"} {name}</span>{/each}
     {:else if app.mode === "browser"}
-      <span class="pill on">browser mode</span>
+      <span class="pill on" title="The arena engine runs in this browser tab: remote models only">browser mode</span>
+      {#if sandbox}<span class="pill" title={sandbox.title}>{sandbox.label}</span>{/if}
       {#each providers as [name, state] (name)}<span class="pill" title={state}>{state === "available" ? "●" : "○"} {name}</span>{/each}
     {/if}
   </span>
@@ -93,6 +102,7 @@
 </main>
 
 <style>
+  .pill.warn { color: var(--critical); border-color: var(--critical); }
   header { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--border);
     background: var(--surface-1); position: sticky; top: 0; z-index: 10; }
   .brand { font-weight: 700; color: var(--text-primary); text-decoration: none; font-size: 16px; }
