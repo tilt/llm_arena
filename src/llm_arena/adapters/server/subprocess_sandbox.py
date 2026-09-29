@@ -63,9 +63,12 @@ class SubprocessSandbox:
                 stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout_s)
                 timed_out = False
             except TimeoutError:
-                process.kill()
+                await self._terminate(process, root)
                 stdout, stderr = await process.communicate()
                 timed_out = True
+            except asyncio.CancelledError:  # e.g. the trial timed out around this step: never leave code running
+                await self._terminate(process, root)
+                raise
             result = ExecResult(
                 stdout=clip(stdout.decode("utf-8", "replace")),
                 stderr=clip(stderr.decode("utf-8", "replace")),
@@ -81,6 +84,10 @@ class SubprocessSandbox:
             }
             return result
 
+    async def _terminate(self, process: asyncio.subprocess.Process, workdir: Path) -> None:
+        if process.returncode is None:
+            process.kill()
+
     def _command(self, workdir: Path) -> list[str]:
         # -E: ignore PYTHON* env vars; -s: no user site-packages. Not -I, which would also drop the
         # script directory from sys.path and break `from api import *` for CodeAct environments.
@@ -89,7 +96,7 @@ class SubprocessSandbox:
     def _env(self, workdir: Path) -> dict[str, str]:
         return _clean_env(workdir)
 
-    def _limits(self, timeout_s: float) -> Callable[[], None]:
+    def _limits(self, timeout_s: float) -> Callable[[], None] | None:
         memory_bytes = self.memory_mb * 1024 * 1024
         cpu_seconds = int(timeout_s) + 1
 
@@ -146,11 +153,28 @@ class DockerSandbox(SubprocessSandbox):
         super().__init__(python="python", memory_mb=memory_mb)
         self.image = image
 
+    @staticmethod
+    def _name(workdir: Path) -> str:
+        return f"arena-{workdir.name}"  # the temp dir is unique per run, so is the container name
+
+    async def _terminate(self, process: asyncio.subprocess.Process, workdir: Path) -> None:
+        # Killing the `docker run` client does not stop the container: kill the container itself.
+        killer = await asyncio.create_subprocess_exec(
+            "docker", "kill", self._name(workdir), stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL
+        )
+        await killer.wait()
+        await super()._terminate(process, workdir)
+
+    def _limits(self, timeout_s: float) -> Callable[[], None] | None:
+        return None  # the container has its own CPU, memory and process limits; the docker client needs none
+
     def _command(self, workdir: Path) -> list[str]:
         return [
             "docker",
             "run",
             "--rm",
+            "--name",
+            self._name(workdir),
             "--network",
             "none",
             "--memory",
