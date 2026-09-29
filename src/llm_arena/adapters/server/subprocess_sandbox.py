@@ -187,6 +187,13 @@ class DockerSandbox(SubprocessSandbox):
             "ALL",
             "--security-opt",
             "no-new-privileges",
+            # Not root: files written to the mounted work dir belong to you (matters on Linux), and escaping the
+            # container would not yield root.
+            *(["--user", f"{os.getuid()}:{os.getgid()}"] if hasattr(os, "getuid") else []),
+            "-e",
+            "HOME=/tmp",
+            "-e",
+            "MPLCONFIGDIR=/tmp/matplotlib",
             "-e",
             "MPLBACKEND=Agg",
             "-v",

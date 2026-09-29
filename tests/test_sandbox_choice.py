@@ -38,3 +38,10 @@ def test_docker_containers_are_locked_down(tmp_path: Path) -> None:
         at = command.index(flag[0])
         assert command[at + 1] == flag[1]
     assert "llm-arena-sandbox:latest" in command
+
+
+def test_containers_run_as_the_calling_user(tmp_path: Path) -> None:
+    import os
+
+    command = DockerSandbox()._command(tmp_path)
+    assert command[command.index("--user") + 1] == f"{os.getuid()}:{os.getgid()}"

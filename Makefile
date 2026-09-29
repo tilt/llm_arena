@@ -1,10 +1,12 @@
 SHELL := /bin/sh
 PYTHON_VERSION ?= 3.12
 
-.PHONY: sandbox-image help install format validate lint typecheck test test-live smoke report models contracts ui web web-engine test-web clean
+.PHONY: setup doctor sandbox-image help install format validate lint typecheck test test-live smoke report models contracts ui web web-engine test-web clean
 
 help:
 	@printf "Targets:\n"
+	@printf "  make setup       check prerequisites and install everything (macOS, Linux)\n"
+	@printf "  make doctor      only check prerequisites and local model servers\n"
 	@printf "  make install     Sync the Python env with uv (all extras)\n"
 	@printf "  make format      ruff format + autofixable lint\n"
 	@printf "  make validate    ruff + format check + mypy + import-linter contracts (static only)\n"
@@ -17,6 +19,12 @@ help:
 	@printf "  make web         build the web UI (web/dist, served by arena ui)\n"
 	@printf "  make test-web    svelte-check + vitest for the web UI\n"
 	@printf "  make sandbox-image  build the Docker image that isolates model-written code\n"
+
+setup:
+	sh scripts/setup.sh
+
+doctor:
+	sh scripts/setup.sh --check
 
 install:
 	uv sync --all-extras --python $(PYTHON_VERSION)
