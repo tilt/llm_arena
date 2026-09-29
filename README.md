@@ -13,11 +13,32 @@ configurations.
 scenario × config (role → model bindings) × task × repeat  →  trace + scores  →  DuckDB  →  report.html
 ```
 
+## Requirements
+
+Runs on **macOS and Linux** (on Windows, use WSL2). Tested on macOS and on a fresh Ubuntu 24.04.
+
+| | Needed for | Install |
+|---|---|---|
+| `git`, `make` | everything | macOS: `xcode-select --install` · Linux: your package manager |
+| [uv](https://docs.astral.sh/uv/) | everything; it installs Python 3.12 for the project | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| Node.js ≥ 20 | building the web UI (the CLI works without it) | macOS: `brew install node` · Linux: [nodejs.org](https://nodejs.org) or your package manager |
+| Docker | isolating model-written code (recommended) | Docker Desktop · Linux: Docker Engine, and add yourself to the `docker` group |
+| Ollama, LM Studio, Ollaya | local models (optional) | [ollama.com](https://ollama.com), [lmstudio.ai](https://lmstudio.ai) |
+| API keys | remote models (optional) | `.env`: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `TYPESAFE_API_KEY` |
+
 ## Quick start
 
 ```bash
-make install                      # uv sync --all-extras (Python 3.12); the CLI needs the `server` extra
-cp .env.example .env              # OPENAI_API_KEY / ANTHROPIC_API_KEY for remote models; local servers need nothing
+git clone https://github.com/tilt/llm_arena.git && cd llm_arena
+make setup                        # checks the requirements, installs the project, creates .env,
+                                  # builds the web UI (with Node) and the sandbox image (with Docker)
+make doctor                       # later: re-check tools and which local model servers are reachable
+make ui                           # the app on http://127.0.0.1:8787
+```
+
+From the command line:
+
+```bash
 uv run arena models list          # discovered models (Ollama, LM Studio, OpenAI) with capabilities + prices
 uv run arena models ping ollama:qwen3:14b openai:gpt-4.1-mini   # chat / tools / structured-output smoke test
 uv run arena scenarios            # scenarios, their roles and parameters
