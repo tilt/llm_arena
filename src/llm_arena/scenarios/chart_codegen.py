@@ -19,6 +19,7 @@ from llm_arena.mocks.chart_data import (
     PRODUCTS,
     SITES,
     energy_csv,
+    expected_data,
     roastery_csv,
     weather_sales_csv,
 )
@@ -37,28 +38,41 @@ TASKS: list[dict[str, Any]] = [
         "id": "energy_lines",
         "prompt": "Using energy.csv, draw a line chart of monthly energy output (kWh) in 2025 with one "
         "line per site, a title, labelled axes and a legend.",
-        "data": {"file": "energy.csv", "expect": {"lines": 3, "legend": SITES}},
+        "data": {"file": "energy.csv", "expect": {"lines": 3, "legend": SITES, "data": "monthly_kwh_per_site"}},
     },
     {
         "id": "quarterly_grouped_bars",
         "prompt": "Using roastery.csv, draw a grouped bar chart of total revenue per quarter "
         "of 2025 for each coffee product (quarters on the x-axis, one bar colour per product) with a title, labelled axes "
         "and a legend.",
-        "data": {"file": "roastery.csv", "expect": {"bars": 16, "legend": PRODUCTS}},
+        "data": {
+            "file": "roastery.csv",
+            "expect": {"bars": 16, "legend": PRODUCTS, "data": "quarterly_revenue_per_product"},
+        },
     },
     {
         "id": "units_sorted_barh",
         "prompt": "Using roastery.csv, draw a horizontal bar chart of total units sold per "
         "product in 2025, sorted so the best seller is at the top. Add a title and axis labels.",
-        "data": {"file": "roastery.csv", "expect": {"bars": 4, "horizontal_sorted": True}},
+        "data": {"file": "roastery.csv", "expect": {"bars": 4, "horizontal_sorted": True, "data": "units_per_product"}},
     },
     {
         "id": "temp_scatter_trend",
         "prompt": "Using weather_sales.csv, draw a scatter plot of cold brew cups sold against "
         "the daily maximum temperature, add a straight linear trend line, a title and labelled axes.",
-        "data": {"file": "weather_sales.csv", "expect": {"scatter_points": 60, "min_lines": 1}},
+        "data": {
+            "file": "weather_sales.csv",
+            "expect": {"scatter_points": 60, "min_lines": 1, "data": "temperature_vs_cups"},
+        },
     },
 ]
+
+DATA_CHECKS = {  # what the data check verifies, per task (see mocks.chart_data.expected_data)
+    "monthly_kwh_per_site": "each site's line has its 12 monthly kWh values from energy.csv",
+    "quarterly_revenue_per_product": "the 16 bars are the quarterly revenue totals per product from roastery.csv",
+    "units_per_product": "the 4 bars are the total units per product from roastery.csv",
+    "temperature_vs_cups": "the 60 points are the rows of weather_sales.csv, temperature on x and cups on y",
+}
 
 CHART_RUBRIC = Rubric(
     name="chart_quality",
@@ -80,6 +94,7 @@ _RULES = (
 @register
 class ChartCodegen(Scenario):
     name = "chart_codegen"
+    version = "2"  # 2: plotted data is checked point by point; the critic separates data from presentation
     title = "Chart code with a vision critic"
     tokens_per_trial = 6000
     requires = frozenset({"sandbox"})
@@ -145,7 +160,9 @@ class ChartCodegen(Scenario):
                 [
                     system(
                         "You review charts. Check the chart answers the request, encodes the data correctly and is "
-                        "clearly labelled. Accept only if nothing needs to change."
+                        "clearly labelled. Judge what is plotted (series, points, values) separately from how it is "
+                        "presented (title, labels, ticks, legend), and name each problem concretely. Accept only if "
+                        "nothing needs to change."
                     ),
                     user(f"Request: {task.prompt}\n\nCode:\n```python\n{code}\n```\n{evidence}", images),
                 ],
@@ -182,15 +199,18 @@ class ChartCodegen(Scenario):
             environment="Synthetic CSV files and a Python sandbox; a prelude records the figure's structure (lines, "
             "bars, labels, legend) so the chart can be checked by code.",
             criteria={"chart_rendered": "the code ran and produced chart.png",
-                      "spec_compliance": "the figure matches the request: series count, labels, legend entries, "
+                      "spec_compliance": "the figure matches the request and plots every data point with its value "
+                      "from the CSV: series count, data, labels, legend entries, "
                       "sorted bars where asked"},
             measured=["how many renders failed", "whether the critic's image review led to a better chart"],
             compare=["critic_sees_image: true vs false (what does vision add?)", "reflection_rounds: 0 vs 1"],
         )  # fmt: skip
 
     def describe(self, task: Task) -> TaskView:
+        expect = {k: v for k, v in task.data["expect"].items() if k != "data"}
         return TaskView(id=task.id, prompt=task.prompt, tags=task.tags, expected=[
-            text("Data file", task.data["file"]), as_json("The figure must have", task.data["expect"]),
+            text("Data file", task.data["file"]), as_json("The figure must have", expect),
+            text("Every data point", DATA_CHECKS[task.data["expect"]["data"]]),
         ])  # fmt: skip
 
     def workflow(self) -> Workflow:
@@ -244,6 +264,37 @@ def check_spec(spec: dict[str, Any] | None, expect: dict[str, Any]) -> list[str]
             failures.append(f"legend lacks {missing}")
     if expect.get("horizontal_sorted") and not _sorted_top_down(axis):
         failures.append("bars not horizontal or not sorted with the largest at the top")
+    if check := expect.get("data"):
+        failures += check_data(axis, expected_data(check))
+    return failures
+
+
+def _same_values(got: list[float], want: list[float]) -> bool:
+    """Equal as multisets within rounding (plot order does not matter; units and aggregation do)."""
+    return len(got) == len(want) and all(
+        abs(g - w) <= max(0.5, 0.005 * abs(w)) for g, w in zip(sorted(got), sorted(want), strict=True)
+    )
+
+
+def check_data(axis: dict[str, Any], want: dict[str, Any]) -> list[str]:
+    """Every data point present with the right value, per series (lines), per bar, or per scatter point."""
+    failures = []
+    for series, values in want.get("line_values", {}).items():
+        lines = axis.get("line_data", [])
+        named = [line for line in lines if line["label"] == series]
+        if not any(_same_values(line["y"], values) for line in named or lines):
+            found = max((len(line["y"]) for line in named), default=None)
+            detail = f"{found} points" if found is not None else "no line labelled so"
+            failures.append(f"{series}: expected its {len(values)} data points from the CSV ({detail} or other values)")
+    if "bar_values" in want and not _same_values(axis.get("bar_values", []), want["bar_values"]):
+        failures.append(f"bar values do not match the {len(want['bar_values'])} totals computed from the CSV")
+    if "scatter_points" in want:
+        got = sorted((round(x, 1), round(y)) for x, y in axis.get("scatter_offsets", []))
+        expected = sorted((round(x, 1), round(y)) for x, y in want["scatter_points"])
+        if got != expected:
+            failures.append(
+                f"scatter points do not match the {len(expected)} rows of the CSV (temperature on x, cups on y)"
+            )
     return failures
 
 

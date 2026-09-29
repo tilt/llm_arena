@@ -56,6 +56,33 @@ def weather_sales_csv(seed: int = 11) -> str:
     return _to_csv(rows)
 
 
+def _rows(text: str) -> list[dict[str, str]]:
+    return list(csv.DictReader(io.StringIO(text)))
+
+
+def expected_data(check: str) -> dict[str, object]:
+    """The values a correct chart plots, computed from the same seeded CSV the model reads."""
+    if check == "monthly_kwh_per_site":
+        rows = sorted(_rows(energy_csv()), key=lambda r: r["month"])
+        return {"line_values": {site: [float(r["kwh"]) for r in rows if r["site"] == site] for site in SITES}}
+    if check == "quarterly_revenue_per_product":
+        totals: dict[tuple[int, str], float] = {}
+        for r in _rows(roastery_csv()):
+            quarter = (int(r["week_start"][5:7]) - 1) // 3 + 1
+            totals[(quarter, r["product"])] = totals.get((quarter, r["product"]), 0.0) + float(r["revenue_eur"])
+        return {"bar_values": list(totals.values())}
+    if check == "units_per_product":
+        units: dict[str, float] = {}
+        for r in _rows(roastery_csv()):
+            units[r["product"]] = units.get(r["product"], 0.0) + float(r["units"])
+        return {"bar_values": list(units.values())}
+    if check == "temperature_vs_cups":
+        return {
+            "scatter_points": [[float(r["max_temp_c"]), float(r["cold_brew_cups"])] for r in _rows(weather_sales_csv())]
+        }
+    raise KeyError(f"unknown data check {check!r}")
+
+
 def _to_csv(rows: list[list[str]]) -> str:
     buffer = io.StringIO()
     csv.writer(buffer, lineterminator="\n").writerows(rows)
@@ -75,6 +102,8 @@ def _describe(fig):
     for ax in fig.get_axes():
         bars = [c for c in ax.containers if type(c).__name__ == "BarContainer"]
         legend = ax.get_legend()
+        series = [line for line in ax.get_lines() if len(line.get_xdata()) > 1]
+        scatter = [c for c in ax.collections if type(c).__name__ == "PathCollection"]
         axes.append({
             "title": ax.get_title(),
             "xlabel": ax.get_xlabel(),
@@ -85,6 +114,11 @@ def _describe(fig):
             "bar_orientation": [getattr(c, "orientation", None) for c in bars],
             "scatter_points": sum(len(c.get_offsets()) for c in ax.collections if type(c).__name__ == "PathCollection"),
             "legend": [t.get_text() for t in legend.get_texts()] if legend else [],
+            # The plotted data itself, so graders can check that every data point is there with the right value.
+            "line_data": [{"label": line.get_label(), "y": [float(v) for v in line.get_ydata()]} for line in series],
+            "bar_values": [p.get_width() if getattr(c, "orientation", "vertical") == "horizontal" else p.get_height()
+                           for c in bars for p in c.patches],
+            "scatter_offsets": [[float(x), float(y)] for c in scatter for x, y in c.get_offsets()][:5000],
             "y_inverted": ax.yaxis_inverted(),
         })
     figure_legends = [t.get_text() for lg in fig.legends for t in lg.get_texts()]

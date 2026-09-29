@@ -10,6 +10,8 @@ def _describe(fig):
     for ax in fig.get_axes():
         bars = [c for c in ax.containers if type(c).__name__ == "BarContainer"]
         legend = ax.get_legend()
+        series = [line for line in ax.get_lines() if len(line.get_xdata()) > 1]
+        scatter = [c for c in ax.collections if type(c).__name__ == "PathCollection"]
         axes.append({
             "title": ax.get_title(),
             "xlabel": ax.get_xlabel(),
@@ -20,6 +22,11 @@ def _describe(fig):
             "bar_orientation": [getattr(c, "orientation", None) for c in bars],
             "scatter_points": sum(len(c.get_offsets()) for c in ax.collections if type(c).__name__ == "PathCollection"),
             "legend": [t.get_text() for t in legend.get_texts()] if legend else [],
+            # The plotted data itself, so graders can check that every data point is there with the right value.
+            "line_data": [{"label": line.get_label(), "y": [float(v) for v in line.get_ydata()]} for line in series],
+            "bar_values": [p.get_width() if getattr(c, "orientation", "vertical") == "horizontal" else p.get_height()
+                           for c in bars for p in c.patches],
+            "scatter_offsets": [[float(x), float(y)] for c in scatter for x, y in c.get_offsets()][:5000],
             "y_inverted": ax.yaxis_inverted(),
         })
     figure_legends = [t.get_text() for lg in fig.legends for t in lg.get_texts()]

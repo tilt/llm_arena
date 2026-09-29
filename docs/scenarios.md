@@ -28,7 +28,11 @@ config with `params` or `scenario_params`.
 - **Pipeline:** matplotlib code runs in the sandbox. A prelude patches `Figure.savefig` to dump the figure structure as
   JSON (lines, bars with geometry, scatter points, labels, legend).
 - **Critic:** needs `vision` and sees the PNG. Set `critic_sees_image: false` for a code-only ablation.
-- **E2E:** `chart_rendered` and `spec_compliance`: series count, labels, legend entries, and sorted horizontal bars.
+- **E2E:** `chart_rendered` and `spec_compliance`: series count, labels, legend entries, sorted horizontal bars, and
+  the plotted data itself. The harness records every line's values, bar values and scatter points, and they must match
+  the values computed from the CSV (every data point present, right units and aggregation; order does not matter).
+- **Critic scoring:** `critic_verdict_correct`, `critic_tp/fp/fn` (reviewer precision and recall) and `regressed`
+  (a correct draft broken by a revision). The verdict is judged against the spec check, not the critic's wording.
 - **Optional judge:** a VLM judge scores the image when the judge model has vision.
 
 ## email_assistant: multi-step tool use

@@ -248,3 +248,42 @@ async def test_chart_regression_by_a_wrong_critique_is_explained() -> None:
     assert "a revision broke it" in scores["chart_rendered"].rationale
     assert scores["regressed"].value == 1.0 and scores["critic_fp"].value == 1.0
     assert scores["critic_verdict_correct"].passed is False
+
+
+REFERENCE_CHARTS = {  # a correct solution per chart task: the data check must accept them
+    "energy_lines": "import pandas as pd, matplotlib.pyplot as plt\ndf = pd.read_csv('energy.csv')\nfig, ax = plt.subplots()\n"
+    "for site, g in df.groupby('site'):\n    ax.plot(pd.to_datetime(g['month']), g['kwh'], label=site)\n"
+    "ax.set_title('Monthly output'); ax.set_xlabel('Month'); ax.set_ylabel('kWh'); ax.legend()\nplt.savefig('chart.png')",
+    "quarterly_grouped_bars": "import pandas as pd, numpy as np, matplotlib.pyplot as plt\ndf = pd.read_csv('roastery.csv')\n"
+    "df['q'] = 'Q' + ((pd.to_datetime(df['week_start']).dt.month - 1) // 3 + 1).astype(str)\n"
+    "t = df.pivot_table(index='q', columns='product', values='revenue_eur', aggfunc='sum')\n"
+    "fig, ax = plt.subplots(); x = np.arange(len(t.index))\n"
+    "for i, p in enumerate(t.columns):\n    ax.bar(x + i * 0.2, t[p], width=0.2, label=p)\n"
+    "ax.set_xticks(x + 0.3, t.index); ax.set_title('Revenue'); ax.set_xlabel('Quarter'); ax.set_ylabel('EUR'); ax.legend()\n"
+    "plt.savefig('chart.png')",
+    "units_sorted_barh": "import pandas as pd, matplotlib.pyplot as plt\ndf = pd.read_csv('roastery.csv')\n"
+    "u = df.groupby('product')['units'].sum().sort_values()\nfig, ax = plt.subplots(); ax.barh(u.index, u.values)\n"
+    "ax.set_title('Units'); ax.set_xlabel('Units'); ax.set_ylabel('Product'); plt.savefig('chart.png')",
+    "temp_scatter_trend": "import pandas as pd, numpy as np, matplotlib.pyplot as plt\ndf = pd.read_csv('weather_sales.csv')\n"
+    "fig, ax = plt.subplots(); ax.scatter(df['max_temp_c'], df['cold_brew_cups'])\n"
+    "m, b = np.polyfit(df['max_temp_c'], df['cold_brew_cups'], 1); xs = np.linspace(12, 34, 2); ax.plot(xs, m * xs + b)\n"
+    "ax.set_title('Cold brew'); ax.set_xlabel('Max temp (C)'); ax.set_ylabel('Cups'); plt.savefig('chart.png')",
+}
+
+
+async def test_data_check_accepts_correct_charts_and_catches_wrong_data() -> None:
+    for task_id, code in REFERENCE_CHARTS.items():
+        generator, critic = ScriptedLLM([f"```python\n{code}\n```"]), ScriptedLLM(['{"verdict": "accept"}'])
+        _, scores = await _run("chart_codegen", task_id, {"generator": generator, "critic": critic})
+        assert scores["spec_compliance"].passed, (task_id, scores["spec_compliance"].rationale)
+    # Dropping December for one site, or plotting MWh instead of kWh, is caught with the series named.
+    for change in ("g = g[g['month'] != '2025-12']\n    ", "g = g.assign(kwh=g['kwh'] / 1000)\n    "):
+        code = REFERENCE_CHARTS["energy_lines"].replace(
+            "for site, g in df.groupby('site'):\n    ", f"for site, g in df.groupby('site'):\n    {change}"
+        )
+        generator, critic = ScriptedLLM([f"```python\n{code}\n```"]), ScriptedLLM(['{"verdict": "accept"}'])
+        _, scores = await _run("chart_codegen", "energy_lines", {"generator": generator, "critic": critic})
+        assert (
+            not scores["spec_compliance"].passed
+            and "Harbor Array: expected its 12 data points" in scores["spec_compliance"].rationale
+        )

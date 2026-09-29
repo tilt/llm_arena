@@ -6,7 +6,7 @@
     ],
     "criteria": {
       "chart_rendered": "the code ran and produced chart.png",
-      "spec_compliance": "the figure matches the request: series count, labels, legend entries, sorted bars where asked"
+      "spec_compliance": "the figure matches the request and plots every data point with its value from the CSV: series count, data, labels, legend entries, sorted bars where asked"
     },
     "environment": "Synthetic CSV files and a Python sandbox; a prelude records the figure's structure (lines, bars, labels, legend) so the chart can be checked by code.",
     "measured": [
@@ -72,7 +72,7 @@
   "supports_decisions": false,
   "tasks": 4,
   "title": "Chart code with a vision critic",
-  "version": "1",
+  "version": "2",
   "wiki": [
     {
       "title": "Code as an action",
