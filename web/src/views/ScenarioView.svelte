@@ -200,7 +200,7 @@
   .small { font-size: 12px; }
   [role="tabpanel"]:focus { outline: none; }
   .overview { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(300px, 1fr); gap: 20px; align-items: start; }
-  @media (max-width: 900px) { .overview { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) { .overview { grid-template-columns: minmax(0, 1fr); } }
   .facts { display: grid; gap: 14px; }
   .facts h3 { margin: 0 0 4px; font-size: 14px; }
   .facts p, .facts ul { margin: 0; }

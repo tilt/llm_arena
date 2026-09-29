@@ -185,11 +185,12 @@
 
 <style>
   .setup { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.3fr); gap: 16px; align-items: start; }
-  @media (max-width: 900px) { .setup { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) { .setup { grid-template-columns: minmax(0, 1fr); } }
   fieldset { min-width: 0; border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin: 0 0 12px; display: grid; gap: 8px; }
   legend { font-weight: 600; font-size: 13px; padding: 0 4px; }
   .param { display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 13px; }
   .param input[type="number"] { width: 90px; }
+  .param select { flex: 0 1 auto; min-width: 0; max-width: 62%; }
   .role { display: grid; gap: 4px; padding: 6px; border-radius: 8px; font-size: 13px; }
   .role span { display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
   .role.lit { background: var(--surface-2); }

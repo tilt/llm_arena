@@ -37,7 +37,7 @@
     {#each placed.edges as e, i (i)}
       <path d={e.path} class="edge" class:loop={e.edge.loop} marker-end="url(#arrow)" />
       {#if e.edge.label}
-        <text x={e.labelX} y={e.labelY} class="edge-label" text-anchor={e.edge.loop ? "start" : "middle"} dy="-3">{e.edge.label}</text>
+        <text x={e.labelX} y={e.labelY} class="edge-label" text-anchor={e.anchor} dy="-3">{e.edge.label}</text>
       {/if}
     {/each}
     {#each placed.steps as p (p.step.id)}

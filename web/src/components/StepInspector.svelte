@@ -150,14 +150,15 @@
     display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35); }
   .inspector:focus { outline: none; }
   header { display: flex; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--border); background: var(--surface-1); }
-  h2 { margin: 0; font-size: 18px; }
+  header > div { min-width: 0; }
+  h2 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
   h2:focus { outline: none; }
   .meta { margin: 2px 0 0; font-size: 13px; }
   .close { align-self: start; white-space: nowrap; }
   kbd { font-size: 11px; border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; margin-left: 4px; color: var(--text-muted); }
   .scores { padding: 6px 18px; border-bottom: 1px solid var(--border); font-size: 13px; }
   .scores summary { cursor: pointer; }
-  .body { flex: 1; display: grid; grid-template-columns: minmax(300px, 0.9fr) minmax(360px, 1.4fr); min-height: 0; }
+  .body { flex: 1; display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr); min-height: 0; }
   .map { overflow: auto; padding: 14px; border-right: 1px solid var(--border); }
   .detail { overflow: auto; padding: 14px 18px; display: grid; gap: 12px; align-content: start; }
   h3 { margin: 0; font-size: 16px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
@@ -170,8 +171,9 @@
   @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
   @media (max-width: 860px) {
     .inspector { inset: 0; border-radius: 0; }
-    .body { grid-template-columns: 1fr; overflow: auto; }
-    .map { border-right: none; border-bottom: 1px solid var(--border); overflow: visible; }
+    .body { grid-template-columns: minmax(0, 1fr); overflow: auto; }
+    header { flex-wrap: wrap; }
+    .map { border-right: none; border-bottom: 1px solid var(--border); overflow-x: auto; overflow-y: visible; }
     .detail { overflow: visible; }
   }
 </style>

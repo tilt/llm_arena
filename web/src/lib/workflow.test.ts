@@ -35,4 +35,14 @@ describe("workflows from the contracts", () => {
       expect(spots.size, m.id).toBe(placed.length);
     }
   });
+
+  it("routes edges around steps they would otherwise cross", () => {
+    const sql = manifests.find((m) => m.id === "reflection_sql")!;
+    const placed = layout(resolve(sql.workflow!, { reflection_rounds: 1, feedback: "execution" }));
+    const revise = placed.steps.find((p) => p.step.id === "revise")!;
+    const skip = placed.edges.find((e) => e.edge.source === "critique" && e.edge.target === "end")!;
+    const xs = [...skip.path.matchAll(/(-?[\d.]+),/g)].map((m) => Number(m[1]));
+    expect(Math.min(...xs)).toBeLessThan(revise.x); // bows left of "Revise" instead of running through it
+    expect(Math.min(...placed.steps.map((p) => p.x))).toBeGreaterThanOrEqual(0);
+  });
 });

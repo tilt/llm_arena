@@ -27,7 +27,7 @@ export function resolve(workflow: Workflow, params: Record<string, unknown>): Wo
 export const stepRoles = (step: WorkflowStep): string[] => [...(step.role ? [step.role] : []), ...(step.also ?? [])];
 
 export interface PlacedStep { step: WorkflowStep; x: number; y: number; rank: number }
-export interface PlacedEdge { edge: WorkflowEdge; path: string; labelX: number; labelY: number }
+export interface PlacedEdge { edge: WorkflowEdge; path: string; labelX: number; labelY: number; anchor: "start" | "middle" | "end" }
 export interface Layout { steps: PlacedStep[]; edges: PlacedEdge[]; width: number; height: number }
 
 export const NODE_W = 190;
@@ -35,6 +35,7 @@ export const NODE_H = 58;
 const GAP_X = 36;
 const GAP_Y = 54;
 const LOOP_LANE = 150; // room on the right for return arcs and their labels
+const SIDE_LANE = 170; // room on the left for edges that bow around a step (and their labels), when needed
 
 /** Rank = longest path from the start over forward edges; each rank is one row, loops arc on the right. */
 export function layout(flow: Workflow): Layout {
@@ -65,10 +66,20 @@ export function layout(flow: Workflow): Layout {
   });
   const minX = Math.min(...centre.values()) - NODE_W / 2;
   const maxX = Math.max(...centre.values()) + NODE_W / 2;
-  const width = maxX - minX + LOOP_LANE;
+  const rankOf = new Map(rows.flatMap((row, r) => row.map((step) => [step.id, r] as const)));
+  const left = (id: string) => centre.get(id)! - NODE_W / 2 - minX; // before the side lane is known
+  // A forward edge that skips rows bows around the steps in its way (on the left, where its label fits too).
+  const blocked = (edge: WorkflowEdge) => {
+    const a = rankOf.get(edge.source)!, b = rankOf.get(edge.target)!;
+    const mid = (centre.get(edge.source)! + centre.get(edge.target)!) / 2;
+    return !edge.loop && b - a > 1 && flow.steps.some((s) =>
+      rankOf.get(s.id)! > a && rankOf.get(s.id)! < b && Math.abs(centre.get(s.id)! - mid) < NODE_W / 2 + 8);
+  };
+  const sideLane = flow.edges.some(blocked) ? SIDE_LANE : 0;
+  const width = sideLane + maxX - minX + LOOP_LANE;
   const placed = new Map<string, PlacedStep>();
   rows.forEach((row, r) =>
-    row.forEach((step) => placed.set(step.id, { step, rank: r, x: centre.get(step.id)! - NODE_W / 2 - minX, y: r * (NODE_H + GAP_Y) })));
+    row.forEach((step) => placed.set(step.id, { step, rank: r, x: sideLane + left(step.id), y: r * (NODE_H + GAP_Y) })));
   const height = rows.length * (NODE_H + GAP_Y) - GAP_Y;
   let loops = 0;
   const edges = flow.edges.map((edge): PlacedEdge => {
@@ -78,11 +89,17 @@ export function layout(flow: Workflow): Layout {
       // Return arc: leave on the right, run up the loop lane, re-enter on the right.
       const lane = width - LOOP_LANE + 16 + (loops++ % 4) * 14;
       const x1 = a.x + NODE_W, y1 = a.y + NODE_H / 2 + 6, x2 = b.x + NODE_W, y2 = b.y + NODE_H / 2 - 6;
-      return { edge, path: `M${x1},${y1} C${lane},${y1} ${lane},${y2} ${x2},${y2}`, labelX: lane + 2, labelY: (y1 + y2) / 2 };
+      return { edge, path: `M${x1},${y1} C${lane},${y1} ${lane},${y2} ${x2},${y2}`, labelX: lane + 2, labelY: (y1 + y2) / 2, anchor: "start" };
+    }
+    if (blocked(edge)) {
+      // Leave from the step's left side, run down the side lane, enter the target from above.
+      const lane = Math.min(a.x, b.x) - 28; // close to the column; the label runs left of the curve
+      const x1 = a.x, y1 = a.y + NODE_H / 2, x2 = b.x + NODE_W / 2, y2 = b.y;
+      return { edge, path: `M${x1},${y1} C${lane},${y1} ${lane},${y2 - 24} ${x2},${y2}`, labelX: lane - 4, labelY: (y1 + y2) / 2, anchor: "end" };
     }
     const x1 = a.x + NODE_W / 2, y1 = a.y + NODE_H, x2 = b.x + NODE_W / 2, y2 = b.y;
     const bend = (y2 - y1) / 2;
-    return { edge, path: `M${x1},${y1} C${x1},${y1 + bend} ${x2},${y2 - bend} ${x2},${y2}`, labelX: (x1 + x2) / 2, labelY: (y1 + y2) / 2 };
+    return { edge, path: `M${x1},${y1} C${x1},${y1 + bend} ${x2},${y2 - bend} ${x2},${y2}`, labelX: (x1 + x2) / 2, labelY: (y1 + y2) / 2, anchor: "middle" };
   });
   return { steps: [...placed.values()], edges, width, height };
 }

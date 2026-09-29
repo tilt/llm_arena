@@ -48,7 +48,7 @@ p.lead { color: var(--text-secondary); margin: 0 0 16px; max-width: 75ch; }
 .pill { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--surface-2);
   color: var(--text-secondary); margin: 0 4px 4px 0; white-space: nowrap; }
 .pill.on { background: var(--accent); color: var(--accent-ink); }
-.table-wrap { overflow-x: auto; }
+.table-wrap { overflow-x: auto; position: relative; } /* also contains visually hidden (absolute) labels */
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
 th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--grid); vertical-align: top; }
 th { color: var(--text-secondary); font-weight: 600; white-space: nowrap; }
