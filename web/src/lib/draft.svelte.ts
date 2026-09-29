@@ -1,9 +1,9 @@
 // The experiment being built, shared between the Build view and scenario pages ("Add to experiment").
-import { activeBaseline } from "./baselines";
+import { activePreset } from "./presets";
 import { emptyConfig, type BuilderState, type ConfigDraft } from "./builder";
 
 export const draft = $state<BuilderState>({
-  name: "my-experiment", scenarios: [], configs: [{ ...emptyConfig(0), baseline: activeBaseline() }], repeats: 1, limit: 3, judge: "", arena: false,
+  name: "my-experiment", scenarios: [], configs: [{ ...emptyConfig(0), preset: activePreset() }], repeats: 1, limit: 3, judge: "", arena: false,
   maxCostUsd: 1, split: "all",
 });
 

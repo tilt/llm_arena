@@ -31,7 +31,6 @@ from llm_arena.llm.client import LLMClient
 from llm_arena.llm.registry import resolve_base_url, resolve_concurrency, resolve_model
 from llm_arena.llm.spec import ModelSpec
 from llm_arena.patterns.roles import RoleModels, TracedLLM
-from llm_arena.runner.baselines import DEFAULT_BASELINES, BaselineProfile
 from llm_arena.runner.budget import BudgetExceededError, BudgetGuard
 from llm_arena.runner.config import ExperimentConfig, PipelineConfig
 from llm_arena.runner.events import (
@@ -45,6 +44,7 @@ from llm_arena.runner.events import (
 )
 from llm_arena.runner.fingerprint import fingerprint, resume_key, setup_of, task_fingerprint
 from llm_arena.runner.ports import RunStore, Runtime, TrialRecord
+from llm_arena.runner.presets import DEFAULT_PRESETS, ModelPreset
 from llm_arena.runner.study import expand as expand_study
 from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario, get_scenario
 
@@ -95,7 +95,7 @@ class ExperimentRunner:
         model_specs: dict[str, ModelSpec] | None = None,
         catalog: Catalog | None = None,
         sink: EventSink = ignore,
-        baselines: dict[str, BaselineProfile] | None = None,
+        presets: dict[str, ModelPreset] | None = None,
     ) -> None:
         self.experiment = experiment
         self.runtime = runtime
@@ -105,7 +105,7 @@ class ExperimentRunner:
         self.model_specs = model_specs or {}
         self.catalog = catalog
         self.sink = sink
-        self.baselines = {**(baselines or DEFAULT_BASELINES), **experiment.baselines}
+        self.presets = {**(presets or DEFAULT_PRESETS), **experiment.presets}
         self.budget = BudgetGuard(experiment.max_cost_usd)
         self._clients: dict[str, LLMClient] = {}
         self._cancelled = False
@@ -122,11 +122,11 @@ class ExperimentRunner:
     def unresolved_refs(self) -> set[str]:
         """References that are not curated aliases, i.e. need discovery to get real capabilities."""
         refs = {ref for config in self.experiment.configs for ref in config.roles.values()}
-        refs |= {ref for c in self.experiment.configs if c.baseline for ref in self._profile(c).models.values()}
+        refs |= {ref for c in self.experiment.configs if c.preset for ref in self._preset(c).models.values()}
         if study := self.experiment.study:
             services = tuple(f"{s}:" for s in ("ollaya", "jev"))
             refs |= {c for c in study.candidates if not c.startswith(services)}
-            refs |= set(self.baselines[study.baseline].models.values()) if study.baseline in self.baselines else set()
+            refs |= set(self.presets[study.baseline].models.values()) if study.baseline in self.presets else set()
         refs |= {ref for c in self.experiment.configs for roles in c.scenario_roles.values() for ref in roles.values()}
         refs |= {ref for ref in (self.experiment.judge, self.experiment.arena.judge) if ref}
         return {ref for ref in refs if ref not in self.model_specs}
@@ -175,9 +175,9 @@ class ExperimentRunner:
         for role, ref in roles.items():
             if role in role_names:
                 bindings[role] = self._spec(ref)
-        if config.baseline:
-            # Precedence: per-scenario binding > config role > baseline model for the role's kind > "*".
-            profile = self._profile(config)
+        if config.preset:
+            # Precedence: per-scenario binding > config role > the preset's model for the role's kind > "*".
+            profile = self._preset(config)
             for requirement in scenario.roles:
                 if requirement.name not in bindings:
                     bindings[requirement.name] = self._spec(profile.model_for(requirement.kind))
@@ -194,22 +194,22 @@ class ExperimentRunner:
         study = self.experiment.study
         if study is None or any(c.study for c in self.experiment.configs):
             return
-        if study.baseline not in self.baselines:
-            raise ConfigError(f"study: unknown baseline {study.baseline!r}; known: {sorted(self.baselines)}")
+        if study.baseline not in self.presets:
+            raise ConfigError(f"study: unknown baseline preset {study.baseline!r}; known: {sorted(self.presets)}")
 
         def can_do(candidate: str, role: RoleRequirement) -> bool:
             capabilities = self._spec(candidate).capabilities
             return all(getattr(capabilities, need) for need in role.needs)
 
         scenarios = [get_scenario(name) for name in self.experiment.scenarios]
-        generated = expand_study(study, scenarios, self.baselines[study.baseline], can_do)
+        generated = expand_study(study, scenarios, self.presets[study.baseline], can_do)
         configs = [*self.experiment.configs, *(PipelineConfig.model_validate(c) for c in generated)]
         self.experiment = self.experiment.model_copy(update={"configs": configs})
 
-    def _profile(self, config: PipelineConfig) -> BaselineProfile:
-        if config.baseline not in self.baselines:
-            raise ConfigError(f"{config.name}: unknown baseline {config.baseline!r}; known: {sorted(self.baselines)}")
-        return self.baselines[config.baseline]
+    def _preset(self, config: PipelineConfig) -> ModelPreset:
+        if config.preset not in self.presets:
+            raise ConfigError(f"{config.name}: unknown preset {config.preset!r}; known: {sorted(self.presets)}")
+        return self.presets[config.preset]
 
     def _spec(self, ref: str) -> ModelSpec:
         try:

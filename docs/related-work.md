@@ -21,7 +21,7 @@ with local models, on deterministic tasks whose ground truth is known for every 
 - **A model per step, not per run.** Every pipeline step is bound to a role, and every role can run a different
   model. For example: a small local drafter with a remote critic, a planner separate from its executor, or a
   dedicated decision model gating actions.
-  - *Replacement studies* swap exactly one step's model against a baseline profile. They report the effect with a
+  - *Replacement studies* swap exactly one step's model against a baseline preset. They report the effect with a
     paired test on shared tasks.
   - The leaderboard pools runs by a fingerprint of the complete setup, so combinations stay separate even under
     reused config names.

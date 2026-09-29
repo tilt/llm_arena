@@ -28,55 +28,6 @@
       "title": "ArenaConfig",
       "type": "object"
     },
-    "BaselineProfile": {
-      "properties": {
-        "decision_service": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "'ollaya:<model>' or 'jev:<model>': the dedicated decision model, if any",
-          "title": "Decision Service"
-        },
-        "description": {
-          "default": "",
-          "title": "Description",
-          "type": "string"
-        },
-        "label": {
-          "title": "Label",
-          "type": "string"
-        },
-        "models": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "description": "step kind -> model reference",
-          "propertyNames": {
-            "enum": [
-              "text",
-              "vision",
-              "code",
-              "agent",
-              "decision"
-            ]
-          },
-          "title": "Models",
-          "type": "object"
-        }
-      },
-      "required": [
-        "label",
-        "models"
-      ],
-      "title": "BaselineProfile",
-      "type": "object"
-    },
     "DecisionConfig": {
       "description": "Control policy of a pipeline config. Without it the agent decides everything inside its own loop.",
       "properties": {
@@ -175,10 +126,9 @@
       "title": "DecisionConfig",
       "type": "object"
     },
-    "PipelineConfig": {
-      "description": "One contestant: a name, a role → model binding, and pattern parameters.",
+    "ModelPreset": {
       "properties": {
-        "baseline": {
+        "decision_service": {
           "anyOf": [
             {
               "type": "string"
@@ -188,9 +138,46 @@
             }
           ],
           "default": null,
-          "description": "baseline profile: roles not bound explicitly run on its model for their kind",
-          "title": "Baseline"
+          "description": "'ollaya:<model>' or 'jev:<model>': the dedicated decision model, if any",
+          "title": "Decision Service"
         },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "models": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "step kind -> model reference",
+          "propertyNames": {
+            "enum": [
+              "text",
+              "vision",
+              "code",
+              "agent",
+              "decision"
+            ]
+          },
+          "title": "Models",
+          "type": "object"
+        }
+      },
+      "required": [
+        "label",
+        "models"
+      ],
+      "title": "ModelPreset",
+      "type": "object"
+    },
+    "PipelineConfig": {
+      "description": "One contestant: a name, a role → model binding, and pattern parameters.",
+      "properties": {
         "decisions": {
           "anyOf": [
             {
@@ -212,6 +199,19 @@
           "description": "pattern params, applied to every scenario that knows the key",
           "title": "Params",
           "type": "object"
+        },
+        "preset": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "model preset: roles not bound explicitly run on its model for their kind",
+          "title": "Preset"
         },
         "roles": {
           "additionalProperties": {
@@ -279,7 +279,7 @@
     "StudyConfig": {
       "properties": {
         "baseline": {
-          "description": "baseline profile every configuration starts from",
+          "description": "the preset every configuration starts from (the baseline)",
           "title": "Baseline",
           "type": "string"
         },
@@ -374,14 +374,6 @@
     "arena": {
       "$ref": "#/$defs/ArenaConfig"
     },
-    "baselines": {
-      "additionalProperties": {
-        "$ref": "#/$defs/BaselineProfile"
-      },
-      "description": "profiles defined in the experiment itself (override the runtime's)",
-      "title": "Baselines",
-      "type": "object"
-    },
     "configs": {
       "items": {
         "$ref": "#/$defs/PipelineConfig"
@@ -440,6 +432,14 @@
     "name": {
       "title": "Name",
       "type": "string"
+    },
+    "presets": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ModelPreset"
+      },
+      "description": "presets defined in the experiment itself (override the runtime's)",
+      "title": "Presets",
+      "type": "object"
     },
     "repeats": {
       "default": 1,

@@ -1,4 +1,4 @@
-# Replacement study: what is a better critic worth? Everything runs on the Local small baseline, and
+# Replacement study: what is a better critic worth? Everything runs on the Local small preset (the baseline), and
 # one configuration per candidate swaps only the critic. The report shows the effect per scenario
 # ("Effect of replacing a step"). Candidates that lack a step's needs (e.g. vision) skip that step.
 name: critic-study

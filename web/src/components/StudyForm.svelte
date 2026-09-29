@@ -1,6 +1,6 @@
 <script lang="ts">
   import { app } from "../lib/app.svelte";
-  import { describeRef, modelFor } from "../lib/baselines";
+  import { describeRef, modelFor } from "../lib/presets";
   import { studyConfigs, type StudyDraft } from "../lib/builder";
   import type { ScenarioManifest } from "../lib/contracts";
   import ModelRefInput from "./ModelRefInput.svelte";
@@ -10,7 +10,7 @@
   let { study = $bindable(), manifests }: { study: StudyDraft; manifests: ScenarioManifest[] } = $props();
 
   const catalog = $derived(app.models?.models ?? []);
-  const profile = $derived(app.baselines[study.baseline]);
+  const profile = $derived(app.presets[study.baseline]);
   const controlled = $derived(manifests.some((m) => m.supports_decisions));
   const services = $derived([
     ...(app.runtime?.decision_services?.ollaya?.models ?? []).map((m) => ({ ref: `ollaya:${m}`, label: `winnow and co. via Ollaya: ${m}` })),
@@ -46,11 +46,11 @@
 <div class="study">
   <section class="card">
     <h3>1 · Baseline</h3>
-    <p class="muted">Every configuration starts from this profile; only one step changes at a time.</p>
-    <select bind:value={study.baseline} aria-label="Baseline profile">
-      {#each Object.entries(app.baselines) as [name, p] (name)}<option value={name}>{p.label}</option>{/each}
+    <p class="muted">Every configuration starts from this preset; only one step changes at a time.</p>
+    <select bind:value={study.baseline} aria-label="Baseline preset">
+      {#each Object.entries(app.presets) as [name, p] (name)}<option value={name}>{p.label}</option>{/each}
     </select>
-    {#if profile}<p class="muted small">{profile.description} <a href="#/settings">Edit baselines</a></p>{/if}
+    {#if profile}<p class="muted small">{profile.description} <a href="#/presets">Edit presets</a></p>{/if}
   </section>
 
   <section class="card">

@@ -23,9 +23,9 @@ from llm_arena.api import RunListing, RunStartedResponse, RuntimeResponse, SetKe
 from llm_arena.core.errors import ArenaError
 from llm_arena.llm.errors import LLMError
 from llm_arena.report.leaderboard import Leaderboard
-from llm_arena.runner.baselines import BaselineProfile
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import progress
+from llm_arena.runner.presets import ModelPreset
 from llm_arena.runner.run import new_run_id
 from llm_arena.scenarios.brief import TaskView
 from llm_arena.scenarios.manifest import ScenarioManifest
@@ -115,19 +115,19 @@ def create_app(
         except ArenaError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    @app.get("/api/baselines", response_model=dict[str, BaselineProfile])
-    def baselines() -> dict[str, BaselineProfile]:
-        return service.baselines
+    @app.get("/api/presets", response_model=dict[str, ModelPreset])
+    def presets() -> dict[str, ModelPreset]:
+        return service.presets
 
-    @app.put("/api/baselines/{name}", response_model=dict[str, BaselineProfile])
-    def save_baseline(name: str, profile: BaselineProfile) -> dict[str, BaselineProfile]:
+    @app.put("/api/presets/{name}", response_model=dict[str, ModelPreset])
+    def save_preset(name: str, profile: ModelPreset) -> dict[str, ModelPreset]:
         if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,40}", name):
             raise HTTPException(status_code=400, detail="profile names use lowercase letters, digits, - and _")
-        return service.save_baseline(name, profile)
+        return service.save_preset(name, profile)
 
-    @app.delete("/api/baselines/{name}", response_model=dict[str, BaselineProfile])
-    def reset_baseline(name: str) -> dict[str, BaselineProfile]:
-        return service.save_baseline(name, None)
+    @app.delete("/api/presets/{name}", response_model=dict[str, ModelPreset])
+    def reset_preset(name: str) -> dict[str, ModelPreset]:
+        return service.save_preset(name, None)
 
     @app.get("/api/leaderboard", response_model=list[Leaderboard])
     def leaderboard(scenario: str | None = None) -> list[Leaderboard]:

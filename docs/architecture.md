@@ -48,7 +48,7 @@ The base install (pydantic + pyyaml) is exactly what the engine needs, and it lo
 | `Trace` / `Span` | `core/trace.py` | Nested spans. Step evaluators read them. `Trace.in_step` links each span to a workflow step; `Trace.attach` keeps files (images, charts) with the span, via the run store. |
 | `Workflow` | `scenarios/workflow.py` | Each scenario's declared steps and transitions, with the role running each step and parameter conditions. The UI draws it; tests check it against roles, parameters and the spans of conformance runs. |
 | `Brief` / `TaskView` | `scenarios/brief.py` | What a scenario tests, and each task's expected outcome in readable form. |
-| `BaselineProfile` | `runner/baselines.py` | A model per kind of step (`RoleRequirement.kind`). `PipelineConfig.baseline` fills unbound roles by kind. |
+| `ModelPreset` | `runner/presets.py` | A model per kind of step (`RoleRequirement.kind`). `PipelineConfig.preset` fills unbound roles by kind. |
 | `StudyConfig` | `runner/study.py` | Replacement studies: expanded at planning time into the baseline plus one configuration per swapped role and candidate. `report/aggregate._replacements` computes the effects. |
 | Fingerprints | `runner/fingerprint.py` | Setup fingerprint (models and call settings of the roles in use, params, policy), task hash, and resume key. The leaderboard pools by them; resuming refuses changed setups. |
 | `DecisionPolicy` | `decisions/` | Typed control questions (noul / choice / score) answered by LLM, rule, cascade or Jev policies. `TracedPolicy` records a `decision` span with ground-truth labels; `records.py` turns them into rows and quality metrics. Jev enters as `Runtime.jev` (server only). |

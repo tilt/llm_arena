@@ -102,6 +102,6 @@ describe("replacement studies", () => {
     const experiment = toExperiment(state({ scenarios: ["reflection_sql"], study: { baseline: "weak", candidates: ["strong"], roles: ["critic"], decisionControl: "gate" } }), [sql], { weak: profile });
     expect(experiment.study).toEqual({ baseline: "weak", candidates: ["strong"], roles: ["critic"], decision_control: "gate" });
     expect(experiment.configs).toBeUndefined();
-    expect(experiment.baselines).toEqual({ weak: profile });
+    expect(experiment.presets).toEqual({ weak: profile });
   });
 });

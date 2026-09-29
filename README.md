@@ -68,7 +68,7 @@ Other entry points:
 in `.env`). It provides:
 - the discovered models, with capabilities and prices
 - a page per scenario: what it tests, every task with its expected outcome, the workflow with a model per step
-- baseline profiles (a model per kind of step) and replacement studies
+- model presets (a model per kind of step) and replacement studies
 - cost estimates, runs with live progress (Server-Sent Events), reports, a step inspector and a cross-run leaderboard
 
 Details:
@@ -80,7 +80,7 @@ Details:
 
   ```
   GET  /api/runtime   GET /api/scenarios   GET /api/scenarios/{id}/tasks   GET /api/models
-  PUT|DELETE /api/keys/{provider}          GET /api/baselines   PUT|DELETE /api/baselines/{name}
+  PUT|DELETE /api/keys/{provider}          GET /api/presets     PUT|DELETE /api/presets/{name}
   POST /api/estimate  POST /api/runs       GET /api/runs     GET /api/runs/{id}/events (SSE)
   POST /api/runs/{id}/cancel               GET /api/runs/{id}/bundle[?traces=&artifacts=]
   GET  /api/runs/{id}/report               GET /api/runs/{id}/trials/{trial}/trace
@@ -93,17 +93,18 @@ Details:
 - **Scenarios:** one page per scenario with tabs:
   - *Overview:* what it tests, the environment, pass criteria in plain words, traps, useful comparisons.
   - *Tasks:* every task with its prompt and expected outcome, searchable; run a single task.
-  - *Workflow & models:* the workflow diagram; start from a baseline, pick a model per step, set parameters and the
+  - *Workflow & models:* the workflow diagram; start from a preset, pick a model per step, set parameters and the
     control policy, estimate and run.
   - *Results:* this scenario's leaderboard; "Use this setup" loads an entry back.
-- **Build:** either compare hand-built configurations across scenarios, or run a *replacement study* (baseline +
+- **Build:** either compare hand-built configurations across scenarios, or run a *replacement study* (baseline preset +
   candidate models + which steps to swap, with a live preview of the configurations).
 - **Runs:** live progress, then the report: heatmaps, confidence intervals, step metrics, decision quality, the effect
   of each replaced step, arena ratings. Each trial opens the *step inspector*: the trial's workflow as a map, and for
   every step its input (new messages first), output, tool calls, code, decisions and files, such as the chart a
   vision critic saw. Deep links: `#/runs/<run>/trial/<trial>/step/<step>`.
 - **Leaderboard:** every run pooled per scenario and setup, filterable by model.
-- **Baselines:** edit the baseline profiles.
+- **Presets:** edit the model presets. The serverless version offers only presets whose models a web page can call
+  (OpenAI, Anthropic).
 - **Models:** the catalog, filterable by capability, plus API keys.
 
 The UI uses only the `ArenaBackend` interface, and its TypeScript types are generated from `contracts/schemas`
@@ -175,17 +176,17 @@ The report compares task success, cost and latency across configs, and adds per-
 `split: test`. See `configs/experiments/decisions.yaml`. Jev (TypeSafe) needs `TYPESAFE_API_KEY` and works in the
 local app and CLI; its API does not allow browser calls.
 
-## Baselines and replacement studies
+## Model presets and replacement studies
 
-A **baseline profile** gives every step a model by the kind of work it does: text, vision, code, agent or decision.
+A **model preset** gives every step a model by the kind of work it does: text, vision, code, agent or decision.
 Two ship built in:
 - **Local small:** Qwen3 4B with thinking off, Qwen3-VL 8B for images, and winnow via Ollaya for decisions.
 - **OpenAI mini:** GPT-5 mini with low reasoning.
 
-Edit them on the Baselines page (saved to `configs/baselines.local.yaml`), or add your own in `configs/baselines.yaml`.
-A config with `baseline: local-small` binds every role you don't set explicitly.
+Edit them on the Presets page (saved to `configs/presets.local.yaml`), or add your own in `configs/presets.yaml`.
+A config with `preset: local-small` binds every role you don't set explicitly (`baseline:` is still accepted).
 
-A **replacement study** measures what one step's model is worth. It runs the baseline, then the same setup with
+A **replacement study** measures what one step's model is worth. It runs a preset as the baseline, then the same setup with
 exactly one role swapped to each candidate. The report shows the change in pass rate on shared tasks, with a paired
 test, plus the change in cost and latency:
 

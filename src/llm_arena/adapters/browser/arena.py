@@ -30,11 +30,11 @@ from llm_arena.llm.protocols.anthropic_messages import API_VERSION
 from llm_arena.llm.spec import ModelSpec
 from llm_arena.llm.transport import ChatTransport, HttpResponse
 from llm_arena.report.leaderboard import Leaderboard, build_leaderboards
-from llm_arena.runner.baselines import BaselineProfile
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import RunEvent, RunFinished, progress
 from llm_arena.runner.memory_store import MemoryStore
 from llm_arena.runner.ports import Runtime
+from llm_arena.runner.presets import ModelPreset
 from llm_arena.runner.run import new_run_id
 from llm_arena.sandbox.base import Sandbox
 from llm_arena.scenarios.base import get_scenario, work_dir
@@ -156,9 +156,9 @@ class BrowserArena:
         await self._prefetch([scenario])  # benchmarks: fetch the pinned files first
         return TypeAdapter(list[TaskView]).dump_json(self.service.tasks(scenario)).decode()
 
-    def baselines(self) -> str:
-        """The shipped profiles; the UI adds the ones edited in this browser (local storage)."""
-        return TypeAdapter(dict[str, BaselineProfile]).dump_json(self.service.baselines).decode()
+    def presets(self) -> str:
+        """The shipped presets; the UI adds the ones edited in this browser (local storage)."""
+        return TypeAdapter(dict[str, ModelPreset]).dump_json(self.service.presets).decode()
 
     def leaderboard(self, trials_json: str) -> str:
         """Leaderboards over trial rows the UI collected from this tab's runs and saved bundles."""

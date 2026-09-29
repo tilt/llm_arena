@@ -24,10 +24,10 @@ from llm_arena.llm.pricing import known_price, price_per_mtok
 from llm_arena.llm.spec import ModelSpec
 from llm_arena.report.aggregate import ConfigSummary, PairedTest, ReplacementEffect, summarize
 from llm_arena.report.leaderboard import Leaderboard, build_leaderboards
-from llm_arena.runner.baselines import DEFAULT_BASELINES, BaselineProfile, save_profile
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import EventSink, ignore
 from llm_arena.runner.ports import RunStore, Runtime
+from llm_arena.runner.presets import DEFAULT_PRESETS, ModelPreset, save_preset
 from llm_arena.runner.run import ExperimentRunner, new_run_id
 from llm_arena.scenarios.base import SCENARIOS, get_scenario
 from llm_arena.scenarios.brief import TaskView
@@ -98,15 +98,15 @@ class ArenaService:
         *,
         store_factory: Callable[[str], RunStore],
         model_specs: dict[str, ModelSpec] | None = None,
-        baselines: dict[str, BaselineProfile] | None = None,
-        baselines_file: Path | None = None,
+        presets: dict[str, ModelPreset] | None = None,
+        presets_file: Path | None = None,
     ) -> None:
-        """`baselines_file`: where edited profiles are saved (local app); None: profiles are read-only here."""
+        """`presets_file`: where edited profiles are saved (local app); None: profiles are read-only here."""
         self.runtime = runtime
         self.store_factory = store_factory
         self.model_specs = model_specs or {}
-        self.baselines = dict(baselines or DEFAULT_BASELINES)
-        self.baselines_file = baselines_file
+        self.presets = dict(presets or DEFAULT_PRESETS)
+        self.presets_file = presets_file
         self._catalog: Catalog | None = None
         self._runners: dict[str, ExperimentRunner] = {}
         self._tasks: dict[str, asyncio.Task[str]] = {}
@@ -263,21 +263,21 @@ class ArenaService:
             model_specs=self.model_specs,
             catalog=self._catalog,
             sink=sink,
-            baselines=self.baselines,
+            presets=self.presets,
         )
 
-    def save_baseline(self, name: str, profile: BaselineProfile | None) -> dict[str, BaselineProfile]:
+    def save_preset(self, name: str, profile: ModelPreset | None) -> dict[str, ModelPreset]:
         """Create, change or (None) reset a profile; persisted in the local override file."""
-        if self.baselines_file is None:
-            raise ConfigError("baseline profiles cannot be saved in this runtime")
-        save_profile(self.baselines_file, name, profile)
+        if self.presets_file is None:
+            raise ConfigError("presets cannot be saved in this runtime")
+        save_preset(self.presets_file, name, profile)
         if profile is not None:
-            self.baselines[name] = profile
-        elif name in DEFAULT_BASELINES:
-            self.baselines[name] = DEFAULT_BASELINES[name]
+            self.presets[name] = profile
+        elif name in DEFAULT_PRESETS:
+            self.presets[name] = DEFAULT_PRESETS[name]
         else:
-            self.baselines.pop(name, None)
-        return self.baselines
+            self.presets.pop(name, None)
+        return self.presets
 
 
 def _cost(spec: ModelSpec, tokens: float, unknown: set[str]) -> float:

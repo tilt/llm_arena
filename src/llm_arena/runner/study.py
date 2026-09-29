@@ -1,6 +1,6 @@
 """Replacement studies: what is a better (or cheaper) model worth on one step?
 
-A study runs a baseline profile, then the same setup with exactly one role swapped to a candidate
+A study runs a baseline preset, then the same setup with exactly one role swapped to a candidate
 model: one configuration per (role, candidate), applied in every selected scenario that has that
 role. Candidates may also be decision services ("ollaya:winnow:e4b", "jev:jev-latest"), which
 replace the control decisions of scenarios that support a control policy. Everything else stays
@@ -15,14 +15,14 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from llm_arena.decisions.config import SERVICES
-from llm_arena.runner.baselines import BaselineProfile
+from llm_arena.runner.presets import ModelPreset
 from llm_arena.scenarios.base import RoleRequirement, Scenario
 
 DECISIONS = "decisions"  # study "role" of a decision-service swap
 
 
 class StudyConfig(BaseModel):
-    baseline: str = Field(description="baseline profile every configuration starts from")
+    baseline: str = Field(description="the preset every configuration starts from (the baseline)")
     candidates: list[str] = Field(min_length=1, description="model references (or ollaya:/jev: decision models) to try")
     roles: list[str] | None = Field(
         default=None, description="roles to swap (default: every role except the decision roles)"
@@ -54,12 +54,12 @@ def short(ref: str) -> str:
 def expand(
     study: StudyConfig,
     scenarios: list[Scenario],
-    profile: BaselineProfile,
+    profile: ModelPreset,
     can_do: Callable[[str, RoleRequirement], bool] = lambda candidate, role: True,
 ) -> list[dict[str, object]]:
     """The study's configurations as PipelineConfig data: the baseline first, then one per (role, candidate).
     `can_do(candidate, role)`: whether the candidate has the capabilities the role needs (e.g. vision)."""
-    configs: list[dict[str, object]] = [{"name": "baseline", "baseline": study.baseline, "study": {"kind": "baseline"}}]
+    configs: list[dict[str, object]] = [{"name": "baseline", "preset": study.baseline, "study": {"kind": "baseline"}}]
     names = {"baseline"}
 
     def add(name: str, config: dict[str, object]) -> None:
@@ -67,7 +67,7 @@ def expand(
         while unique in names:
             unique, n = f"{name} {n}", n + 1
         names.add(unique)
-        configs.append({"name": unique, "baseline": study.baseline, **config})
+        configs.append({"name": unique, "preset": study.baseline, **config})
 
     roles = study.roles or sorted({r.name for s in scenarios for r in s.roles if r.kind != "decision"})
     for candidate in study.candidates:

@@ -1,7 +1,7 @@
 // The one seam between the UI and an arena engine. Views only ever use ArenaBackend, so the local
 // app (HttpBackend) and the in-browser engine (WorkerBackend, Pyodide) are interchangeable.
 import type {
-  BaselineProfile,
+  ModelPreset,
   CatalogEntry,
   Estimate,
   Leaderboard,
@@ -50,10 +50,10 @@ export interface ArenaBackend {
   cancel(runId: string): Promise<void>;
   runs(): Promise<RunListing[]>;
   bundle(runId: string): Promise<RunBundle>;
-  /** Baseline profiles: one model per kind of step. */
-  baselines(): Promise<Record<string, BaselineProfile>>;
+  /** Model presets: one model per kind of step. */
+  presets(): Promise<Record<string, ModelPreset>>;
   /** Save a profile (null: back to the shipped version, or removed if it is your own). */
-  saveBaseline(name: string, profile: BaselineProfile | null): Promise<Record<string, BaselineProfile>>;
+  savePreset(name: string, profile: ModelPreset | null): Promise<Record<string, ModelPreset>>;
   /** A scenario's tasks with their expected outcomes (benchmarks may download their subset first). */
   tasks(scenario: string): Promise<TaskView[]>;
   /** One trial's trace, loaded on demand. */
@@ -144,12 +144,12 @@ export class HttpBackend implements ArenaBackend {
     return this.request("GET", `/api/scenarios/${encodeURIComponent(scenario)}/tasks`);
   }
 
-  baselines(): Promise<Record<string, BaselineProfile>> {
-    return this.request("GET", "/api/baselines");
+  presets(): Promise<Record<string, ModelPreset>> {
+    return this.request("GET", "/api/presets");
   }
 
-  saveBaseline(name: string, profile: BaselineProfile | null): Promise<Record<string, BaselineProfile>> {
-    const path = `/api/baselines/${encodeURIComponent(name)}`;
+  savePreset(name: string, profile: ModelPreset | null): Promise<Record<string, ModelPreset>> {
+    const path = `/api/presets/${encodeURIComponent(name)}`;
     return profile ? this.request("PUT", path, profile) : this.request("DELETE", path);
   }
 

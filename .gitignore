@@ -14,5 +14,5 @@ spikes/**/node_modules/
 spikes/**/dist/
 spikes/**/package-lock.json
 
-# Your edited baseline profiles (the app writes them here)
-configs/baselines.local.yaml
+# Your edited model presets (the app writes them here)
+configs/presets.local.yaml

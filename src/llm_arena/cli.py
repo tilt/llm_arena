@@ -21,8 +21,8 @@ from llm_arena.llm.pricing import load_prices
 from llm_arena.llm.probe import ProbeResult, probe_model
 from llm_arena.llm.registry import PROVIDERS, load_model_specs, resolve_model
 from llm_arena.llm.spec import ModelSpec
-from llm_arena.runner.baselines import load_baselines
 from llm_arena.runner.ports import Runtime
+from llm_arena.runner.presets import load_presets
 from llm_arena.sandbox.base import Sandbox
 
 app = typer.Typer(help="Evaluate local and remote LLMs on benchmarks and agentic patterns.", no_args_is_help=True)
@@ -40,7 +40,7 @@ SandboxOption = Annotated[
         envvar="ARENA_SANDBOX",
     ),
 ]
-BASELINES = (Path("configs/baselines.yaml"), Path("configs/baselines.local.yaml"))  # shipped extras, then your edits
+PRESETS = (Path("configs/presets.yaml"), Path("configs/presets.local.yaml"))  # shipped extras, then your edits
 PRICES_FILE = Path("configs/prices.yaml")
 
 
@@ -203,7 +203,7 @@ def run(
         runner = ExperimentRunner(
             experiment, server_runtime(sandbox=_sandbox("docker" if docker else sandbox)), run_id=run_id, live=live,
             model_specs=_specs(Path(experiment.models_file)), sink=RichProgressSink(console, str(run_dir)),
-            baselines=load_baselines(*BASELINES),
+            presets=load_presets(*PRESETS),
         )  # fmt: skip
         if dry_run:
             asyncio.run(runner.prepare())
@@ -350,7 +350,7 @@ def ui(
     service = ArenaService(
         server_runtime(sandbox=_sandbox(sandbox)), store_factory=lambda run_id: DuckDBStore(runs_dir / run_id),
         model_specs=_specs(models_file),
-        baselines=load_baselines(*BASELINES), baselines_file=BASELINES[1],
+        presets=load_presets(*PRESETS), presets_file=PRESETS[1],
     )  # fmt: skip
     static_dir = static or next((d for d in (Path("web/dist"), _bundled_web()) if (d / "index.html").exists()), None)
     url = f"http://127.0.0.1:{port}"

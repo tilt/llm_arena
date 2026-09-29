@@ -1,20 +1,20 @@
 <script lang="ts">
   import ModelRefInput from "../components/ModelRefInput.svelte";
   import { app } from "../lib/app.svelte";
-  import { KINDS, activeBaseline, setActiveBaseline } from "../lib/baselines";
-  import type { BaselineProfile } from "../lib/contracts";
+  import { KINDS, activePreset, setActivePreset } from "../lib/presets";
+  import type { ModelPreset } from "../lib/contracts";
 
-  // Baseline profiles: one model per kind of step. New setups start from the active profile; a replacement study
+  // Model presets: one model per kind of step. New setups start from the active preset; a replacement study
   // swaps one step at a time against it.
   const SHIPPED = new Set(["local-small", "openai-mini"]);
-  let drafts = $state<Record<string, BaselineProfile>>({});
-  let active = $state(activeBaseline());
+  let drafts = $state<Record<string, ModelPreset>>({});
+  let active = $state(activePreset());
   let saving = $state("");
   let message = $state("");
   let newName = $state("");
 
   $effect(() => {
-    drafts = structuredClone($state.snapshot(app.baselines)) as Record<string, BaselineProfile>;
+    drafts = structuredClone($state.snapshot(app.presets)) as Record<string, ModelPreset>;
   });
 
   const catalog = $derived(app.models?.models ?? []);
@@ -25,39 +25,39 @@
     ...(ollaya?.models ?? []).map((m) => ({ value: `ollaya:${m}`, label: `Ollaya · ${m}` })),
     { value: "jev:jev-latest", label: "Jev (TypeSafe)" },
   ]);
-  const changed = (name: string) => JSON.stringify(drafts[name]) !== JSON.stringify(app.baselines[name]);
+  const changed = (name: string) => JSON.stringify(drafts[name]) !== JSON.stringify(app.presets[name]);
 
   async function save(name: string) {
     if (!app.backend) return;
     saving = name; message = "";
     try {
-      app.baselines = await app.backend.saveBaseline(name, $state.snapshot(drafts[name]!) as BaselineProfile);
-      message = `Saved “${drafts[name]!.label}”${app.mode === "local" ? " (configs/baselines.local.yaml)" : " in this browser"}.`;
+      app.presets = await app.backend.savePreset(name, $state.snapshot(drafts[name]!) as ModelPreset);
+      message = `Saved “${drafts[name]!.label}”${app.mode === "local" ? " (configs/presets.local.yaml)" : " in this browser"}.`;
     } catch (e) { message = e instanceof Error ? e.message : String(e); }
     finally { saving = ""; }
   }
   async function reset(name: string) {
     if (!app.backend) return;
-    app.baselines = await app.backend.saveBaseline(name, null);
-    message = SHIPPED.has(name) ? "Restored the shipped profile." : "Profile removed.";
-    if (active === name && !app.baselines[name]) choose("local-small");
+    app.presets = await app.backend.savePreset(name, null);
+    message = SHIPPED.has(name) ? "Restored the shipped preset." : "Preset removed.";
+    if (active === name && !app.presets[name]) choose("local-small");
   }
   function choose(name: string) {
     active = name;
-    setActiveBaseline(name);
+    setActivePreset(name);
   }
   function addProfile() {
     const name = newName.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
-    if (!name || drafts[name]) { message = name ? `A profile “${name}” exists already.` : "Give the profile a name."; return; }
-    drafts[name] = { ...(structuredClone($state.snapshot(drafts[active] ?? drafts["local-small"]!)) as BaselineProfile), label: newName.trim(), description: "" };
+    if (!name || drafts[name]) { message = name ? `A preset “${name}” exists already.` : "Give the preset a name."; return; }
+    drafts[name] = { ...(structuredClone($state.snapshot(drafts[active] ?? drafts["local-small"]!)) as ModelPreset), label: newName.trim(), description: "" };
     newName = "";
-    message = `Added “${drafts[name]!.label}” as a copy of the active profile. Choose its models, then save.`;
+    message = `Added “${drafts[name]!.label}” as a copy of the active preset. Choose its models, then save.`;
   }
 </script>
 
-<h1>Baseline models</h1>
+<h1>Model presets</h1>
 <p class="lead">
-  A baseline gives every step of every scenario a model by the kind of work it does. Start from one to get comparable
+  A preset gives every step of every scenario a model by the kind of work it does. Start from one to get comparable
   results quickly, then replace the model of a single step to see what that step's model is worth.
 </p>
 
@@ -69,8 +69,8 @@
       <header>
         <div>
           <h2 id={`p-${name}`} class="sr-only">{profile.label}</h2>
-          <input class="title" type="text" bind:value={profile.label} aria-label="Profile name" />
-          <textarea rows="3" bind:value={profile.description} aria-label="Description" placeholder="What this profile is for"></textarea>
+          <input class="title" type="text" bind:value={profile.label} aria-label="Preset name" />
+          <textarea rows="3" bind:value={profile.description} aria-label="Description" placeholder="What this preset is for"></textarea>
         </div>
         <label class="use"><input type="radio" name="active" checked={active === name} onchange={() => choose(name)} /> New setups start here</label>
       </header>
@@ -104,9 +104,9 @@
 </div>
 
 <section class="card add">
-  <label for="new-profile">New profile</label>
-  <input id="new-profile" type="text" bind:value={newName} placeholder="e.g. Local medium" />
-  <button onclick={addProfile}>Add a copy of the active profile</button>
+  <label for="new-preset">New preset</label>
+  <input id="new-preset" type="text" bind:value={newName} placeholder="e.g. Local medium" />
+  <button onclick={addProfile}>Add a copy of the active preset</button>
 </section>
 
 <style>

@@ -1,4 +1,4 @@
-"""Baseline profiles bind a model per kind of step; explicit bindings win; profiles load, save and serve."""
+"""Model presets bind a model per kind of step; explicit bindings win; profiles load, save and serve."""
 
 from __future__ import annotations
 
@@ -11,9 +11,9 @@ from llm_arena.core.errors import ConfigError
 from llm_arena.llm.client import LLMClient
 from llm_arena.llm.spec import Capabilities, ModelSpec
 from llm_arena.llm.testing import ScriptedLLM
-from llm_arena.runner.baselines import DEFAULT_BASELINES, BaselineProfile, load_baselines, save_profile
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.ports import Runtime
+from llm_arena.runner.presets import DEFAULT_PRESETS, ModelPreset, load_presets, save_preset
 from llm_arena.runner.run import ExperimentRunner
 
 # What discovery would report: the vision model can see images (capabilities come from the server).
@@ -33,15 +33,15 @@ def _bindings(config: dict[str, object], scenario: str, **extra: object) -> dict
     return {role: spec.name for role, spec in trial.bindings.items()}
 
 
-def test_baseline_binds_every_role_by_its_kind() -> None:
-    bound = _bindings({"name": "base", "baseline": "local-small"}, "chart_codegen")
+def test_preset_binds_every_role_by_its_kind() -> None:
+    bound = _bindings({"name": "base", "preset": "local-small"}, "chart_codegen")
     assert bound == {"generator": "ollama:qwen3:4b#reasoning=none", "critic": "ollama:qwen3-vl:8b#reasoning=none"}
 
 
-def test_explicit_bindings_win_over_the_baseline() -> None:
+def test_explicit_bindings_win_over_the_preset() -> None:
     config = {
         "name": "swap",
-        "baseline": "local-small",
+        "preset": "local-small",
         "scenario_roles": {"reflection_sql": {"critic": "openai:gpt-5-mini"}},
     }
     bound = _bindings(config, "reflection_sql")
@@ -50,37 +50,37 @@ def test_explicit_bindings_win_over_the_baseline() -> None:
 
 def test_experiment_profiles_override_and_unknown_profiles_fail() -> None:
     mine = {"mine": {"label": "Mine", "models": {"text": "openai:gpt-4.1-nano"}}}
-    bound = _bindings({"name": "m", "baseline": "mine"}, "reflection_writing", baselines=mine)
+    bound = _bindings({"name": "m", "preset": "mine"}, "reflection_writing", presets=mine)
     assert set(bound.values()) == {"openai:gpt-4.1-nano"}  # kinds missing from the profile use its text model
-    with pytest.raises(ConfigError, match="unknown baseline"):
-        _bindings({"name": "x", "baseline": "nope"}, "reflection_writing")
+    with pytest.raises(ConfigError, match="unknown preset"):
+        _bindings(
+            {"name": "x", "baseline": "nope"}, "reflection_writing"
+        )  # `baseline:` is the old name, still accepted
 
 
 def test_profiles_load_and_save_local_overrides(tmp_path: Path) -> None:
-    local = tmp_path / "baselines.local.yaml"
-    save_profile(local, "tiny", BaselineProfile(label="Tiny", models={"text": "ollama:qwen3:0.6b"}))
-    save_profile(
-        local, "local-small", BaselineProfile(label="Local small (mine)", models={"text": "ollama:qwen3:1.7b"})
-    )
-    profiles = load_baselines(local)
+    local = tmp_path / "presets.local.yaml"
+    save_preset(local, "tiny", ModelPreset(label="Tiny", models={"text": "ollama:qwen3:0.6b"}))
+    save_preset(local, "local-small", ModelPreset(label="Local small (mine)", models={"text": "ollama:qwen3:1.7b"}))
+    profiles = load_presets(local)
     assert profiles["tiny"].label == "Tiny" and profiles["local-small"].label == "Local small (mine)"
-    assert profiles["openai-mini"] == DEFAULT_BASELINES["openai-mini"]
-    save_profile(local, "local-small", None)
-    assert load_baselines(local)["local-small"] == DEFAULT_BASELINES["local-small"]
+    assert profiles["openai-mini"] == DEFAULT_PRESETS["openai-mini"]
+    save_preset(local, "local-small", None)
+    assert load_presets(local)["local-small"] == DEFAULT_PRESETS["local-small"]
 
 
-def test_baseline_api_lists_saves_and_resets(tmp_path: Path) -> None:
+def test_preset_api_lists_saves_and_resets(tmp_path: Path) -> None:
     from llm_arena.runner.memory_store import MemoryStore
     from llm_arena.server.app import create_app
     from llm_arena.server.keys import KeyStore
     from llm_arena.service import ArenaService
 
     service = ArenaService(Runtime(client_factory=_factory), store_factory=lambda _: MemoryStore(),
-                           baselines_file=tmp_path / "baselines.local.yaml")  # fmt: skip
+                           presets_file=tmp_path / "presets.local.yaml")  # fmt: skip
     client = TestClient(create_app(service, runs_dir=tmp_path, keys=KeyStore()))
-    assert set(client.get("/api/baselines").json()) == {"local-small", "openai-mini"}
+    assert set(client.get("/api/presets").json()) == {"local-small", "openai-mini"}
     profile = {"label": "Tiny", "models": {"text": "ollama:qwen3:0.6b"}}
-    assert "tiny" in client.put("/api/baselines/tiny", json=profile).json()
-    assert client.put("/api/baselines/Bad Name", json=profile).status_code == 400
-    assert "tiny" not in client.delete("/api/baselines/tiny").json()
-    assert (tmp_path / "baselines.local.yaml").exists()
+    assert "tiny" in client.put("/api/presets/tiny", json=profile).json()
+    assert client.put("/api/presets/Bad Name", json=profile).status_code == 400
+    assert "tiny" not in client.delete("/api/presets/tiny").json()
+    assert (tmp_path / "presets.local.yaml").exists()

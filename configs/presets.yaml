@@ -1,10 +1,10 @@
-# Baseline profiles: one model per kind of step (text, vision, code, agent, decision).
+# Model presets: one model per kind of step (text, vision, code, agent, decision).
 #
 # Two profiles ship built in: local-small (Qwen3 4B without thinking, Qwen3-VL 8B for images, winnow via Ollaya
 # for decisions) and openai-mini (GPT-5 mini, low reasoning). Add your own here, or edit profiles on the app's
-# Settings page, which saves them to configs/baselines.local.yaml (git-ignored).
+# Presets page, which saves them to configs/presets.local.yaml (git-ignored).
 #
-# Use one in an experiment config:  configs: [{name: base, baseline: local-small}]
+# Use one in an experiment config:  configs: [{name: base, preset: local-small}]
 # Model references may carry call settings after '#': reasoning=none|minimal|low|medium|high, tools=json, temperature.
 profiles:
   # local-medium:

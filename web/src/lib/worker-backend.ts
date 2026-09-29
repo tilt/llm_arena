@@ -3,9 +3,9 @@
 // are kept in IndexedDB and can be exported/imported as RunBundle files.
 import type { ArenaBackend, ModelsResponse, Persistence, TrialTrace } from "./backend";
 import { BackendError } from "./backend";
-import type { BaselineProfile, Estimate, ExperimentConfig, Leaderboard, RunBundle, RunEvent, RunListing, RuntimeResponse, ScenarioManifest, StartRun, TaskView } from "./contracts";
+import type { ModelPreset, Estimate, ExperimentConfig, Leaderboard, RunBundle, RunEvent, RunListing, RuntimeResponse, ScenarioManifest, StartRun, TaskView } from "./contracts";
 import type { EngineMethod, EngineReply } from "../engine/protocol";
-import { editedProfiles, storeEditedProfiles } from "./baselines";
+import { editedPresets, storeEditedPresets, usablePresets } from "./presets";
 import { listBundles, loadBundle, saveBundle } from "./idb";
 
 const REMEMBERED = "llm-arena.keys";
@@ -81,16 +81,17 @@ export class WorkerBackend implements ArenaBackend {
 
   async tasks(scenario: string): Promise<TaskView[]> { return this.json("tasks", scenario); }
 
-  /** Shipped profiles from the engine, overlaid with the ones edited in this browser. */
-  async baselines(): Promise<Record<string, BaselineProfile>> {
-    return { ...(await this.json<Record<string, BaselineProfile>>("baselines")), ...editedProfiles() };
+  /** Shipped presets from the engine, overlaid with the ones edited in this browser. */
+  async presets(): Promise<Record<string, ModelPreset>> {
+    // Only presets a web page can run: local models (Ollama, LM Studio) and Ollaya/Jev are out of reach here.
+    return usablePresets({ ...(await this.json<Record<string, ModelPreset>>("presets")), ...editedPresets() }, true);
   }
 
-  async saveBaseline(name: string, profile: BaselineProfile | null): Promise<Record<string, BaselineProfile>> {
-    const edited = editedProfiles();
+  async savePreset(name: string, profile: ModelPreset | null): Promise<Record<string, ModelPreset>> {
+    const edited = editedPresets();
     if (profile) edited[name] = profile; else delete edited[name];
-    storeEditedProfiles(edited);
-    return this.baselines();
+    storeEditedPresets(edited);
+    return this.presets();
   }
 
   async trace(runId: string, trialId: string): Promise<TrialTrace | null> {

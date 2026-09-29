@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { CatalogItem } from "../lib/backend";
-  import { THINKING, joinRef, splitRef } from "../lib/baselines";
+  import { THINKING, joinRef, splitRef } from "../lib/presets";
   import { perMtok } from "../lib/format";
 
   // A model reference with its thinking setting ("ollama:qwen3:4b#reasoning=none"). Models that are not

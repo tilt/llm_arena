@@ -6,15 +6,15 @@ from llm_arena.llm.client import LLMClient
 from llm_arena.llm.spec import ModelSpec
 from llm_arena.llm.testing import ScriptedLLM
 from llm_arena.report.aggregate import summarize
-from llm_arena.runner.baselines import BaselineProfile
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.memory_store import MemoryStore
 from llm_arena.runner.ports import Runtime
+from llm_arena.runner.presets import ModelPreset
 from llm_arena.runner.run import ExperimentRunner
 from llm_arena.runner.study import StudyConfig, expand, short
 from llm_arena.scenarios.base import get_scenario
 
-WEAK = BaselineProfile(label="Weak", models={"text": "weak", "code": "weak", "agent": "weak", "decision": "weak"})
+WEAK = ModelPreset(label="Weak", models={"text": "weak", "code": "weak", "agent": "weak", "decision": "weak"})
 GOOD_SQL = (
     "```sql\nSELECT COUNT(*) FROM rentals r JOIN stations s ON s.station_id = r.start_station_id "
     "WHERE s.city = 'Harborview' AND r.started_at >= '2026-03-01' AND r.started_at < '2026-04-01'\n```"
@@ -57,7 +57,7 @@ def factory(spec: ModelSpec) -> LLMClient:
 async def test_study_runs_and_reports_the_effect_of_each_swap() -> None:
     experiment = ExperimentConfig.model_validate({
         "name": "study", "scenarios": ["reflection_sql"], "task_ids": ["harborview_march_rentals"],
-        "baselines": {"weak": WEAK.model_dump()},
+        "presets": {"weak": WEAK.model_dump()},
         "study": {"baseline": "weak", "candidates": ["strong"], "roles": ["critic"]},
     })  # fmt: skip
     store = MemoryStore()
@@ -72,7 +72,7 @@ async def test_study_runs_and_reports_the_effect_of_each_swap() -> None:
 
 def test_candidates_only_replace_steps_they_can_do() -> None:
     experiment = ExperimentConfig.model_validate({
-        "name": "vision", "scenarios": ["chart_codegen"], "limit": 1, "baselines": {"weak": WEAK.model_dump()},
+        "name": "vision", "scenarios": ["chart_codegen"], "limit": 1, "presets": {"weak": WEAK.model_dump()},
         "study": {"baseline": "weak", "candidates": ["strong"]},
     })  # fmt: skip
     specs = {
@@ -96,7 +96,7 @@ async def test_errors_are_reported_with_the_effect() -> None:
 
     experiment = ExperimentConfig.model_validate({
         "name": "err", "scenarios": ["reflection_sql"], "task_ids": ["harborview_march_rentals"],
-        "baselines": {"weak": WEAK.model_dump()}, "study": {"baseline": "weak", "candidates": ["strong"], "roles": ["critic"]},
+        "presets": {"weak": WEAK.model_dump()}, "study": {"baseline": "weak", "candidates": ["strong"], "roles": ["critic"]},
     })  # fmt: skip
     store = MemoryStore()
     await ExperimentRunner(experiment, Runtime(client_factory=broken), store=store, model_specs=SPECS).run()

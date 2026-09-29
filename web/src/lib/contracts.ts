@@ -108,12 +108,6 @@ export interface Estimate {
  */
 export interface ExperimentConfig {
   arena?: ArenaConfig;
-  /**
-   * profiles defined in the experiment itself (override the runtime's)
-   */
-  baselines?: {
-    [k: string]: BaselineProfile | undefined;
-  };
   configs?: PipelineConfig[];
   judge?: string | null;
   /**
@@ -127,6 +121,12 @@ export interface ExperimentConfig {
   max_parallel_trials?: number;
   models_file?: string;
   name: string;
+  /**
+   * presets defined in the experiment itself (override the runtime's)
+   */
+  presets?: {
+    [k: string]: ModelPreset | undefined;
+  };
   repeats?: number;
   scenarios: string[];
   seed?: number;
@@ -151,34 +151,12 @@ export interface ArenaConfig {
   max_pairs_per_task?: number;
 }
 /**
- * This interface was referenced by `Contracts`'s JSON-Schema
- * via the `definition` "BaselineProfile".
- */
-export interface BaselineProfile {
-  /**
-   * 'ollaya:<model>' or 'jev:<model>': the dedicated decision model, if any
-   */
-  decision_service?: string | null;
-  description?: string;
-  label: string;
-  /**
-   * step kind -> model reference
-   */
-  models: {
-    [k: string]: string | undefined;
-  };
-}
-/**
  * One contestant: a name, a role → model binding, and pattern parameters.
  *
  * This interface was referenced by `Contracts`'s JSON-Schema
  * via the `definition` "PipelineConfig".
  */
 export interface PipelineConfig {
-  /**
-   * baseline profile: roles not bound explicitly run on its model for their kind
-   */
-  baseline?: string | null;
   /**
    * control policy for scenarios that support one; None: the agent decides
    */
@@ -190,6 +168,10 @@ export interface PipelineConfig {
   params?: {
     [k: string]: unknown | undefined;
   };
+  /**
+   * model preset: roles not bound explicitly run on its model for their kind
+   */
+  preset?: string | null;
   /**
    * role -> model alias or 'provider:model'
    */
@@ -282,11 +264,29 @@ export interface StudyTag {
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "ModelPreset".
+ */
+export interface ModelPreset {
+  /**
+   * 'ollaya:<model>' or 'jev:<model>': the dedicated decision model, if any
+   */
+  decision_service?: string | null;
+  description?: string;
+  label: string;
+  /**
+   * step kind -> model reference
+   */
+  models: {
+    [k: string]: string | undefined;
+  };
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
  * via the `definition` "StudyConfig".
  */
 export interface StudyConfig {
   /**
-   * baseline profile every configuration starts from
+   * the preset every configuration starts from (the baseline)
    */
   baseline: string;
   /**

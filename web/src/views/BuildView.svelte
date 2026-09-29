@@ -10,7 +10,7 @@
   } from "../lib/builder";
   import type { Estimate } from "../lib/contracts";
   import { usd } from "../lib/format";
-  import { activeBaseline } from "../lib/baselines";
+  import { activePreset } from "../lib/presets";
   import { draft } from "../lib/draft.svelte";
   import { go } from "../lib/router.svelte";
   import { refreshRuns } from "../lib/runs.svelte";
@@ -32,12 +32,12 @@
   const available = (service: string) => services[service]?.status === "available";
   const errors = $derived(draft.study ? validateStudy(draft, draft.study) : validate(draft, app.scenarios, sandbox, serviceStatus));
   function setMode(study: boolean) {
-    draft.study = study ? { baseline: activeBaseline(), candidates: [""], roles: [], decisionControl: "gate" } : null;
+    draft.study = study ? { baseline: activePreset(), candidates: [""], roles: [], decisionControl: "gate" } : null;
     estimate = null;
   }
   const controllable = $derived(controllableScenarios(draft, app.scenarios));
   const hasSplits = $derived(controllable.length > 0);
-  const experiment = () => toExperiment(draft, app.scenarios, app.baselines);
+  const experiment = () => toExperiment(draft, app.scenarios, app.presets);
 
   const SERVICES_SHOWN: Service[] = ["jev", "ollaya"];
 
@@ -52,7 +52,7 @@
   }
   function addConfig() {
     const base = draft.configs.at(-1);
-    draft.configs = [...draft.configs, { ...emptyConfig(draft.configs.length), roles: { ...emptyConfig(0).roles, ...(base?.roles ?? {}) }, baseline: base?.baseline ?? activeBaseline() }];
+    draft.configs = [...draft.configs, { ...emptyConfig(draft.configs.length), roles: { ...emptyConfig(0).roles, ...(base?.roles ?? {}) }, preset: base?.preset ?? activePreset() }];
   }
 
   async function runEstimate() {
@@ -100,7 +100,7 @@
     <label class:on={!draft.study}><input type="radio" name="mode" checked={!draft.study} onchange={() => setMode(false)} />
       <span><strong>Compare configurations</strong><br /><span class="muted">set up one or more complete setups and rank them</span></span></label>
     <label class:on={!!draft.study}><input type="radio" name="mode" checked={!!draft.study} onchange={() => setMode(true)} />
-      <span><strong>Replacement study</strong><br /><span class="muted">start from a baseline and measure what swapping one step's model changes</span></span></label>
+      <span><strong>Replacement study</strong><br /><span class="muted">start from a preset and measure what swapping one step's model changes</span></span></label>
   </div>
 </section>
 
@@ -137,13 +137,13 @@
     </div>
     <div class="roles">
       <div class="role">
-        <label class="role-name" for={`baseline-${index}`}>Start from <span class="muted">(a baseline gives each step a model by the kind of work it does; <a href="#/settings">edit baselines</a>)</span></label>
-        <select id={`baseline-${index}`} bind:value={config.baseline}>
-          <option value="">no baseline: one default model</option>
-          {#each Object.entries(app.baselines) as [name, p] (name)}<option value={name}>{p.label}</option>{/each}
+        <label class="role-name" for={`preset-${index}`}>Start from preset <span class="muted">(a preset gives each step a model by the kind of work it does; <a href="#/presets">edit presets</a>)</span></label>
+        <select id={`preset-${index}`} bind:value={config.preset}>
+          <option value="">no preset: one default model</option>
+          {#each Object.entries(app.presets) as [name, p] (name)}<option value={name}>{p.label}</option>{/each}
         </select>
       </div>
-      {#if !config.baseline}
+      {#if !config.preset}
       <div class="role">
         <span class="role-name">Default model <span class="muted">(every step not set per scenario below{defaultRoleNeeds(slots, config).length ? `; needs ${defaultRoleNeeds(slots, config).join(", ")}` : ""})</span></span>
         <ModelSelect bind:value={config.roles[DEFAULT_ROLE]} options={eligibleModels(catalog, defaultRoleNeeds(slots, config))} empty="— choose —" label="Default model" />
@@ -190,7 +190,7 @@
     {#each selected as s (s.id)}
       <details class="scenario-setup" open={selected.length === 1}>
         <summary><strong>{s.title}</strong> <span class="muted">— steps, models and parameters</span></summary>
-        <ScenarioSetup manifest={s} bind:config={draft.configs[index]!} showDefault={false} showBaseline={false} />
+        <ScenarioSetup manifest={s} bind:config={draft.configs[index]!} showDefault={false} showPreset={false} />
       </details>
     {/each}
   </section>
