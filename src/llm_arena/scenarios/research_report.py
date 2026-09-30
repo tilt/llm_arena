@@ -64,7 +64,9 @@ class ResearchReport(Scenario):
     tokens_per_trial = 12000
     param_choices = {"backend": ["corpus", "tavily", "arxiv"]}
     pattern = "tool_use+reflection"
-    version = "2"  # 2: citation rules name the real ids instead of the example [doc-1], which small models copied
+    # 2: citations use the real ids (the example [doc-1] was copied by small models); the writer is told the rule the
+    # grader checks (no figures from unreliable sources), and the reviewer reviews against the writer's rules.
+    version = "2"
     description = "Research with search tools, write a cited report, review and revise it."
     roles = [
         RoleRequirement("researcher", "searches and reads sources", kind="agent"),
@@ -130,7 +132,9 @@ class ResearchReport(Scenario):
         brief = f"Question: {task.prompt}\n\nResearch notes:\n{research.final}"
         writing_rules = (
             "Write a report of at most 200 words answering the question. Cite every factual claim with its source id "
-            "in square brackets, copied exactly as the notes give it; never invent an id. Use only facts from the notes."
+            "in square brackets, copied exactly as the notes give it; never invent an id. Use only facts from the notes. "
+            "Where sources disagree, give the figure from the most reliable source and leave out figures from unreliable "
+            "sources, even to dismiss them."
         )
 
         async def draft() -> str:
@@ -142,6 +146,7 @@ class ResearchReport(Scenario):
                 [
                     system(
                         "You review research reports for unsupported claims, missing key facts, weak sources and clarity."
+                        f" The report was written to these rules:\n{writing_rules}"
                     ),
                     user(f"{brief}\n\nReport:\n{report}"),
                 ],
