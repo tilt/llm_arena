@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Span } from "./contracts";
+import type { Span, Workflow } from "./contracts";
 import { conversation, executions, images, lineDiff, stepStats } from "./inspect";
 
 const span = (step: string | null, parent: number | null, extra: Partial<Span> = {}): Span =>
@@ -46,5 +46,24 @@ describe("revision diff", () => {
     expect(lineDiff("a\nb\nc", "a\nB\nc")).toEqual([
       { kind: "same", text: "a" }, { kind: "removed", text: "b" }, { kind: "added", text: "B" }, { kind: "same", text: "c" },
     ]);
+  });
+});
+
+describe("why a step did not run", () => {
+  const flow = {
+    steps: [{ id: "draft", label: "Write the report" }, { id: "critique", label: "Reviewer checks" },
+      { id: "revise", label: "Revise the report" }, { id: "end", label: "Result" }],
+    edges: [{ source: "draft", target: "critique" }, { source: "critique", target: "revise", label: "revise" },
+      { source: "critique", target: "end", label: "accept / rounds used" }, { source: "revise", target: "critique", loop: true }],
+  } as unknown as Workflow;
+  const span = (step: string, output: unknown) => ({ step, kind: "critique", name: step, output, parent: null }) as unknown as Span;
+
+  it("names the decision that made it unnecessary", async () => {
+    const { whyNotRun } = await import("./inspect");
+    const accepted = [span("draft", "text"), span("critique", { verdict: "accept", issues: [] })];
+    expect(whyNotRun(flow, accepted, "revise")).toBe(
+      "Not needed in this trial. “Reviewer checks” accepted the result (verdict “accept”): the workflow took “accept / rounds used” to Result.");
+    expect(whyNotRun(flow, [span("critique", '{"verdict": "revise"}')], "revise")).toContain("verdict “revise”");
+    expect(whyNotRun(flow, [span("draft", "text")], "revise")).toBe("It follows “Reviewer checks”, which did not run either.");
   });
 });

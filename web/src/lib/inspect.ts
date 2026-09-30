@@ -146,3 +146,34 @@ export function lineDiff(before: string, after: string): DiffLine[] {
   while (j < b.length) out.push({ kind: "added", text: b[j++]! });
   return out;
 }
+
+/** The verdict of a step's last execution, when it gave one (critiques and reviews: accept, revise, …). */
+function lastVerdict(spans: Span[], step: string): string {
+  for (let i = spans.length - 1; i >= 0; i--) {
+    const span = spans[i]!;
+    if (span.step !== step) continue;
+    let output: unknown = span.output;
+    if (typeof output === "string") { try { output = JSON.parse(output); } catch { continue; } }
+    const verdict = (output as { verdict?: unknown } | null)?.verdict;
+    if (typeof verdict === "string") return verdict;
+  }
+  return "";
+}
+
+/** Why a step of the workflow did not run in a trial, from the steps that lead to it and what they decided. */
+export function whyNotRun(flow: Workflow, spans: Span[], step: string): string {
+  const label = (id: string) => flow.steps.find((s) => s.id === id)?.label ?? id;
+  const sources = [...new Set(flow.edges.filter((e) => e.target === step && e.source !== step).map((e) => e.source))];
+  for (const source of sources) {
+    if (!executions(spans, source).length) continue;
+    const verdict = lastVerdict(spans, source);
+    const exit = flow.edges.find((e) => e.source === source && e.target !== step && e.label);
+    const path = exit ? `: the workflow took “${exit.label}” to ${label(exit.target)}` : "";
+    if (/^(accept|approve|pass|ok)/i.test(verdict)) {
+      return `Not needed in this trial. “${label(source)}” accepted the result (verdict “${verdict}”)${path}.`;
+    }
+    return `After “${label(source)}”${verdict ? ` (verdict “${verdict}”)` : ""} the workflow took another path${path}.`;
+  }
+  if (sources.length) return `It follows ${sources.map((s) => `“${label(s)}”`).join(" or ")}, which did not run either.`;
+  return "This step did not run in this trial.";
+}

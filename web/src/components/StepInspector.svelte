@@ -4,7 +4,7 @@
   import { llmRoles, policyLabel } from "../lib/builder";
   import type { DecisionConfig, RunBundle, Span } from "../lib/contracts";
   import { num, usd } from "../lib/format";
-  import { executions, stepStats, trialWorkflow } from "../lib/inspect";
+  import { executions, stepStats, trialWorkflow, whyNotRun } from "../lib/inspect";
   import { go } from "../lib/router.svelte";
   import ArtifactView from "./ArtifactView.svelte";
   import SpanView from "./SpanView.svelte";
@@ -182,7 +182,7 @@
         <h3>{currentStep.label}{#if currentStep.role} <span class="pill">{currentStep.role}: {roles[currentStep.role] ?? "—"}</span>{/if}</h3>
         {#if currentStep.description}<p class="muted">{currentStep.description}</p>{/if}
         {#if !runs.length}
-          <p class="muted">This step did not run in this trial.</p>
+          <p class="muted">{flow ? whyNotRun(flow, spans, current) : "This step did not run in this trial."}</p>
         {/if}
         {#if current === "end" && !resultHasImage && lastImage}
           <article class="card no-result">

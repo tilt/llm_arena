@@ -64,6 +64,7 @@ class ResearchReport(Scenario):
     tokens_per_trial = 12000
     param_choices = {"backend": ["corpus", "tavily", "arxiv"]}
     pattern = "tool_use+reflection"
+    version = "2"  # 2: citation rules name the real ids instead of the example [doc-1], which small models copied
     description = "Research with search tools, write a cited report, review and revise it."
     roles = [
         RoleRequirement("researcher", "searches and reads sources", kind="agent"),
@@ -114,7 +115,8 @@ class ResearchReport(Scenario):
                 system(
                     "You are a careful research assistant. Find and read the most authoritative sources for the question "
                     "(official statistics, agencies, peer-reviewed journals) and be sceptical of sensational sites. "
-                    "Finish with research notes: key facts, each followed by the source id in square brackets."
+                    "Finish with research notes: key facts, each followed by the document id exactly as the tools return it, in "
+                    "square brackets."
                 ),
                 user(task.prompt),
             ],
@@ -127,8 +129,8 @@ class ResearchReport(Scenario):
         writer, reviewer = models.get("writer", "researcher"), models.get("reviewer", "writer")
         brief = f"Question: {task.prompt}\n\nResearch notes:\n{research.final}"
         writing_rules = (
-            "Write a report of at most 200 words answering the question. Cite every factual claim with the source id "
-            "in square brackets, e.g. [doc-1]. Use only facts from the notes."
+            "Write a report of at most 200 words answering the question. Cite every factual claim with its source id "
+            "in square brackets, copied exactly as the notes give it; never invent an id. Use only facts from the notes."
         )
 
         async def draft() -> str:
