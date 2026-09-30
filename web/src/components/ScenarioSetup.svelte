@@ -4,7 +4,7 @@
   import { CONTROLS, DEFAULT_ROLE, POLICIES, eligibleModels, llmRoles, policyLabel, servicesUsed, type ConfigDraft } from "../lib/builder";
   import type { ParamManifest, ScenarioManifest } from "../lib/contracts";
   import { CONTROL_PARAM, REVIEW_PARAM, resolve, stepRoles } from "../lib/workflow";
-  import ModelSelect from "./ModelSelect.svelte";
+  import ModelRefInput from "./ModelRefInput.svelte";
   import WorkflowDiagram from "./WorkflowDiagram.svelte";
 
   // Edits `config` in place: per-step models in config.scenarioRoles[id], parameters in config.scenarioParams[id],
@@ -163,7 +163,7 @@
       {#if showDefault && !profile}
         <div class="role">
           <span><strong>default</strong> <span class="muted">every step not set below</span></span>
-          <ModelSelect bind:value={config.roles[DEFAULT_ROLE]} options={catalog} empty="— choose —" label="Default model" />
+          <ModelRefInput id={`${manifest.id}-default`} bind:value={config.roles[DEFAULT_ROLE]} options={catalog} label="Default model" />
         </div>
       {/if}
       {#each activeRoles as r (r.name)}
@@ -171,9 +171,9 @@
           onmouseenter={() => (highlight = r.name)} onmouseleave={() => (highlight = "")}>
           <span><strong>{r.name}</strong> <span class="pill kind">{r.kind ?? "text"}</span>{#if (r.needs ?? []).length} <span class="pill">needs {r.needs?.join(", ")}</span>{/if}
             <span class="muted small">{stepsOf(r.name).join(" · ") || r.description}</span></span>
-          <ModelSelect value={config.scenarioRoles[manifest.id]?.[r.name] ?? ""} options={eligibleModels(catalog, r.needs ?? [])}
-            empty={inherited(r)}
-            label={`Model for ${r.name}`} onchange={(ref) => (roles()[r.name] = ref)} />
+          <ModelRefInput id={`${manifest.id}-${r.name}`} value={config.scenarioRoles[manifest.id]?.[r.name] ?? ""}
+            options={eligibleModels(catalog, r.needs ?? [])} empty={inherited(r)} label={`Model for ${r.name}`}
+            onchange={(ref) => (roles()[r.name] = ref)} />
         </div>
       {/each}
     </fieldset>

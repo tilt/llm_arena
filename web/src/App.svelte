@@ -96,12 +96,12 @@
 
 <main>
   {#if update.available}
-    <p class="note update" role="status">A newer version of the arena is available; this tab still runs the old one.
-      {#if app.mode === "browser" && live.length}Runs in this tab stop when you reload.{/if}
+    <p class="note update" role="status"><span>A newer version of the arena is available; this tab still runs the old one.
+      {#if app.mode === "browser" && live.length}Runs in this tab stop when you reload.{/if}</span>
       <button class="primary" onclick={() => location.reload()}>Reload</button></p>
   {:else if app.mode === "local" && serverIsOlder(app.runtime?.ui_build)}
-    <p class="note update" role="status">The arena server was started before this version of the app, so newer features may fail.
-      Restart it: stop <code>make ui</code> (Ctrl+C) and start it again.</p>
+    <p class="note update" role="status"><span>The arena server was started before this version of the app, so newer features may
+      fail. Restart it: stop <code>make ui</code> (Ctrl+C) and start it again.</span></p>
   {/if}
   {#if app.mode === "detecting"}
     <p class="muted">Connecting…</p>

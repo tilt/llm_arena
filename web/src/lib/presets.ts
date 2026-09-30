@@ -1,4 +1,5 @@
 // Model presets in the UI: step kinds, model references with call settings, and the preset new setups start from.
+import type { CatalogItem } from "./backend";
 import type { ModelPreset } from "./contracts";
 
 export type Kind = "text" | "vision" | "code" | "agent" | "decision";
@@ -14,10 +15,22 @@ export const KINDS: { kind: Kind; label: string; hint: string }[] = [
 export const THINKING = [
   { value: "", label: "model default" },
   { value: "none", label: "thinking off" },
-  { value: "low", label: "low" },
-  { value: "medium", label: "medium" },
-  { value: "high", label: "high" },
+  { value: "low", label: "low effort" },
+  { value: "medium", label: "medium effort" },
+  { value: "high", label: "high effort" },
 ];
+
+/** The thinking settings a model accepts (engine: llm/reasoning.py). OpenAI and Ollama take an effort, where "none"
+ *  switches thinking off; Anthropic takes an effort but no "off"; LM Studio ignores the setting, and models that do not
+ *  think have nothing to set. A model missing from the catalog keeps every option, so a saved setting stays visible. */
+export function thinkingLevels(base: string, item?: CatalogItem): typeof THINKING {
+  if (!base) return [];
+  if (!item) return THINKING;
+  if (!item.spec.capabilities?.reasoning) return [];
+  if (item.spec.provider === "openai" || item.spec.provider === "ollama") return THINKING;
+  if (item.spec.provider === "anthropic") return THINKING.filter((t) => t.value !== "none");
+  return [];
+}
 
 /** "ollama:qwen3:4b#reasoning=none" -> { base: "ollama:qwen3:4b", reasoning: "none" } (other settings are kept). */
 export function splitRef(ref: string): { base: string; reasoning: string; rest: string[] } {

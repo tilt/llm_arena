@@ -4,12 +4,15 @@ import { DEFAULT_ROLE, emptyConfig, suggestName, type ConfigDraft } from "./buil
 
 type RoleSpec = { provider?: string; model?: string; reasoning_effort?: string | null; tool_mode?: string; temperature?: number | null };
 
-/** The catalog reference for a recorded role: a curated alias when one matches its call settings, else provider:model. */
+/** The reference for a recorded role: a curated alias when one matches its call settings, else provider:model with
+ *  the settings after "#" ("ollama:qwen3:4b#reasoning=none"), so thinking and tool mode carry over either way. */
 export function refFor(spec: RoleSpec, aliases: Record<string, ModelSpec>): string {
   const alias = Object.entries(aliases).find(([, a]) =>
     a.provider === spec.provider && a.model === spec.model && (a.reasoning_effort ?? null) === (spec.reasoning_effort ?? null)
     && (a.tool_mode ?? "native") === (spec.tool_mode ?? "native"));
-  return alias ? alias[0] : `${spec.provider}:${spec.model}`;
+  if (alias) return alias[0];
+  const settings = [...(spec.reasoning_effort ? [`reasoning=${spec.reasoning_effort}`] : []), ...(spec.tool_mode === "json" ? ["tools=json"] : [])];
+  return `${spec.provider}:${spec.model}${settings.length ? `#${settings.join(",")}` : ""}`;
 }
 
 export function configFromSetup(
@@ -21,9 +24,7 @@ export function configFromSetup(
   const bound: Record<string, string> = {};
   for (const [role, spec] of Object.entries(roles)) {
     if (typeof spec === "string") { bound[role] = spec; exact = false; continue; }
-    const ref = refFor(spec, aliases);
-    if (!aliases[ref] && (spec.reasoning_effort || spec.tool_mode === "json")) exact = false; // settings without an alias
-    bound[role] = ref;
+    bound[role] = refFor(spec, aliases);
   }
   config.roles = { [DEFAULT_ROLE]: "" };
   config.scenarioRoles = { [scenario]: bound };

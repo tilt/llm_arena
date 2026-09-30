@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ModelRefInput from "../components/ModelRefInput.svelte";
   import ModelSelect from "../components/ModelSelect.svelte";
   import ScenarioSetup from "../components/ScenarioSetup.svelte";
   import StudyForm from "../components/StudyForm.svelte";
@@ -159,7 +160,7 @@
       {#if !knownPreset(config, app.presets)}
       <div class="role">
         <span class="role-name">Default model <span class="muted">(every step not set per scenario below{defaultRoleNeeds(slots, config).length ? `; needs ${defaultRoleNeeds(slots, config).join(", ")}` : ""})</span></span>
-        <ModelSelect bind:value={config.roles[DEFAULT_ROLE]} options={eligibleModels(catalog, defaultRoleNeeds(slots, config))} empty="— choose —" label="Default model" />
+        <ModelRefInput id={`default-${index}`} bind:value={config.roles[DEFAULT_ROLE]} options={eligibleModels(catalog, defaultRoleNeeds(slots, config))} label="Default model" />
       </div>
       {/if}
     </div>
