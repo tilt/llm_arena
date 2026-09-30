@@ -51,7 +51,17 @@
     process: { label: "sandbox: local process", title: "Model-written code runs as a local process with your user's permissions and network access, not isolated. Start Docker and run make sandbox-image, then restart the app (or use --sandbox docker).", warn: true },
     "browser worker": { label: "sandbox: browser worker", title: "Model-written code runs in a separate Pyodide worker in this tab.", warn: false },
   };
-  const sandbox = $derived(SANDBOX[app.runtime?.sandbox_isolation ?? ""] ?? null);
+  // Containers always run as the user; the daemon that starts them may run as root (standard Linux install).
+  const DAEMON: Record<string, { label: string; title: string }> = {
+    rootless: { label: ", rootless", title: " The Docker daemon runs rootless: no part of the sandbox runs as root." },
+    root: { label: ", root daemon", title: " The Docker daemon runs as root (standard Linux install); the containers run as your user. Rootless Docker avoids root entirely." },
+    vm: { label: "", title: " Docker runs inside a virtual machine (e.g. Docker Desktop), not directly on this system." },
+  };
+  const sandbox = $derived.by(() => {
+    const base = SANDBOX[app.runtime?.sandbox_isolation ?? ""];
+    const daemon = base && app.runtime?.sandbox_isolation === "container" ? DAEMON[app.runtime?.sandbox_daemon ?? ""] : undefined;
+    return base ? { ...base, label: base.label + (daemon?.label ?? ""), title: base.title + (daemon?.title ?? "") } : null;
+  });
   const nav = [
     { href: "#/", label: "Scenarios", match: "home" },
     { href: "#/build", label: "Build", match: "build" },

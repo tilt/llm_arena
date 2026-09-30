@@ -53,9 +53,19 @@ if has docker; then
   if docker info >/dev/null 2>&1; then
     if docker image inspect llm-arena-sandbox:latest >/dev/null 2>&1; then docker_state="ready"; say "$OK" "Docker sandbox" "running, image built: model-written code runs isolated"
     else docker_state="no-image"; say "$OPT" "Docker sandbox" "running, image not built yet (setup builds it)"; fi
+    # Containers run as your user either way; this is about the daemon that starts them.
+    if [ "$OS" = "Linux" ]; then
+      if docker info --format '{{json .SecurityOptions}}' 2>/dev/null | grep -q rootless; then
+        say "$OK" "Docker daemon" "rootless: no part of the sandbox runs as root"
+      elif docker info --format '{{.OperatingSystem}}' 2>/dev/null | grep -q "Docker Desktop"; then
+        say "$OK" "Docker daemon" "Docker Desktop: runs inside a VM"
+      else
+        say "$OPT" "Docker daemon" "runs as root (standard install). Rootless Docker avoids that: https://docs.docker.com/engine/security/rootless/"
+      fi
+    fi
   else
     docker_state="stopped"
-    say "$NO" "Docker sandbox" "$(hint 'start Docker Desktop' 'start Docker (sudo systemctl start docker) and add yourself to the docker group: sudo usermod -aG docker $USER')"
+    say "$NO" "Docker sandbox" "$(hint 'start Docker Desktop' 'start Docker (sudo systemctl start docker); without sudo, use rootless Docker (https://docs.docker.com/engine/security/rootless/) or join the docker group (sudo usermod -aG docker $USER), which is root-equivalent')"
   fi
 else
   say "$OPT" "Docker" "isolates model-written code: $(hint 'https://www.docker.com/products/docker-desktop' 'https://docs.docker.com/engine/install/')"

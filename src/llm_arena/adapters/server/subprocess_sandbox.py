@@ -141,6 +141,27 @@ def docker_ready(image: str = SANDBOX_IMAGE) -> str | None:
     return f"the sandbox image {image} is missing (make sandbox-image)"
 
 
+def docker_daemon() -> str:
+    """How the Docker daemon runs: 'rootless', 'root' (a standard Linux install), 'vm' (Docker Desktop, or any
+    daemon on macOS/Windows, which needs a Linux VM), or '' when Docker does not say. Containers run as the user
+    either way; this is about the daemon that starts them."""
+    try:
+        result = subprocess.run(
+            ["docker", "info", "--format", "{{.OperatingSystem}}|{{json .SecurityOptions}}"],
+            capture_output=True, text=True, timeout=5, check=False,
+        )  # fmt: skip
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return ""
+    system, found, options = result.stdout.strip().partition("|")
+    if result.returncode or not found:
+        return ""
+    if "rootless" in options:
+        return "rootless"
+    if "Docker Desktop" in system or sys.platform in ("darwin", "win32"):
+        return "vm"
+    return "root"
+
+
 class DockerSandbox(SubprocessSandbox):
     """Same interface inside `docker run --network none`: for untrusted code or when isolation matters.
 
@@ -152,6 +173,7 @@ class DockerSandbox(SubprocessSandbox):
     def __init__(self, image: str = SANDBOX_IMAGE, memory_mb: int = 2048) -> None:
         super().__init__(python="python", memory_mb=memory_mb)
         self.image = image
+        self.daemon = docker_daemon()
 
     @staticmethod
     def _name(workdir: Path) -> str:

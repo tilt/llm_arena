@@ -46,6 +46,10 @@ class RuntimeInfo(BaseModel):
     runtime: str
     sandbox: bool
     sandbox_isolation: str = Field(default="", description="container | process | browser worker ('' without one)")
+    sandbox_daemon: str = Field(
+        default="",
+        description="Docker only: 'rootless', 'root' (the daemon runs as root) or 'vm' (e.g. Docker Desktop)",
+    )
     live_search: bool
     providers: dict[str, str] = Field(description="provider -> 'available' or why not (never key material)")
     decision_services: dict[str, DecisionServiceInfo] = Field(
@@ -135,6 +139,7 @@ class ArenaService:
             runtime=self.runtime.name,
             sandbox=self.runtime.sandbox is not None,
             sandbox_isolation=getattr(self.runtime.sandbox, "isolation", "") if self.runtime.sandbox else "",
+            sandbox_daemon=getattr(self.runtime.sandbox, "daemon", "") if self.runtime.sandbox else "",
             live_search=self.runtime.live_search is not None,
             providers=providers,
             decision_services=await self._decision_services(),

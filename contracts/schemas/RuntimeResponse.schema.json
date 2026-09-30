@@ -63,6 +63,12 @@
       "title": "Sandbox",
       "type": "boolean"
     },
+    "sandbox_daemon": {
+      "default": "",
+      "description": "Docker only: 'rootless', 'root' (the daemon runs as root) or 'vm' (e.g. Docker Desktop)",
+      "title": "Sandbox Daemon",
+      "type": "string"
+    },
     "sandbox_isolation": {
       "default": "",
       "description": "container | process | browser worker ('' without one)",

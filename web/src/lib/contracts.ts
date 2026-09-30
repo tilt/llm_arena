@@ -732,6 +732,10 @@ export interface RuntimeInfo {
   runtime: string;
   sandbox: boolean;
   /**
+   * Docker only: 'rootless', 'root' (the daemon runs as root) or 'vm' (e.g. Docker Desktop)
+   */
+  sandbox_daemon?: string;
+  /**
    * container | process | browser worker ('' without one)
    */
   sandbox_isolation?: string;
@@ -770,6 +774,10 @@ export interface RuntimeResponse {
   };
   runtime: string;
   sandbox: boolean;
+  /**
+   * Docker only: 'rootless', 'root' (the daemon runs as root) or 'vm' (e.g. Docker Desktop)
+   */
+  sandbox_daemon?: string;
   /**
    * container | process | browser worker ('' without one)
    */
