@@ -83,6 +83,8 @@ pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2
   <h1>LLM Arena Report</h1>
   <div class="meta">{{ s.name }} · run <code>{{ s.run_id }}</code> · {{ s.created_at }}
     {% if overall.judge %} · judge <code>{{ overall.judge }}</code>{% endif %}</div>
+  {% if s.execution %}<div class="meta">Model code ran in: {{ s.execution.get("backend", "unknown") }}
+    ({{ s.execution.get("isolation", "unknown") }}){% if s.execution.get("daemon") %}, {{ s.execution.get("daemon") }} daemon{% endif %}</div>{% endif %}
   <nav>
     <a href="#overview">Overview</a>
     {% for sc in s.scenarios %}<a href="#sc-{{ sc }}">{{ sc }}</a>{% endfor %}

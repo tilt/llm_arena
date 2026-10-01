@@ -17,20 +17,23 @@ def test_auto_uses_docker_when_ready(monkeypatch: pytest.MonkeyPatch) -> None:
     assert isinstance(sandbox, DockerSandbox) and sandbox.isolation == "container" and warning is None
 
 
-def test_auto_falls_back_with_a_warning_and_docker_mode_refuses(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_auto_fails_closed_with_a_hint_and_docker_mode_refuses(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(runtime, "docker_ready", lambda: "the Docker daemon is not running")
     sandbox, warning = runtime.choose_sandbox("auto")
-    assert type(sandbox) is SubprocessSandbox and sandbox.isolation == "process"
-    assert warning and "without isolation" in warning and "make sandbox-image" in warning
+    assert sandbox is None
+    assert warning and "unsafe-process" in warning and "make sandbox-image" in warning
     with pytest.raises(ConfigError, match="daemon is not running"):
         runtime.choose_sandbox("docker")
-    assert runtime.choose_sandbox("subprocess")[1]  # chosen on purpose, still announced
+    unsafe, warning = runtime.choose_sandbox("unsafe-process")
+    assert type(unsafe) is SubprocessSandbox and warning and "without isolation" in warning
+    assert "deprecated" in (runtime.choose_sandbox("subprocess")[1] or "")
 
 
 def test_docker_containers_are_locked_down(tmp_path: Path) -> None:
     command = DockerSandbox()._command(tmp_path)
     for flag in (
         ["--network", "none"],
+        ["--read-only", "--tmpfs"],
         ["--cap-drop", "ALL"],
         ["--security-opt", "no-new-privileges"],
         ["--pids-limit", "256"],

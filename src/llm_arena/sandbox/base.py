@@ -19,16 +19,20 @@ class ExecResult:
     returncode: int
     timed_out: bool = False
     files: dict[str, bytes] = field(default_factory=dict)  # outputs matched by `collect`
+    omitted: dict[str, str] = field(default_factory=dict)  # matched outputs rejected by collection limits
+    output_truncated: bool = False
     duration_s: float = 0.0
 
     @property
     def ok(self) -> bool:
-        return self.returncode == 0 and not self.timed_out
+        return self.returncode == 0 and not self.timed_out and not self.output_truncated
 
     def observation(self) -> str:
         """What the model sees after running code."""
         if self.timed_out:
             return "Execution timed out."
+        if self.output_truncated:
+            return "Execution stopped because stdout or stderr exceeded the 1048576-byte limit."
         parts = [f"exit code {self.returncode}"]
         if self.stdout.strip():
             parts.append(f"stdout:\n{self.stdout.strip()}")

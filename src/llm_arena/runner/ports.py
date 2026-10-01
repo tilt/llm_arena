@@ -49,6 +49,7 @@ class TrialRecord:
     task_fp: str = ""
     setup: dict[str, Any] = field(default_factory=dict)
     resume_key: str = ""
+    execution: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -63,7 +64,7 @@ class RunData:
 
 
 class RunStore(Protocol):
-    def start_run(self, run_id: str, name: str, config_json: str) -> None: ...
+    def start_run(self, run_id: str, name: str, config_json: str, execution_json: str = "{}") -> None: ...
 
     def completed_trials(self) -> dict[str, str]:
         """Finished trials: trial id -> resume key ("" for runs recorded before resume keys existed)."""
@@ -101,8 +102,28 @@ class Runtime:
     client_factory: ClientFactory
     discover: Callable[[], Awaitable[Catalog]] | None = None
     sandbox: Sandbox | None = None
+    sandbox_hint: str = ""
     live_search: Callable[[str], SearchBackend] | None = None
     decision_services: ServiceFactory | None = None  # Jev / Ollaya decision models; None where unreachable (browser)
     # service -> (status, models), for the UI; None where the services cannot be reached
     decision_status: Callable[[], Awaitable[dict[str, tuple[str, list[str]]]]] | None = None
     name: str = "server"
+
+    def execution_environment(self) -> dict[str, str]:
+        sandbox = self.sandbox
+        display = getattr(sandbox, "isolation", "") if sandbox else ""
+        isolation = "browser" if display == "browser worker" else display
+        backend = {
+            "container": "docker",
+            "process": "unsafe-process",
+            "browser": "browser-worker",
+            "": "none",
+        }.get(isolation, type(sandbox).__name__ if sandbox else "none")
+        return {
+            "backend": backend,
+            "isolation": isolation,
+            "daemon": str(getattr(sandbox, "daemon", "")) if sandbox else "",
+            "image_id": str(getattr(sandbox, "image_id", "")) if sandbox else "",
+            "sandbox_policy": "1",
+            "browser_network": str(getattr(sandbox, "network_isolation", "")) if sandbox else "",
+        }

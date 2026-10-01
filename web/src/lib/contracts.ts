@@ -4,7 +4,7 @@
  * This interface was referenced by `Contracts`'s JSON-Schema
  * via the `definition` "RunEvent".
  */
-export type RunEvent = RunStarted | TrialStarted | TrialFinished | BudgetExceeded | RunFinished;
+export type RunEvent = RunStarted | TrialStarted | TrialFinished | BudgetExceeded | RunWarning | RunFinished;
 
 export interface Contracts {
   CatalogEntry?: CatalogEntry;
@@ -109,6 +109,10 @@ export interface Estimate {
  */
 export interface ExperimentConfig {
   arena?: ArenaConfig;
+  budget_mode?: "best_effort" | "strict";
+  /**
+   * @maxItems 50
+   */
   configs?: PipelineConfig[];
   judge?: string | null;
   /**
@@ -116,7 +120,7 @@ export interface ExperimentConfig {
    */
   limit?: number | null;
   /**
-   * stop the run once model spend reaches this limit
+   * stop admitting calls near this best-effort spend limit
    */
   max_cost_usd?: number | null;
   max_parallel_trials?: number;
@@ -129,6 +133,9 @@ export interface ExperimentConfig {
     [k: string]: ModelPreset | undefined;
   };
   repeats?: number;
+  /**
+   * @maxItems 30
+   */
   scenarios: string[];
   seed?: number;
   /**
@@ -294,6 +301,7 @@ export interface StudyConfig {
    * model references (or ollaya:/jev: decision models) to try
    *
    * @minItems 1
+   * @maxItems 200
    */
   candidates: [string, ...string[]];
   /**
@@ -655,6 +663,14 @@ export interface BudgetExceeded {
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "RunWarning".
+ */
+export interface RunWarning {
+  message: string;
+  type?: "run_warning";
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
  * via the `definition` "RunFinished".
  */
 export interface RunFinished {
@@ -736,6 +752,10 @@ export interface RuntimeInfo {
    */
   sandbox_daemon?: string;
   /**
+   * actionable setup help when code execution is unavailable
+   */
+  sandbox_hint?: string;
+  /**
    * container | process | browser worker ('' without one)
    */
   sandbox_isolation?: string;
@@ -778,6 +798,10 @@ export interface RuntimeResponse {
    * Docker only: 'rootless', 'root' (the daemon runs as root) or 'vm' (e.g. Docker Desktop)
    */
   sandbox_daemon?: string;
+  /**
+   * actionable setup help when code execution is unavailable
+   */
+  sandbox_hint?: string;
   /**
    * container | process | browser worker ('' without one)
    */

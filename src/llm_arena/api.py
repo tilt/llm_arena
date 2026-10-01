@@ -5,10 +5,11 @@ from __future__ import annotations
 import json
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import RunProgress
+from llm_arena.runner.run import valid_run_id
 from llm_arena.service import RuntimeInfo
 
 KeySource = Literal["env", "session", "missing"]
@@ -18,6 +19,13 @@ class StartRun(BaseModel):
     experiment: ExperimentConfig
     live: bool = False
     run_id: str | None = None
+
+    @field_validator("run_id")
+    @classmethod
+    def _valid_run_id(cls, value: str | None) -> str | None:
+        if value is not None and not valid_run_id(value):
+            raise ValueError("run ids must start with a letter or digit and use at most 121 letters, digits, ., _ or -")
+        return value
 
 
 class RunStartedResponse(BaseModel):

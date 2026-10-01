@@ -87,6 +87,25 @@
       "title": "RunStarted",
       "type": "object"
     },
+    "RunWarning": {
+      "properties": {
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "type": {
+          "const": "run_warning",
+          "default": "run_warning",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "RunWarning",
+      "type": "object"
+    },
     "TrialFinished": {
       "properties": {
         "config": {
@@ -201,6 +220,7 @@
       "budget_exceeded": "#/$defs/BudgetExceeded",
       "run_finished": "#/$defs/RunFinished",
       "run_started": "#/$defs/RunStarted",
+      "run_warning": "#/$defs/RunWarning",
       "trial_finished": "#/$defs/TrialFinished",
       "trial_started": "#/$defs/TrialStarted"
     },
@@ -218,6 +238,9 @@
     },
     {
       "$ref": "#/$defs/BudgetExceeded"
+    },
+    {
+      "$ref": "#/$defs/RunWarning"
     },
     {
       "$ref": "#/$defs/RunFinished"

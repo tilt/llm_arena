@@ -49,6 +49,11 @@ class BudgetExceeded(BaseModel):
     limit_usd: float
 
 
+class RunWarning(BaseModel):
+    type: Literal["run_warning"] = "run_warning"
+    message: str
+
+
 class RunFinished(BaseModel):
     type: Literal["run_finished"] = "run_finished"
     run_id: str
@@ -57,7 +62,7 @@ class RunFinished(BaseModel):
 
 
 RunEvent = Annotated[
-    RunStarted | TrialStarted | TrialFinished | BudgetExceeded | RunFinished, Field(discriminator="type")
+    RunStarted | TrialStarted | TrialFinished | BudgetExceeded | RunWarning | RunFinished, Field(discriminator="type")
 ]
 EventSink = Callable[[RunEvent], None]
 

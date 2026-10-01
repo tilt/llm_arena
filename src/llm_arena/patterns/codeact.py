@@ -80,7 +80,15 @@ async def run_codeact(
             result = await sandbox.run(code, files=environment.files(), collect=("state/*",), timeout_s=timeout_s)
             environment.absorb(result)
             span.output = result.observation()
-            span.attrs.update({"ok": result.ok, "timed_out": result.timed_out, "duration_s": result.duration_s})
+            span.attrs.update(
+                {
+                    "ok": result.ok,
+                    "timed_out": result.timed_out,
+                    "output_truncated": result.output_truncated,
+                    "omitted": result.omitted,
+                    "duration_s": result.duration_s,
+                }
+            )
         executions += 1
         failed += 0 if result.ok else 1
         history.append({"role": "user", "content": f"Execution result:\n{result.observation()}"})

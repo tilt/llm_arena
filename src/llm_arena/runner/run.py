@@ -13,6 +13,7 @@ import hashlib
 import itertools
 import json
 import mimetypes
+import re
 import time
 import traceback
 from collections.abc import Iterable
@@ -38,6 +39,7 @@ from llm_arena.runner.events import (
     EventSink,
     RunFinished,
     RunStarted,
+    RunWarning,
     TrialFinished,
     TrialStarted,
     ignore,
@@ -49,6 +51,12 @@ from llm_arena.runner.study import expand as expand_study
 from llm_arena.scenarios.base import RoleRequirement, RunContext, Scenario, get_scenario
 
 WILDCARD_ROLE = "*"  # binds every role of a scenario that the config does not bind explicitly
+SANDBOX_REQUIRED = (
+    "Start Docker and run `make sandbox-image`, or restart with `--sandbox unsafe-process` to run model code as your "
+    "user (not isolated)."
+)
+MAX_PLANNED_TRIALS = 20_000
+_RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,120}$")
 
 
 @dataclass
@@ -80,7 +88,12 @@ class TrialSpec:
 
 
 def new_run_id(name: str) -> str:
-    return f"{datetime.now():%Y%m%d-%H%M%S}-{name}"
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "-", name).strip(".-_")[:105] or "run"
+    return f"{datetime.now():%Y%m%d-%H%M%S}-{slug}"
+
+
+def valid_run_id(run_id: str) -> bool:
+    return bool(_RUN_ID.fullmatch(run_id))
 
 
 class ExperimentRunner:
@@ -101,12 +114,16 @@ class ExperimentRunner:
         self.runtime = runtime
         self.store = store
         self.run_id = run_id or new_run_id(experiment.name)
+        if not valid_run_id(self.run_id):
+            raise ConfigError(
+                "run ids must start with a letter or digit and use at most 121 letters, digits, ., _ or -"
+            )
         self.live = live
         self.model_specs = model_specs or {}
         self.catalog = catalog
         self.sink = sink
         self.presets = {**(presets or DEFAULT_PRESETS), **experiment.presets}
-        self.budget = BudgetGuard(experiment.max_cost_usd)
+        self.budget = BudgetGuard(experiment.max_cost_usd, experiment.budget_mode)
         self._clients: dict[str, LLMClient] = {}
         self._cancelled = False
         self._planned: list[TrialSpec] | None = None
@@ -228,10 +245,16 @@ class ExperimentRunner:
         missing capability, missing key, unsupported provider) surface before anything runs."""
         await self.prepare()
         trials = self.plan()
+        if len(trials) > MAX_PLANNED_TRIALS:
+            raise ConfigError(f"this experiment plans {len(trials)} trials; the maximum is {MAX_PLANNED_TRIALS}")
+        needs_sandbox = sorted({trial.scenario.name for trial in trials if "sandbox" in trial.scenario.requires})
+        if needs_sandbox and self.runtime.sandbox is None:
+            raise ConfigError(SANDBOX_REQUIRED)
         specs = {spec.name: spec for trial in trials for spec in trial.bindings.values()}
         if self.judge_spec is not None:
             specs[self.judge_spec.name] = self.judge_spec
         for spec in specs.values():
+            self.budget.validate_spec(spec)
             try:
                 self._client(spec)
             except ConfigError:
@@ -257,7 +280,12 @@ class ExperimentRunner:
             raise ConfigError("ExperimentRunner.run needs a RunStore")
         store = self.store
         trials = self._planned if self._planned is not None else await self.preflight()
-        store.start_run(self.run_id, self.experiment.name, self.experiment.model_dump_json())
+        execution = self.runtime.execution_environment()
+        existing = store.load_run()
+        self._check_execution_resume(existing, execution)
+        store.start_run(
+            self.run_id, self.experiment.name, self.experiment.model_dump_json(), json.dumps(execution, sort_keys=True)
+        )
         done = store.completed_trials()
         # Resuming may skip a finished trial only if it ran exactly this setup, task version and seed;
         # otherwise the run would silently mix results of two different experiments under one config name.
@@ -269,34 +297,60 @@ class ExperimentRunner:
             )
         pending = [trial for trial in trials if trial.trial_id not in done]
         self.sink(RunStarted(run_id=self.run_id, total=len(trials), pending=len(pending)))
-        gate = asyncio.Semaphore(self.experiment.max_parallel_trials)
         endpoint_slots: dict[str, asyncio.Semaphore] = {}
         finished = 0
+        queue: asyncio.Queue[TrialSpec] = asyncio.Queue()
+        for trial in pending:
+            queue.put_nowait(trial)
 
-        async def guarded(trial: TrialSpec) -> None:
+        async def worker() -> None:
             nonlocal finished
-            async with gate, contextlib.AsyncExitStack() as stack:
-                # Reserve every endpoint the trial uses *before* its clock starts. A local server
-                # (concurrency 1) then runs trials one after another instead of interleaving their
-                # calls, which would inflate latencies and burn trial timeouts while queued.
-                for key, capacity in sorted(_endpoints(trial.bindings.values())):
-                    slot = endpoint_slots.setdefault(key, asyncio.Semaphore(capacity))
-                    await stack.enter_async_context(slot)
-                if self._cancelled or self.budget.exceeded:
+            while not queue.empty():
+                try:
+                    trial = queue.get_nowait()
+                except asyncio.QueueEmpty:
                     return
-                self.sink(TrialStarted(trial_id=trial.trial_id, scenario=trial.scenario.name, config=trial.config.name,
-                                       task_id=trial.task.id, repeat=trial.repeat))  # fmt: skip
-                record = await self._run_trial(trial, store)
-                finished += 1
-                self.sink(TrialFinished(
-                    trial_id=record.trial_id, scenario=record.scenario, config=record.config, task_id=record.task_id,
-                    repeat=record.repeat, status=record.status, passed=record.passed, duration_s=record.duration_s,
-                    cost_usd=record.totals.get("cost_usd", 0.0) + record.judge_cost_usd, done=finished, total=len(pending),
-                ))  # fmt: skip
-                if self.budget.exceeded and self.budget.limit_usd is not None:
-                    self.sink(BudgetExceeded(spent_usd=self.budget.spent_usd, limit_usd=self.budget.limit_usd))
+                try:
+                    async with contextlib.AsyncExitStack() as stack:
+                        # Reserve all endpoints before the trial clock starts, preserving measured latency.
+                        for key, capacity in sorted(_endpoints(trial.bindings.values())):
+                            slot = endpoint_slots.setdefault(key, asyncio.Semaphore(capacity))
+                            await stack.enter_async_context(slot)
+                        if self._cancelled or self.budget.exceeded:
+                            continue
+                        self.sink(
+                            TrialStarted(
+                                trial_id=trial.trial_id,
+                                scenario=trial.scenario.name,
+                                config=trial.config.name,
+                                task_id=trial.task.id,
+                                repeat=trial.repeat,
+                            )
+                        )
+                        record = await self._run_trial(trial, store)
+                        finished += 1
+                        self.sink(
+                            TrialFinished(
+                                trial_id=record.trial_id,
+                                scenario=record.scenario,
+                                config=record.config,
+                                task_id=record.task_id,
+                                repeat=record.repeat,
+                                status=record.status,
+                                passed=record.passed,
+                                duration_s=record.duration_s,
+                                cost_usd=record.totals.get("cost_usd", 0.0) + record.judge_cost_usd,
+                                done=finished,
+                                total=len(pending),
+                            )
+                        )
+                        if self.budget.exceeded and self.budget.limit_usd is not None:
+                            self.sink(BudgetExceeded(spent_usd=self.budget.spent_usd, limit_usd=self.budget.limit_usd))
+                finally:
+                    queue.task_done()
 
-        await asyncio.gather(*(guarded(trial) for trial in pending))
+        workers = [asyncio.create_task(worker()) for _ in range(min(self.experiment.max_parallel_trials, len(pending)))]
+        await asyncio.gather(*workers)
         if self.experiment.arena.enabled and not self._cancelled and not self.budget.exceeded:
             await self._run_battles(store, trials)
         stopped = self._cancelled or self.budget.exceeded
@@ -360,6 +414,7 @@ class ExperimentRunner:
             task_fp=task_fingerprint(spec.task),
             setup=setup,
             resume_key=spec.resume_key,
+            execution=self.runtime.execution_environment(),
         )
         extra = {
             "env_state": output.env_state,
@@ -368,6 +423,37 @@ class ExperimentRunner:
         }
         store.save_trial(self.run_id, record, scores, trace, extra)
         return record
+
+    def _check_execution_resume(self, existing: Any, current: dict[str, str]) -> None:
+        completed_code = [
+            trial
+            for trial in existing.trials
+            if trial.get("status") == "ok" and "sandbox" in get_scenario(str(trial.get("scenario"))).requires
+        ]
+        if not completed_code:
+            return
+        raw = existing.run.get("execution_json")
+        previous = json.loads(raw) if raw else {}
+        previous_isolation = str(previous.get("isolation", ""))
+        if previous_isolation and previous_isolation != current["isolation"]:
+            raise ConfigError(
+                f"This run's code trials ran in {previous_isolation}; resume it with the same sandbox, or start a "
+                "new run."
+            )
+        if not previous_isolation:
+            self.sink(RunWarning(message="This legacy run has code trials with unknown sandbox attribution."))
+            return
+        changed = [
+            field
+            for field in ("backend", "daemon", "image_id", "sandbox_policy", "browser_network")
+            if previous.get(field, "") != current.get(field, "")
+        ]
+        if changed:
+            self.sink(
+                RunWarning(
+                    message=f"The sandbox {', '.join(changed)} changed; resumed trials record the new environment."
+                )
+            )
 
     def _decisions(self, spec: TrialSpec, trace: Trace) -> DecisionSetup | None:
         config = spec.config.decisions

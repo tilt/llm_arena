@@ -31,6 +31,7 @@
   let repeats = $state(1);
   let split = $state<"all" | "dev" | "test">("all");
   let maxCostUsd = $state<number | null>(1);
+  let budgetMode = $state<"best_effort" | "strict">("best_effort");
   let onlyTask = $state("");
   let estimate = $state<Estimate | null>(null);
   let message = $state("");
@@ -62,7 +63,7 @@
   }) : null);
   const plan = $derived<BuilderState>({
     name: `${id}-${config.name}`.replace(/[^\w.-]+/g, "-"), scenarios: [id], configs: [config], repeats,
-    limit: onlyTask ? null : limit, judge: "", arena: false, maxCostUsd, split: onlyTask ? "all" : split,
+    limit: onlyTask ? null : limit, judge: "", arena: false, maxCostUsd, budgetMode, split: onlyTask ? "all" : split,
   });
   const experiment = () => ({ ...toExperiment(plan, app.scenarios, app.presets), ...(onlyTask ? { task_ids: [onlyTask] } : {}) });
   const errors = $derived(manifest ? validate(plan, app.scenarios, app.runtime?.sandbox ?? false,
@@ -147,7 +148,7 @@
     {:else if active === "tasks"}
       <TaskList scenario={id} onrun={runTask} />
     {:else if active === "setup"}
-      {#if blocked}<p class="note">This scenario executes code and needs a sandbox, which this runtime does not have. Use the local app.</p>{/if}
+      {#if blocked}<p class="note">{app.runtime?.sandbox_hint || "This scenario executes code and needs a sandbox."}</p>{/if}
       {#if (manifest.requires ?? []).includes("sandbox") && app.runtime?.sandbox_isolation === "process"}
         <p class="note" role="status">Model-written code will run as a local process on this machine, not isolated: it has your
           user's permissions and network access. For isolation start Docker and run <code>make sandbox-image</code>, then restart the app.</p>
@@ -174,6 +175,8 @@
           <label>Task split<select bind:value={split}><option value="all">all</option><option value="dev">dev (tuning)</option><option value="test">test (reporting)</option></select></label>
         {/if}
         <label>Spend limit (USD)<input type="number" min="0" step="0.5" bind:value={maxCostUsd} /></label>
+        <label>Budget mode<select bind:value={budgetMode}><option value="best_effort">best effort</option><option value="strict">strict</option></select></label>
+        {#if budgetMode === "strict"}<p class="muted small">Strict mode refuses unknown prices, images without a cost bound, and models without max_tokens.</p>{/if}
       </section>
       {#if errors.length}<ul class="errors">{#each errors as e (e)}<li>{e}</li>{/each}</ul>{/if}
       <div class="actions">

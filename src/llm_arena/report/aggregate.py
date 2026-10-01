@@ -63,6 +63,7 @@ class RunSummary:
     name: str
     created_at: str
     config_json: dict[str, Any]
+    execution: dict[str, Any]
     configs: list[ConfigSummary]
     paired_tests: list[PairedTest]
     ratings: dict[str, dict[str, float]]  # scenario ("overall" too) -> config -> rating
@@ -95,6 +96,7 @@ def summarize(data: RunData) -> RunSummary:
         name=data.run.get("name", ""),
         created_at=str(data.run.get("created_at", ""))[:19],
         config_json=json.loads(data.run.get("config_json") or "{}"),
+        execution=json.loads(data.run.get("execution_json") or "{}"),
         configs=configs,
         paired_tests=_paired_tests(configs),
         ratings=_ratings(data.battles),

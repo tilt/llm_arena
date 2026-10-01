@@ -29,7 +29,7 @@ from llm_arena.runner.events import EventSink, ignore
 from llm_arena.runner.ports import RunData, RunStore, Runtime
 from llm_arena.runner.presets import DEFAULT_PRESETS, ModelPreset, save_preset
 from llm_arena.runner.rename import RenameRun, rename_data, rename_trace
-from llm_arena.runner.run import ExperimentRunner, new_run_id
+from llm_arena.runner.run import ExperimentRunner, new_run_id, valid_run_id
 from llm_arena.scenarios.base import SCENARIOS, get_scenario
 from llm_arena.scenarios.brief import TaskView
 from llm_arena.scenarios.manifest import ScenarioManifest
@@ -50,6 +50,7 @@ class RuntimeInfo(BaseModel):
         default="",
         description="Docker only: 'rootless', 'root' (the daemon runs as root) or 'vm' (e.g. Docker Desktop)",
     )
+    sandbox_hint: str = Field(default="", description="actionable setup help when code execution is unavailable")
     live_search: bool
     providers: dict[str, str] = Field(description="provider -> 'available' or why not (never key material)")
     decision_services: dict[str, DecisionServiceInfo] = Field(
@@ -140,6 +141,7 @@ class ArenaService:
             sandbox=self.runtime.sandbox is not None,
             sandbox_isolation=getattr(self.runtime.sandbox, "isolation", "") if self.runtime.sandbox else "",
             sandbox_daemon=getattr(self.runtime.sandbox, "daemon", "") if self.runtime.sandbox else "",
+            sandbox_hint=self.runtime.sandbox_hint,
             live_search=self.runtime.live_search is not None,
             providers=providers,
             decision_services=await self._decision_services(),
@@ -183,6 +185,10 @@ class ArenaService:
     ) -> str:
         """Start a run in the background and return its id; progress arrives through `sink`."""
         run_id = run_id or new_run_id(experiment.name)
+        if not valid_run_id(run_id):
+            raise ConfigError(
+                "run ids must start with a letter or digit and use at most 121 letters, digits, ., _ or -"
+            )
         runner = self._runner(experiment, run_id=run_id, sink=sink, live=live)
         await runner.preflight()  # configuration errors go to the caller, not into a background task
         runner.store = self.store_factory(run_id)

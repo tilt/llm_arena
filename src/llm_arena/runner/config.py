@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import yaml
 from pydantic import AliasChoices, BaseModel, Field, model_validator
@@ -12,6 +13,16 @@ from llm_arena.core.errors import ConfigError
 from llm_arena.decisions.config import DecisionConfig
 from llm_arena.runner.presets import ModelPreset
 from llm_arena.runner.study import StudyConfig, StudyTag
+
+SandboxConfigMode = Literal["auto", "docker", "unsafe-process", "subprocess"]
+
+
+def configured_sandbox_mode(explicit: str | None = None) -> SandboxConfigMode:
+    """Resolve the CLI override and the one allowed environment source for sandbox selection."""
+    value = explicit or os.environ.get("ARENA_SANDBOX", "auto")
+    if value not in ("auto", "docker", "unsafe-process", "subprocess"):
+        raise ConfigError("ARENA_SANDBOX/--sandbox must be auto, docker or unsafe-process")
+    return cast("SandboxConfigMode", value)
 
 
 class PipelineConfig(BaseModel):
@@ -64,27 +75,30 @@ class ArenaConfig(BaseModel):
 class ExperimentConfig(BaseModel):
     name: str
     models_file: str = "configs/models.yaml"
-    scenarios: list[str]
-    configs: list[PipelineConfig] = Field(default_factory=list)
+    scenarios: list[str] = Field(max_length=30)
+    configs: list[PipelineConfig] = Field(default_factory=list, max_length=50)
     study: StudyConfig | None = Field(
         default=None, description="replacement study: baseline + one config per swapped role and candidate model"
     )
-    repeats: int = Field(default=1, ge=1)
-    limit: int | None = Field(default=None, description="max tasks per scenario")
+    repeats: int = Field(default=1, ge=1, le=100)
+    limit: int | None = Field(default=None, ge=1, description="max tasks per scenario")
     task_ids: list[str] | None = None
     split: Literal["all", "dev", "test"] = Field(
         default="all", description="tasks of this split only (tasks without a split are always included)"
     )
     judge: str | None = None
     arena: ArenaConfig = Field(default_factory=ArenaConfig)
-    max_parallel_trials: int = 4
-    max_cost_usd: float | None = Field(default=None, description="stop the run once model spend reaches this limit")
+    max_parallel_trials: int = Field(default=4, ge=1, le=16)
+    max_cost_usd: float | None = Field(
+        default=None, ge=0, description="stop admitting calls near this best-effort spend limit"
+    )
+    budget_mode: Literal["best_effort", "strict"] = "best_effort"
     presets: dict[str, ModelPreset] = Field(
         validation_alias=AliasChoices("presets", "baselines"),
         default_factory=dict,
         description="presets defined in the experiment itself (override the runtime's)",
     )
-    trial_timeout_s: float = 900.0
+    trial_timeout_s: float = Field(default=900.0, gt=0, le=3600)
     seed: int = 0
 
     @model_validator(mode="before")

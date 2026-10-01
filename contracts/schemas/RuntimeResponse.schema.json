@@ -69,6 +69,12 @@
       "title": "Sandbox Daemon",
       "type": "string"
     },
+    "sandbox_hint": {
+      "default": "",
+      "description": "actionable setup help when code execution is unavailable",
+      "title": "Sandbox Hint",
+      "type": "string"
+    },
     "sandbox_isolation": {
       "default": "",
       "description": "container | process | browser worker ('' without one)",

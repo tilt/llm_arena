@@ -25,7 +25,7 @@ describe("presets in the builder", () => {
   const manifest = { id: "chart", title: "c", pattern: "p", description: "", kind: "pattern", params: [], pass_criteria: [], tasks: 1,
     roles: [{ name: "generator", description: "", kind: "code" }, { name: "critic", description: "", kind: "vision", needs: ["vision"] }] } as ScenarioManifest;
   const config = { ...emptyConfig(0), name: "c", roles: {}, preset: "local-small", scenarioRoles: { chart: { critic: "openai:gpt-5-mini" } } };
-  const state: BuilderState = { name: "e", scenarios: ["chart"], configs: [config], repeats: 1, limit: 1, judge: "", arena: false, maxCostUsd: 1, split: "all" };
+  const state: BuilderState = { name: "e", scenarios: ["chart"], configs: [config], repeats: 1, limit: 1, judge: "", arena: false, maxCostUsd: 1, budgetMode: "best_effort", split: "all" };
 
   it("binds explicit roles first, then the preset by kind", () => {
     const profiles = { "local-small": PROFILE };

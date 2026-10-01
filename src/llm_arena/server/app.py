@@ -15,9 +15,11 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from llm_arena.adapters.server.report_html import build_report
 from llm_arena.api import RunListing, RunStartedResponse, RuntimeResponse, SetKey, StartRun, run_listing
@@ -28,7 +30,7 @@ from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import progress
 from llm_arena.runner.presets import ModelPreset
 from llm_arena.runner.rename import RenameRun
-from llm_arena.runner.run import new_run_id
+from llm_arena.runner.run import new_run_id, valid_run_id
 from llm_arena.scenarios.brief import TaskView
 from llm_arena.scenarios.manifest import ScenarioManifest
 from llm_arena.server.channels import Channels
@@ -37,6 +39,53 @@ from llm_arena.service import ArenaService, Estimate, RunBundle
 
 DEFAULT_PORT = 8787
 DEV_SERVER_PORT = 5173  # Vite dev server for the web UI
+MAX_REQUEST_BYTES = 1024 * 1024
+
+
+class RequestSizeLimitMiddleware:
+    """Buffer at most one request MiB so chunked bodies cannot bypass Content-Length checks."""
+
+    def __init__(self, app: ASGIApp, max_bytes: int = MAX_REQUEST_BYTES) -> None:
+        self.app = app
+        self.max_bytes = max_bytes
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or scope.get("method") not in ("POST", "PUT", "PATCH", "DELETE"):
+            await self.app(scope, receive, send)
+            return
+        headers = dict(scope.get("headers", []))
+        raw_length = headers.get(b"content-length", b"")
+        if raw_length.isdigit() and int(raw_length) > self.max_bytes:
+            await self._reject(scope, receive, send)
+            return
+        messages: list[Message] = []
+        size = 0
+        while True:
+            message = await receive()
+            messages.append(message)
+            if message["type"] == "http.request":
+                size += len(message.get("body", b""))
+                if size > self.max_bytes:
+                    await self._reject(scope, receive, send)
+                    return
+                if not message.get("more_body", False):
+                    break
+            elif message["type"] == "http.disconnect":
+                break
+        iterator = iter(messages)
+
+        async def replay() -> Message:
+            return next(iterator, {"type": "http.request", "body": b"", "more_body": False})
+
+        await self.app(scope, replay, send)
+
+    async def _reject(self, scope: Scope, receive: Receive, send: Send) -> None:
+        response = Response(
+            content=f"Request body exceeds {self.max_bytes} bytes; reduce the experiment or uploaded data.",
+            status_code=413,
+            media_type="text/plain",
+        )
+        await response(scope, receive, send)
 
 
 def local_origins(port: int) -> list[str]:
@@ -52,7 +101,18 @@ def create_app(
     port: int = DEFAULT_PORT,
 ) -> FastAPI:
     app = FastAPI(title="LLM Arena", version="0.1.0")
+    app.add_middleware(RequestSizeLimitMiddleware)
     app.add_middleware(CORSMiddleware, allow_origins=local_origins(port), allow_methods=["*"], allow_headers=["*"])
+
+    @app.exception_handler(RequestValidationError)
+    async def readable_validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+        first = exc.errors()[0] if exc.errors() else {"msg": "invalid request", "loc": ()}
+        field = ".".join(str(part) for part in first.get("loc", ()) if part not in ("body", "query", "path"))
+        context = first.get("ctx")
+        cause = context.get("error") if isinstance(context, dict) else None
+        message = str(cause or first.get("msg", "invalid request"))
+        return JSONResponse(status_code=400, content={"detail": f"{field}: {message}" if field else message})
+
     channels = Channels()
     # The UI is served from disk, the API from the code loaded at startup: after `make web` a reloaded page can be
     # newer than this process. Reporting the build seen at startup lets the page notice and ask for a restart.
@@ -104,7 +164,7 @@ def create_app(
     @app.post("/api/runs", response_model=RunStartedResponse, status_code=202)
     async def start_run(body: StartRun) -> RunStartedResponse:
         run_id = body.run_id or new_run_id(body.experiment.name)
-        if "/" in run_id or ".." in run_id:
+        if not valid_run_id(run_id):
             raise HTTPException(status_code=400, detail="invalid run id")
         channel = channels.get(run_id)
         try:
@@ -136,7 +196,7 @@ def create_app(
 
     @app.get("/api/leaderboard", response_model=list[Leaderboard])
     def leaderboard(scenario: str | None = None) -> list[Leaderboard]:
-        run_ids = [path.parent.name for path in runs_dir.glob("*/arena.duckdb")]
+        run_ids = _existing_run_ids(runs_dir)
         return service.leaderboards(run_ids, scenario=scenario)
 
     @app.get("/api/runs", response_model=list[RunListing])
@@ -144,8 +204,8 @@ def create_app(
         """Newest first, live runs with their progress. Finished runs are cached by database mtime, so the UI
         can poll this cheaply while something runs."""
         listings = []
-        for db_file in runs_dir.glob("*/arena.duckdb"):
-            run_id = db_file.parent.name
+        for run_id in _existing_run_ids(runs_dir):
+            db_file = runs_dir / run_id / "arena.duckdb"
             live = run_id in channels and not channels.get(run_id).finished
             stamp = db_file.stat().st_mtime
             cached = listing_cache.get(run_id)
@@ -165,7 +225,7 @@ def create_app(
 
     @app.get("/api/runs/{run_id}/events")
     async def events(run_id: str) -> StreamingResponse:
-        if run_id not in channels:
+        if not valid_run_id(run_id) or run_id not in channels:
             raise HTTPException(status_code=404, detail="no live run with this id (finished runs: use /bundle)")
 
         async def stream() -> AsyncIterator[str]:
@@ -177,7 +237,7 @@ def create_app(
     @app.patch("/api/runs/{run_id}", status_code=204)
     def rename_run(run_id: str, body: RenameRun) -> Response:
         """New display name and setup names for a finished run; ids and links stay."""
-        _require_run(runs_dir, run_id)
+        _require_run(runs_dir, run_id, mutation=True)
         try:
             service.rename_run(run_id, body)
         except ArenaError as exc:
@@ -187,6 +247,8 @@ def create_app(
 
     @app.post("/api/runs/{run_id}/cancel", status_code=202)
     def cancel(run_id: str) -> dict[str, str]:
+        if not valid_run_id(run_id) or run_id not in channels or channels.get(run_id).finished:
+            raise HTTPException(status_code=404, detail=f"unknown active run {run_id!r}")
         service.cancel(run_id)
         return {"run_id": run_id, "status": "cancelling"}
 
@@ -247,9 +309,32 @@ def _ui_build(static_dir: Path | None) -> str:
         return ""
 
 
-def _require_run(runs_dir: Path, run_id: str) -> None:
-    if "/" in run_id or ".." in run_id or not (runs_dir / run_id / "arena.duckdb").exists():
+def _require_run(runs_dir: Path, run_id: str, *, mutation: bool = False) -> None:
+    if mutation and not valid_run_id(run_id):
         raise HTTPException(status_code=404, detail=f"unknown run {run_id!r}")
+    if not run_id or any(char in run_id for char in ("/", "\\", "\0")) or any(ord(char) < 32 for char in run_id):
+        raise HTTPException(status_code=404, detail=f"unknown run {run_id!r}")
+    root = runs_dir.resolve()
+    candidate = runs_dir / run_id
+    if candidate.is_symlink():
+        raise HTTPException(status_code=404, detail=f"unknown run {run_id!r}")
+    try:
+        resolved = candidate.resolve()
+    except OSError:
+        raise HTTPException(status_code=404, detail=f"unknown run {run_id!r}") from None
+    if resolved.parent != root or not (resolved / "arena.duckdb").is_file():
+        raise HTTPException(status_code=404, detail=f"unknown run {run_id!r}")
+
+
+def _existing_run_ids(runs_dir: Path) -> list[str]:
+    found: list[str] = []
+    for child in runs_dir.iterdir() if runs_dir.exists() else ():
+        try:
+            _require_run(runs_dir, child.name)
+        except HTTPException:
+            continue
+        found.append(child.name)
+    return found
 
 
 _PLACEHOLDER = """<!doctype html><html lang="en"><head><meta charset="utf-8"><title>LLM Arena</title>

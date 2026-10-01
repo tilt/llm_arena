@@ -10,13 +10,17 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import os
+import signal
 import subprocess
 import sys
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
+from llm_arena.adapters.server.safe_files import collect_artifacts, write_inputs
 from llm_arena.sandbox.base import ExecResult, clip
+
+MAX_STREAM_BYTES = 1024 * 1024
 
 
 class SubprocessSandbox:
@@ -44,10 +48,7 @@ class SubprocessSandbox:
     ) -> ExecResult:
         with tempfile.TemporaryDirectory(prefix="arena-sbx-") as workdir:
             root = Path(workdir)
-            for relative, content in (files or {}).items():
-                target = root / relative
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(content.encode("utf-8") if isinstance(content, str) else content)
+            write_inputs(root, files or {})
             (root / "main.py").write_text(code, encoding="utf-8")
             loop = asyncio.get_running_loop()
             started = loop.time()
@@ -58,35 +59,86 @@ class SubprocessSandbox:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 preexec_fn=self._limits(timeout_s),
+                start_new_session=True,
             )
             try:
-                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout_s)
-                timed_out = False
-            except TimeoutError:
-                await self._terminate(process, root)
-                stdout, stderr = await process.communicate()
-                timed_out = True
+                stdout, stderr, timed_out, output_truncated = await self._capture(process, root, timeout_s)
             except asyncio.CancelledError:  # e.g. the trial timed out around this step: never leave code running
                 await self._terminate(process, root)
                 raise
+            await self._terminate_children(process)
             result = ExecResult(
                 stdout=clip(stdout.decode("utf-8", "replace")),
                 stderr=clip(stderr.decode("utf-8", "replace")),
                 returncode=process.returncode if process.returncode is not None else -1,
                 timed_out=timed_out,
+                output_truncated=output_truncated,
                 duration_s=loop.time() - started,
             )
-            result.files = {
-                str(path.relative_to(root)): path.read_bytes()
-                for pattern in collect
-                for path in root.glob(pattern)
-                if path.is_file()
-            }
+            result.files, result.omitted = collect_artifacts(root, collect)
             return result
 
+    async def _capture(
+        self, process: asyncio.subprocess.Process, workdir: Path, timeout_s: float
+    ) -> tuple[bytes, bytes, bool, bool]:
+        if process.stdout is None or process.stderr is None:
+            raise RuntimeError("sandbox process pipes were not created")
+        exceeded = asyncio.Event()
+
+        async def read(stream: asyncio.StreamReader) -> bytes:
+            chunks = bytearray()
+            while chunk := await stream.read(64 * 1024):
+                remaining = MAX_STREAM_BYTES - len(chunks)
+                if remaining > 0:
+                    chunks.extend(chunk[:remaining])
+                if len(chunk) > remaining:
+                    exceeded.set()
+            return bytes(chunks)
+
+        stdout_task = asyncio.create_task(read(process.stdout))
+        stderr_task = asyncio.create_task(read(process.stderr))
+
+        async def wait_for_leader() -> None:
+            # asyncio's Process.wait() also waits for inherited pipes to close, so poll the leader's return code;
+            # otherwise a background child can keep this method alive until the sandbox timeout.
+            while process.returncode is None:
+                await asyncio.sleep(0.01)
+
+        wait_task = asyncio.create_task(wait_for_leader())
+        exceeded_task = asyncio.create_task(exceeded.wait())
+        timed_out = output_truncated = False
+        try:
+            done, _ = await asyncio.wait(
+                (wait_task, exceeded_task), timeout=timeout_s, return_when=asyncio.FIRST_COMPLETED
+            )
+            if exceeded_task in done and exceeded.is_set():
+                output_truncated = True
+                await self._terminate(process, workdir)
+            elif wait_task not in done:
+                timed_out = True
+                await self._terminate(process, workdir)
+            await wait_task
+            await self._terminate_children(process)
+            await process.wait()
+            return await stdout_task, await stderr_task, timed_out, output_truncated
+        finally:
+            exceeded_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await exceeded_task
+
+    async def _terminate_children(self, process: asyncio.subprocess.Process) -> None:
+        if hasattr(os, "killpg"):
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(process.pid, signal.SIGKILL)
+
     async def _terminate(self, process: asyncio.subprocess.Process, workdir: Path) -> None:
-        if process.returncode is None:
+        if hasattr(os, "killpg"):
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(process.pid, signal.SIGKILL)
+        elif process.returncode is None:
             process.kill()
+        with contextlib.suppress(ProcessLookupError):
+            await process.wait()
 
     def _command(self, workdir: Path) -> list[str]:
         # -E: ignore PYTHON* env vars; -s: no user site-packages. Not -I, which would also drop the
@@ -162,6 +214,21 @@ def docker_daemon() -> str:
     return "root"
 
 
+def docker_image_id(image: str = SANDBOX_IMAGE) -> str:
+    """Immutable local image identity, or empty when Docker cannot inspect it."""
+    try:
+        result = subprocess.run(
+            ["docker", "image", "inspect", image, "--format", "{{.Id}}"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return ""
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
 class DockerSandbox(SubprocessSandbox):
     """Same interface inside `docker run --network none`: for untrusted code or when isolation matters.
 
@@ -174,6 +241,7 @@ class DockerSandbox(SubprocessSandbox):
         super().__init__(python="python", memory_mb=memory_mb)
         self.image = image
         self.daemon = docker_daemon()
+        self.image_id = docker_image_id(image)
 
     @staticmethod
     def _name(workdir: Path) -> str:
@@ -199,6 +267,9 @@ class DockerSandbox(SubprocessSandbox):
             self._name(workdir),
             "--network",
             "none",
+            "--read-only",
+            "--tmpfs",
+            "/tmp:rw,size=64m",
             "--memory",
             f"{self.memory_mb}m",
             "--cpus",

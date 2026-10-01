@@ -90,6 +90,12 @@ def test_unknown_runs_and_traversal_are_rejected(client: TestClient) -> None:
     assert client.post("/api/runs", json={"experiment": EXPERIMENT, "run_id": "../evil"}).status_code == 400
 
 
+def test_oversized_request_is_rejected_before_validation(client: TestClient) -> None:
+    response = client.post("/api/estimate", content=b"x" * (1024 * 1024 + 1))
+    assert response.status_code == 413
+    assert "1048576 bytes" in response.text
+
+
 def test_session_keys_are_never_returned(client: TestClient) -> None:
     assert client.get("/api/runtime").json()["keys"]["openai"] == "missing"
     assert client.put("/api/keys/openai", json={"key": SECRET}).status_code == 204

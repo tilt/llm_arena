@@ -288,6 +288,7 @@
           "items": {
             "type": "string"
           },
+          "maxItems": 200,
           "minItems": 1,
           "title": "Candidates",
           "type": "array"
@@ -309,6 +310,7 @@
               "items": {
                 "type": "string"
               },
+              "maxItems": 200,
               "type": "array"
             },
             {
@@ -374,10 +376,20 @@
     "arena": {
       "$ref": "#/$defs/ArenaConfig"
     },
+    "budget_mode": {
+      "default": "best_effort",
+      "enum": [
+        "best_effort",
+        "strict"
+      ],
+      "title": "Budget Mode",
+      "type": "string"
+    },
     "configs": {
       "items": {
         "$ref": "#/$defs/PipelineConfig"
       },
+      "maxItems": 50,
       "title": "Configs",
       "type": "array"
     },
@@ -396,6 +408,7 @@
     "limit": {
       "anyOf": [
         {
+          "minimum": 1,
           "type": "integer"
         },
         {
@@ -409,6 +422,7 @@
     "max_cost_usd": {
       "anyOf": [
         {
+          "minimum": 0,
           "type": "number"
         },
         {
@@ -416,11 +430,13 @@
         }
       ],
       "default": null,
-      "description": "stop the run once model spend reaches this limit",
+      "description": "stop admitting calls near this best-effort spend limit",
       "title": "Max Cost Usd"
     },
     "max_parallel_trials": {
       "default": 4,
+      "maximum": 16,
+      "minimum": 1,
       "title": "Max Parallel Trials",
       "type": "integer"
     },
@@ -443,6 +459,7 @@
     },
     "repeats": {
       "default": 1,
+      "maximum": 100,
       "minimum": 1,
       "title": "Repeats",
       "type": "integer"
@@ -451,6 +468,7 @@
       "items": {
         "type": "string"
       },
+      "maxItems": 30,
       "title": "Scenarios",
       "type": "array"
     },
@@ -499,6 +517,8 @@
     },
     "trial_timeout_s": {
       "default": 900.0,
+      "exclusiveMinimum": 0,
+      "maximum": 3600,
       "title": "Trial Timeout S",
       "type": "number"
     }

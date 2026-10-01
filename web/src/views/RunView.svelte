@@ -74,6 +74,7 @@
       <span class="pass">{progress.passed} passed</span> · <span class="fail">{progress.failed} failed</span>
       {#if progress.errors} · <span class="fail">{progress.errors} errors</span>{/if} · spent {usd(progress.spentUsd)}</p>
     {#if progress.budgetHit}<p class="note">Spend limit reached: no new trials start.</p>{/if}
+    {#each progress.warnings as warning}<p class="note">{warning}</p>{/each}
     {#each progress.running as r (r)}<p class="muted">running: {r}</p>{/each}
     <button onclick={() => app.backend?.cancel(id)}>Stop after running trials</button>
     <div class="recent">
@@ -87,6 +88,8 @@
 {#if progress.finished && progress.stoppedEarly}<p class="note">The run stopped early (cancelled or spend limit).</p>{/if}
 {#if error}<p class="note">{error}</p>{/if}
 {#if bundle}
+  {@const execution = (() => { try { return JSON.parse(String(bundle.run.execution_json || "{}")); } catch { return {}; } })()}
+  {#if execution.backend}<p class="muted">Model code ran in: <strong>{execution.backend}</strong> ({execution.isolation || "unknown"}){execution.daemon ? `, ${execution.daemon} daemon` : ""}.</p>{/if}
   <p class="muted">
     {#if reportUrl}Standalone report: <a href={reportUrl} target="_blank" rel="noopener">open HTML report</a> · {/if}
     <a href={exportUrl ?? URL.createObjectURL(new Blob([JSON.stringify(bundle)], { type: "application/json" }))} download={`${id}.json`}>Download run bundle</a>

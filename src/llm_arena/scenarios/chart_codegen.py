@@ -138,7 +138,14 @@ class ChartCodegen(Scenario):
                     timeout_s=ctx.params["timeout_s"],
                 )
                 span.output = result.observation()
-                span.attrs.update({"ok": result.ok, "png": "chart.png" in result.files})
+                span.attrs.update(
+                    {
+                        "ok": result.ok,
+                        "png": "chart.png" in result.files,
+                        "output_truncated": result.output_truncated,
+                        "omitted": result.omitted,
+                    }
+                )
                 for name, media in (("chart.png", "image/png"), ("figure_spec.json", "application/json")):
                     if name in result.files:
                         ctx.trace.attach(span, name, result.files[name], media)

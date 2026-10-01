@@ -42,7 +42,9 @@ Everything a model writes is treated as data:
 - **The local app binds to 127.0.0.1,** and CORS allows only its own origin and the Vite dev server. Any process on
   your machine can still call it, and so spend your keys, just as it could read `.env`. The CLI has no option to
   bind elsewhere; do not forward or tunnel the port.
-- **Spend limits.** `max_cost_usd` stops a run once model spend reaches the limit. The UI sets one by default. Use
+- **Spend limits.** `max_cost_usd` uses concurrent call reservations and stops admitting calls near the limit. Calls
+  already running can finish, so the default mode is explicitly best effort. Set `budget_mode: strict` to refuse
+  unknown prices and requests without a finite cost bound. The UI sets a best-effort limit by default. Use
   project keys with a hard limit at the provider.
 - **Browser mode keeps keys in the tab's memory.** They are sent only to the provider's API and are written to local
   storage only if you opt in. TypeSafe's Jev is not called from the browser: its API does not allow cross-origin

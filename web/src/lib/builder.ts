@@ -71,6 +71,7 @@ export interface BuilderState {
   judge: string;
   arena: boolean;
   maxCostUsd: number | null;
+  budgetMode: "best_effort" | "strict";
   /** task split for scenarios that define one (dev for tuning thresholds, test for reporting) */
   split: "all" | "dev" | "test";
   /** replacement study instead of hand-built configurations */
@@ -200,7 +201,7 @@ export function validate(
   void slots;
   if (!runtimeHasSandbox) {
     const needSandbox = manifests.filter((m) => state.scenarios.includes(m.id) && (m.requires ?? []).includes("sandbox"));
-    if (needSandbox.length) errors.push(`This runtime cannot execute code: remove ${needSandbox.map((m) => m.id).join(", ")}.`);
+    if (needSandbox.length) errors.push(`Code execution is unavailable for ${needSandbox.map((m) => m.id).join(", ")}. Start Docker and run make sandbox-image, or restart with --sandbox unsafe-process (not isolated).`);
   }
   if (state.arena && !state.judge) errors.push("Arena battles need a judge model.");
   const controllable = controllableScenarios(state, manifests);
@@ -283,6 +284,7 @@ export function toExperiment(
   if (state.judge) experiment.judge = state.judge;
   if (state.arena) experiment.arena = { enabled: true };
   if (state.maxCostUsd) experiment.max_cost_usd = state.maxCostUsd;
+  if (state.maxCostUsd && state.budgetMode === "strict") experiment.budget_mode = "strict";
   if (state.split !== "all") experiment.split = state.split;
   // Profiles travel with the experiment, so edited ones work in every runtime and the YAML is self-contained.
   const used = [...new Set(state.configs.map((c) => knownPreset(c, profiles)).filter(Boolean))];
@@ -304,6 +306,7 @@ function studyExperiment(state: BuilderState, study: StudyDraft, profiles: Recor
   };
   if (state.limit) experiment.limit = state.limit;
   if (state.maxCostUsd) experiment.max_cost_usd = state.maxCostUsd;
+  if (state.maxCostUsd && state.budgetMode === "strict") experiment.budget_mode = "strict";
   if (state.split !== "all") experiment.split = state.split;
   if (profiles[study.baseline]) experiment.presets = { [study.baseline]: profiles[study.baseline]! };
   return experiment;

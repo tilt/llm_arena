@@ -50,34 +50,41 @@ async def decision_status() -> dict[str, tuple[str, list[str]]]:
     return {"jev": jev, "ollaya": ollaya}
 
 
-SandboxMode = Literal["auto", "docker", "subprocess"]
+SandboxMode = Literal["auto", "docker", "unsafe-process", "subprocess"]
 
 
-def choose_sandbox(mode: SandboxMode = "auto") -> tuple[Sandbox, str | None]:
+def choose_sandbox(mode: SandboxMode = "auto") -> tuple[Sandbox | None, str | None]:
     """The sandbox for model-written code, and a warning when it is not isolated.
 
-    auto: Docker when it runs and the sandbox image exists, else a local subprocess (with a warning);
-    docker: Docker or an error; subprocess: a local subprocess on purpose (with a warning).
+    auto: Docker when it runs and the sandbox image exists, else no code sandbox;
+    docker: Docker or an error; unsafe-process/subprocess: a local process with a warning.
     """
-    unavailable = docker_ready() if mode != "subprocess" else "subprocess mode was chosen"
+    unsafe = mode in ("unsafe-process", "subprocess")
+    unavailable = docker_ready() if not unsafe else "unsafe process mode was chosen"
     if unavailable is None:
         return DockerSandbox(), None
     if mode == "docker":
         raise ConfigError(f"Docker sandbox requested but {unavailable}")
-    return SubprocessSandbox(), (
-        f"Model-written code runs as a local process without isolation ({unavailable}). It has your user's "
-        "permissions and network access. For isolation start Docker and run: make sandbox-image"
+    if unsafe:
+        alias = " --sandbox subprocess is deprecated; use --sandbox unsafe-process." if mode == "subprocess" else ""
+        return SubprocessSandbox(), (
+            "Model-written code runs as a local process without isolation. It has your user's permissions and "
+            f"network access. For isolation start Docker and run: make sandbox-image.{alias}"
+        )
+    return None, (
+        "Start Docker and run `make sandbox-image`, or restart with `--sandbox unsafe-process` to run model code "
+        "as your user (not isolated)."
     )
 
 
-def server_runtime(*, sandbox: Sandbox | None = None) -> Runtime:
-    """`sandbox`: from choose_sandbox (whose warning the caller shows); default: auto selection."""
+def server_runtime(*, sandbox: Sandbox | None, sandbox_hint: str = "") -> Runtime:
+    """Compose the runtime with an explicitly selected sandbox, including an intentional None."""
     configure_loader(HubDatasetLoader())
-    chosen = sandbox or choose_sandbox("auto")[0]
     return Runtime(
         client_factory=get_client,
         discover=discover,
-        sandbox=chosen,
+        sandbox=sandbox,
+        sandbox_hint=sandbox_hint,
         live_search=live_search,
         decision_services=decision_service,
         decision_status=decision_status,

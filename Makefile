@@ -19,6 +19,7 @@ help:
 	@printf "  make web         build the web UI (web/dist, served by arena ui)\n"
 	@printf "  make test-web    svelte-check + vitest for the web UI\n"
 	@printf "  make sandbox-image  build the Docker image that isolates model-written code\n"
+	@printf "                      without it, code scenarios require explicit --sandbox unsafe-process\n"
 
 setup:
 	sh scripts/setup.sh

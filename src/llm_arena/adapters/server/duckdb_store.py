@@ -32,11 +32,13 @@ _TRIAL_COLUMNS = (
     "duration_s", "llm_calls", "tool_calls", "prompt_tokens", "completion_tokens", "cost_usd", "llm_latency_s",
     "judge_cost_usd", "roles_json", "params_json", "fingerprint", "scenario_version", "task_fp", "setup_json",
     "resume_key",
+    "execution_json",
 )  # fmt: skip
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS runs (
-    run_id TEXT PRIMARY KEY, name TEXT, created_at TIMESTAMP DEFAULT current_timestamp, config_json TEXT
+    run_id TEXT PRIMARY KEY, name TEXT, created_at TIMESTAMP DEFAULT current_timestamp, config_json TEXT,
+    execution_json TEXT
 );
 CREATE TABLE IF NOT EXISTS trials (
     trial_id TEXT PRIMARY KEY, run_id TEXT, scenario TEXT, pattern TEXT, config TEXT, task_id TEXT,
@@ -50,6 +52,8 @@ ALTER TABLE trials ADD COLUMN IF NOT EXISTS scenario_version TEXT;
 ALTER TABLE trials ADD COLUMN IF NOT EXISTS task_fp TEXT;
 ALTER TABLE trials ADD COLUMN IF NOT EXISTS setup_json TEXT;
 ALTER TABLE trials ADD COLUMN IF NOT EXISTS resume_key TEXT;
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS execution_json TEXT;
+ALTER TABLE trials ADD COLUMN IF NOT EXISTS execution_json TEXT;
 CREATE TABLE IF NOT EXISTS scores (
     trial_id TEXT, name TEXT, level TEXT, value DOUBLE, passed BOOLEAN, rationale TEXT
 );
@@ -97,10 +101,11 @@ class DuckDBStore:
             finally:
                 connection.close()
 
-    def start_run(self, run_id: str, name: str, config_json: str) -> None:
+    def start_run(self, run_id: str, name: str, config_json: str, execution_json: str = "{}") -> None:
         with self._db() as db:
             db.execute(
-                "INSERT OR IGNORE INTO runs (run_id, name, config_json) VALUES (?, ?, ?)", [run_id, name, config_json]
+                "INSERT OR IGNORE INTO runs (run_id, name, config_json, execution_json) VALUES (?, ?, ?, ?)",
+                [run_id, name, config_json, execution_json],
             )
 
     def completed_trials(self) -> dict[str, str]:

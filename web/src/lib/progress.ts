@@ -13,11 +13,12 @@ export interface RunProgress {
   finished: boolean;
   stoppedEarly: boolean;
   budgetHit: boolean;
+  warnings: string[];
 }
 
 export const initialProgress: RunProgress = {
   total: 0, done: 0, passed: 0, failed: 0, errors: 0, spentUsd: 0, running: [], recent: [],
-  finished: false, stoppedEarly: false, budgetHit: false,
+  finished: false, stoppedEarly: false, budgetHit: false, warnings: [],
 };
 
 const label = (e: { scenario: string; config: string; task_id: string; repeat: number }) =>
@@ -42,6 +43,8 @@ export function reduce(state: RunProgress, event: RunEvent): RunProgress {
       };
     case "budget_exceeded":
       return { ...state, budgetHit: true };
+    case "run_warning":
+      return { ...state, warnings: [...state.warnings, event.message] };
     case "run_finished":
       return { ...state, finished: true, stoppedEarly: event.stopped_early, spentUsd: event.spent_usd, running: [] };
     default:

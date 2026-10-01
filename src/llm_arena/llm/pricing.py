@@ -49,6 +49,24 @@ def known_price(model: str) -> tuple[float, float] | None:
     return PRICES.get(family)
 
 
+def max_known_price(provider: str) -> tuple[float, float]:
+    """Conservative fallback for best-effort reservations of an unknown official model."""
+    prefix = "claude-" if provider == "anthropic" else "gpt-"
+    prices = [price for model, price in PRICES.items() if model.startswith(prefix)]
+    return max((price[0] for price in prices), default=0.0), max((price[1] for price in prices), default=0.0)
+
+
+def explicit_or_known_price(spec: ModelSpec) -> tuple[float, float] | None:
+    """A paid price only when both sides are known; local/self-hosted models are explicitly free."""
+    if spec.input_cost_per_mtok is not None or spec.output_cost_per_mtok is not None:
+        if spec.input_cost_per_mtok is None or spec.output_cost_per_mtok is None:
+            return None
+        return spec.input_cost_per_mtok, spec.output_cost_per_mtok
+    if spec.provider not in ("openai", "anthropic"):
+        return 0.0, 0.0
+    return known_price(spec.model)
+
+
 def price_per_mtok(spec: ModelSpec) -> tuple[float, float]:
     if spec.input_cost_per_mtok is not None or spec.output_cost_per_mtok is not None:
         return spec.input_cost_per_mtok or 0.0, spec.output_cost_per_mtok or 0.0

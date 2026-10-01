@@ -18,7 +18,7 @@ const model = (ref: string, vision: boolean): CatalogItem =>
 
 const state = (over: Partial<BuilderState> = {}): BuilderState => ({
   name: "exp", scenarios: ["reflection_sql"], configs: [{ ...emptyConfig(0), roles: { "*": "openai:gpt-4.1-nano" } }],
-  repeats: 1, limit: null, judge: "", arena: false, maxCostUsd: null, split: "all", ...over,
+  repeats: 1, limit: null, judge: "", arena: false, maxCostUsd: null, budgetMode: "best_effort", split: "all", ...over,
 });
 
 describe("role slots", () => {
@@ -44,7 +44,7 @@ describe("validation", () => {
     expect(validate(state(), MANIFESTS, true)).toEqual([]);
     const errors = validate(state({ scenarios: ["chart_codegen"], configs: [{ ...emptyConfig(0), roles: { generator: "x" } }] }), MANIFESTS, false);
     expect(errors.some((e) => e.includes('"critic"'))).toBe(true);
-    expect(errors.some((e) => e.includes("cannot execute code"))).toBe(true);
+    expect(errors.some((e) => e.includes("Code execution is unavailable"))).toBe(true);
     expect(validate(state({ arena: true }), MANIFESTS, true)).toContain("Arena battles need a judge model.");
   });
 });
@@ -59,6 +59,11 @@ describe("experiment output", () => {
       max_cost_usd: 2, configs: [{ name: "c", roles: { "*": "m" }, scenario_params: { reflection_sql: { feedback: "sql_only" } }, scenario_roles: { reflection_sql: { critic: "big" } } }],
     });
     expect(parse(toYaml(experiment))).toEqual(experiment);
+  });
+
+  it("emits strict budget mode only when selected", () => {
+    expect(toExperiment(state({ maxCostUsd: 1, budgetMode: "strict" })).budget_mode).toBe("strict");
+    expect(toExperiment(state({ maxCostUsd: 1, budgetMode: "best_effort" })).budget_mode).toBeUndefined();
   });
 });
 

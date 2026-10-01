@@ -39,5 +39,7 @@ class JsSandbox:
             returncode=int(data.get("returncode", 1)),
             timed_out=bool(data.get("timed_out", False)),
             files={name: base64.b64decode(value) for name, value in (data.get("files") or {}).items()},
+            omitted={str(name): str(reason) for name, reason in (data.get("omitted") or {}).items()},
+            output_truncated=bool(data.get("output_truncated", False)),
             duration_s=float(data.get("duration_s", 0.0)),
         )

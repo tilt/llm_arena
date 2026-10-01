@@ -56,11 +56,14 @@ Other entry points:
 - `arena leaderboard [scenario]` ranks setups per scenario across all runs (also in the app's Leaderboard page).
 - `arena contracts [--check]` exports JSON Schemas, scenario data and conformance vectors for the web UI and other
   engines.
-- `arena run … --sandbox auto|docker|subprocess` chooses where model-written code runs. `auto` (the default) uses
-  Docker (`--network none`, no capabilities) when it runs and `make sandbox-image` was built; otherwise it runs a
-  local process and says so loudly. See [docs/security.md](docs/security.md).
+- `arena run … --sandbox auto|docker|unsafe-process` chooses where model-written code runs. `auto` (the default) uses
+  Docker (`--network none`, no capabilities) when it runs and `make sandbox-image` was built. Without Docker, code
+  scenarios are unavailable; `--sandbox unsafe-process` is the explicit compatibility mode and runs model code with
+  your user account and network access. The old `subprocess` spelling remains as a deprecated alias. See
+  [docs/security.md](docs/security.md).
 - A resumed run (`--run-id`) refuses to continue if a finished trial's setup, task content or seed changed.
-- `max_cost_usd` in an experiment stops the run at a spend limit.
+- `max_cost_usd` stops new calls using best-effort concurrent reservations. Set `budget_mode: strict` to reject calls
+  whose price or maximum output cost cannot be bounded without changing the provider request.
 
 ## Local app
 

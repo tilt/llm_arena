@@ -6,45 +6,135 @@ import { loadPyodide, type Pyodide } from "./pyodide";
 let py: Pyodide | null = null;
 
 const EXEC = String.raw`
-import base64, contextlib, glob, io, json, os, runpy, sys, tempfile, traceback
+import base64, contextlib, glob, io, json, os, runpy, shutil, stat, sys, tempfile, traceback
+
+MAX_STREAM_BYTES = 1024 * 1024
+MAX_FILE_BYTES = 5 * 1024 * 1024
+MAX_TOTAL_BYTES = 20 * 1024 * 1024
+MAX_WORKDIR_BYTES = 100 * 1024 * 1024
+
+class OutputLimit(Exception):
+    pass
+
+class LimitedIO(io.StringIO):
+    def __init__(self):
+        super().__init__()
+        self.size = 0
+
+    def write(self, value):
+        encoded = value.encode("utf-8")
+        remaining = MAX_STREAM_BYTES - self.size
+        if remaining > 0:
+            kept = encoded[:remaining].decode("utf-8", "ignore")
+            super().write(kept)
+            self.size += len(kept.encode("utf-8"))
+        if len(encoded) > remaining:
+            raise OutputLimit()
+        return len(value)
+
+def safe_name(name):
+    parts = name.split("/")
+    return (name and "\\" not in name and not os.path.isabs(name)
+            and not (len(parts[0]) >= 2 and parts[0][1] == ":")
+            and all(part not in ("", ".", "..") for part in parts)
+            and not any(ord(char) < 32 or ord(char) == 127 for char in name))
+
+def safe_read(path):
+    if os.path.islink(path):
+        raise ValueError("symlinks are not collected")
+    current = os.path.dirname(path)
+    while current and current != ".":
+        if os.path.islink(current):
+            raise ValueError("symlinks are not collected")
+        current = os.path.dirname(current)
+    info = os.lstat(path)
+    if not stat.S_ISREG(info.st_mode):
+        raise ValueError("not a regular file")
+    if info.st_size > MAX_FILE_BYTES:
+        raise ValueError(f"file exceeds {MAX_FILE_BYTES} bytes")
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(path, flags)
+    try:
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            raise ValueError("not a regular file")
+        with os.fdopen(os.dup(descriptor), "rb") as handle:
+            return handle.read(MAX_FILE_BYTES + 1)
+    finally:
+        os.close(descriptor)
+
+def workdir_too_large(root):
+    total = 0
+    for current, directories, names in os.walk(root, followlinks=False):
+        directories[:] = [name for name in directories if not os.path.islink(os.path.join(current, name))]
+        for name in names:
+            path = os.path.join(current, name)
+            try:
+                info = os.lstat(path)
+            except OSError:
+                continue
+            if stat.S_ISREG(info.st_mode):
+                total += info.st_size
+                if total > MAX_WORKDIR_BYTES:
+                    return True
+    return False
 
 def arena_exec(code, files_json, collect_json):
     workdir = tempfile.mkdtemp(prefix="arena-")
-    for name, b64 in json.loads(files_json).items():
-        path = os.path.join(workdir, name)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "wb") as handle:
-            handle.write(base64.b64decode(b64))
-    with open(os.path.join(workdir, "main.py"), "w") as handle:
-        handle.write(code)
-    # Modules imported by a previous run (e.g. the shop's api.py) must not leak into this one.
-    for name, module in list(sys.modules.items()):
-        if (getattr(module, "__file__", "") or "").startswith(tempfile.gettempdir()):
-            del sys.modules[name]
     previous = os.getcwd()
-    os.chdir(workdir)
-    sys.path.insert(0, workdir)
-    out, err, returncode = io.StringIO(), io.StringIO(), 0
-    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+    out, err, returncode = LimitedIO(), LimitedIO(), 0
+    collected, omitted, output_truncated = {}, {}, False
+    try:
+        for name, b64 in json.loads(files_json).items():
+            if not safe_name(name):
+                raise ValueError(f"invalid sandbox file name: {name!r}")
+            path = os.path.join(workdir, *name.split("/"))
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "wb") as handle:
+                handle.write(base64.b64decode(b64))
+        with open(os.path.join(workdir, "main.py"), "w") as handle:
+            handle.write(code)
+        for name, module in list(sys.modules.items()):
+            if (getattr(module, "__file__", "") or "").startswith(tempfile.gettempdir()):
+                del sys.modules[name]
+        os.chdir(workdir)
+        sys.path.insert(0, workdir)
         try:
-            runpy.run_path("main.py", run_name="__main__")
-        except SystemExit as exc:
-            returncode = exc.code if isinstance(exc.code, int) else (0 if exc.code is None else 1)
-        except BaseException:
-            traceback.print_exc()
-            returncode = 1
-    if "matplotlib.pyplot" in sys.modules:
-        sys.modules["matplotlib.pyplot"].close("all")
-    collected = {}
-    for pattern in json.loads(collect_json):
-        for path in glob.glob(pattern):
-            if os.path.isfile(path):
-                with open(path, "rb") as handle:
-                    collected[path] = base64.b64encode(handle.read()).decode("ascii")
-    os.chdir(previous)
-    sys.path.remove(workdir)
-    return json.dumps({"stdout": out.getvalue()[-8000:], "stderr": err.getvalue()[-8000:], "returncode": returncode,
-                       "timed_out": False, "files": collected})
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                try:
+                    runpy.run_path("main.py", run_name="__main__")
+                except SystemExit as exc:
+                    returncode = exc.code if isinstance(exc.code, int) else (0 if exc.code is None else 1)
+                except BaseException:
+                    traceback.print_exc()
+                    returncode = 1
+        except OutputLimit:
+            returncode, output_truncated = 1, True
+        if "matplotlib.pyplot" in sys.modules:
+            sys.modules["matplotlib.pyplot"].close("all")
+        if workdir_too_large(workdir):
+            omitted["<workdir>"] = f"work directory exceeds {MAX_WORKDIR_BYTES} bytes"
+        else:
+            total = 0
+            for pattern in json.loads(collect_json):
+                for path in glob.glob(pattern):
+                    if path in collected or path in omitted:
+                        continue
+                    try:
+                        content = safe_read(path)
+                        if total + len(content) > MAX_TOTAL_BYTES:
+                            raise ValueError(f"execution artifacts exceed {MAX_TOTAL_BYTES} bytes")
+                        collected[path] = base64.b64encode(content).decode("ascii")
+                        total += len(content)
+                    except (OSError, ValueError) as exc:
+                        omitted[path] = str(exc) if isinstance(exc, ValueError) else "not a safe regular file"
+        return json.dumps({"stdout": out.getvalue()[-8000:], "stderr": err.getvalue()[-8000:],
+                           "returncode": returncode, "timed_out": False, "files": collected,
+                           "omitted": omitted, "output_truncated": output_truncated})
+    finally:
+        os.chdir(previous)
+        if workdir in sys.path:
+            sys.path.remove(workdir)
+        shutil.rmtree(workdir, ignore_errors=True)
 `;
 
 self.onmessage = async ({ data }: MessageEvent<{ cmd: "init" } | { cmd: "exec"; code: string; files: string; collect: string }>) => {

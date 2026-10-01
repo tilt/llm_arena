@@ -23,9 +23,11 @@ DECISIONS = "decisions"  # study "role" of a decision-service swap
 
 class StudyConfig(BaseModel):
     baseline: str = Field(description="the preset every configuration starts from (the baseline)")
-    candidates: list[str] = Field(min_length=1, description="model references (or ollaya:/jev: decision models) to try")
+    candidates: list[str] = Field(
+        min_length=1, max_length=200, description="model references (or ollaya:/jev: decision models) to try"
+    )
     roles: list[str] | None = Field(
-        default=None, description="roles to swap (default: every role except the decision roles)"
+        default=None, max_length=200, description="roles to swap (default: every role except the decision roles)"
     )
     decision_control: Literal["gate", "policy", "review"] = Field(
         default="gate", description="how a decision-service candidate controls the agent"

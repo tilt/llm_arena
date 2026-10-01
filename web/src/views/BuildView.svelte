@@ -224,6 +224,8 @@
     </label>
   {/if}
   <label>Spend limit (USD)<input type="number" min="0" step="0.5" bind:value={draft.maxCostUsd} /></label>
+  <label>Budget mode<select bind:value={draft.budgetMode}><option value="best_effort">best effort</option><option value="strict">strict</option></select></label>
+  {#if draft.budgetMode === "strict"}<p class="muted small">Strict mode refuses unknown prices, images without a cost bound, and models without max_tokens.</p>{/if}
   <label>Judge model (rubric scores{openEnded ? ", arena" : ""})
     <ModelSelect bind:value={draft.judge} options={catalog} empty="no judge" label="Judge model" /></label>
   {#if openEnded}<label class="inline"><input type="checkbox" bind:checked={draft.arena} /> Pairwise arena battles (needs a judge)</label>{/if}

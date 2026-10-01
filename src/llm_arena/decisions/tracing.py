@@ -24,23 +24,28 @@ class TracedPolicy:
         return self.policy.name
 
     async def decide(self, request: DecisionRequest, labels: dict[str, Any] | None = None) -> DecisionResult:
-        if self.budget is not None and self.budget.exceeded:
+        reservation = 0.01 if self.budget is not None and self.budget.limit_usd is not None else 0.0
+        if self.budget is not None and not await self.budget.reserve(reservation):
             raise BudgetExceededError(f"spend limit of ${self.budget.limit_usd:.2f} reached")
-        with self.trace.span("decision", request.point, model=self.policy.name, input=request.state) as span:
-            self.last_span = len(self.trace.spans) - 1
-            first_child = len(self.trace.spans)
-            result = await self.policy.decide(request)
-            # LLM stages record (and are charged through) their own llm_call spans; what remains is spend on
-            # non-LLM services such as Jev, which the trace totals and the budget must see too.
-            llm_cost = sum(s.cost_usd for s in self.trace.spans[first_child:] if s.kind == "llm_call")
-            external = max(0.0, result.cost_usd - llm_cost)
-            if self.budget is not None:
-                self.budget.charge(external)
-            span.cost_usd = result.cost_usd
-            span.attrs["external_cost_usd"] = external
-            span.output = {name: answer.model_dump() for name, answer in result.answers.items()}
-            span.attrs.update({"labels": labels or {}, "policy": self.policy.name, "latency_s": result.latency_s,
-                               "questions": {k: q.type for k, q in request.questions.items()}})  # fmt: skip
+        try:
+            with self.trace.span("decision", request.point, model=self.policy.name, input=request.state) as span:
+                self.last_span = len(self.trace.spans) - 1
+                first_child = len(self.trace.spans)
+                result = await self.policy.decide(request)
+                # LLM stages reserve their own calls; settle only external service spend here.
+                llm_cost = sum(s.cost_usd for s in self.trace.spans[first_child:] if s.kind == "llm_call")
+                external = max(0.0, result.cost_usd - llm_cost)
+                if self.budget is not None:
+                    await self.budget.settle(reservation, external)
+                    reservation = 0.0
+                span.cost_usd = result.cost_usd
+                span.attrs["external_cost_usd"] = external
+                span.output = {name: answer.model_dump() for name, answer in result.answers.items()}
+                span.attrs.update({"labels": labels or {}, "policy": self.policy.name, "latency_s": result.latency_s,
+                                   "questions": {k: q.type for k, q in request.questions.items()}})  # fmt: skip
+        finally:
+            if self.budget is not None and reservation:
+                await self.budget.settle(reservation, 0.0)
         return result
 
     def annotate(self, **attrs: Any) -> None:

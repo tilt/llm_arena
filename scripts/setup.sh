@@ -100,7 +100,7 @@ else
   echo "  skipped the web UI build (needs Node.js 20+); the CLI works without it"
 fi
 if [ "$docker_state" = "no-image" ]; then
-  make sandbox-image || echo "  could not build the sandbox image; code will run as a local process (with a warning)"
+  make sandbox-image || echo "  could not build the sandbox image; code scenarios stay unavailable unless you explicitly use --sandbox unsafe-process"
 fi
 
 echo

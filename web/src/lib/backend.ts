@@ -81,7 +81,7 @@ export class BackendError extends Error {
   }
 }
 
-const EVENT_TYPES = ["run_started", "trial_started", "trial_finished", "budget_exceeded", "run_finished"] as const;
+const EVENT_TYPES = ["run_started", "trial_started", "trial_finished", "budget_exceeded", "run_warning", "run_finished"] as const;
 
 export class HttpBackend implements ArenaBackend {
   readonly kind = "local" as const;

@@ -40,7 +40,7 @@ The base install (pydantic + pyyaml) is exactly what the engine needs, and it lo
 | `Runtime` | `runner/ports.py` | What a run needs from its environment: client factory, discovery, sandbox, live search. |
 | `RunStore` | `runner/ports.py`; `runner/memory_store.py`, `adapters/server/duckdb_store.py` | Trials, scores, battles, traces. Every store returns the same rows (`RunData`). |
 | `RunEvent` | `runner/events.py` | Progress events. The CLI draws a progress bar, the app streams SSE, the worker posts messages. |
-| `BudgetGuard` | `runner/budget.py` | `max_cost_usd`: charges every call and stops the run at the limit. |
+| `BudgetGuard` | `runner/budget.py` | Reserves concurrent call cost; best-effort by default, strict on request. |
 | `Scenario` + manifest | `scenarios/base.py`, `scenarios/manifest.py` | Tasks, pipeline, evaluators, roles with capability needs, params with choices, requirements, and wiki links. |
 | API models | `api.py` | Request/response models of the app API (StartRun, RunListing, RuntimeResponse, SetKey), exported as schemas. |
 | Local app | `server/{app,channels,keys}.py` | FastAPI over ArenaService; per-run event channels with replay; session key store that never returns keys. |

@@ -5,7 +5,7 @@ from __future__ import annotations
 from rich.console import Console
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, TaskID, TextColumn, TimeElapsedColumn
 
-from llm_arena.runner.events import BudgetExceeded, RunEvent, RunFinished, RunStarted, TrialFinished
+from llm_arena.runner.events import BudgetExceeded, RunEvent, RunFinished, RunStarted, RunWarning, TrialFinished
 
 
 class RichProgressSink:
@@ -29,6 +29,8 @@ class RichProgressSink:
             self.console.print(
                 f"[yellow]spend limit reached: ${event.spent_usd:.2f} of ${event.limit_usd:.2f}; stopping[/]"
             )
+        elif isinstance(event, RunWarning):
+            self.console.print(f"[yellow]warning: {event.message}[/]")
         elif isinstance(event, RunFinished):
             self._progress.stop()
             if event.spent_usd:
