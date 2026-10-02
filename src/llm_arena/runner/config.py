@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Any, Literal, cast
+from urllib.parse import urlsplit
 
 import yaml
 from pydantic import AliasChoices, BaseModel, Field, model_validator
@@ -23,6 +24,31 @@ def configured_sandbox_mode(explicit: str | None = None) -> SandboxConfigMode:
     if value not in ("auto", "docker", "unsafe-process", "subprocess"):
         raise ConfigError("ARENA_SANDBOX/--sandbox must be auto, docker or unsafe-process")
     return cast("SandboxConfigMode", value)
+
+
+def configured_dev_origin() -> str | None:
+    value = os.environ.get("ARENA_DEV_ORIGIN")
+    if not value:
+        return None
+    parsed = urlsplit(value)
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise ConfigError(f"ARENA_DEV_ORIGIN must be an exact loopback origin: {exc}") from exc
+    if (
+        parsed.scheme not in ("http", "https")
+        or parsed.hostname not in ("127.0.0.1", "localhost", "::1")
+        or parsed.username is not None
+        or parsed.password is not None
+        or port is None
+        or parsed.path not in ("", "/")
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ConfigError(
+            "ARENA_DEV_ORIGIN must be an exact loopback origin with a port, for example http://localhost:5173"
+        )
+    return value.removesuffix("/")
 
 
 class PipelineConfig(BaseModel):

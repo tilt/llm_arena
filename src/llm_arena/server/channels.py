@@ -48,5 +48,8 @@ class Channels:
     def get(self, run_id: str) -> RunChannel:
         return self._channels.setdefault(run_id, RunChannel())
 
+    def add(self, run_id: str, channel: RunChannel) -> None:
+        self._channels[run_id] = channel
+
     def __contains__(self, run_id: object) -> bool:
         return run_id in self._channels

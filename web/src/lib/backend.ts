@@ -86,7 +86,7 @@ const EVENT_TYPES = ["run_started", "trial_started", "trial_finished", "budget_e
 export class HttpBackend implements ArenaBackend {
   readonly kind = "local" as const;
 
-  constructor(private readonly base = "") {}
+  constructor(private readonly base = "", readonly locked = false) {}
 
   runtime(): Promise<RuntimeResponse> {
     return this.request("GET", "/api/runtime");
@@ -127,6 +127,7 @@ export class HttpBackend implements ArenaBackend {
         if (event.type === "run_finished") source.close();
       });
     }
+    source.onerror = () => { void this.runtime().catch(() => undefined); };
     return () => source.close();
   }
 
@@ -192,10 +193,14 @@ export class HttpBackend implements ArenaBackend {
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const response = await fetch(`${this.base}${path}`, {
       method,
+      credentials: "same-origin",
       headers: body === undefined ? undefined : { "content-type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     if (!response.ok) {
+      if (response.status === 401 && typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("arena-auth-required"));
+      }
       const detail = await response.json().then((d: { detail?: unknown }) => d.detail).catch(() => response.statusText);
       // FastAPI's generic answers for routes it does not have: the page is newer than the running server.
       if (detail === "Method Not Allowed" || (detail === "Not Found" && path.startsWith("/api/"))) {
@@ -208,11 +213,27 @@ export class HttpBackend implements ArenaBackend {
   }
 }
 
+export async function exchangeSession(token: string, base = ""): Promise<void> {
+  const response = await fetch(`${base}/api/session`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  if (!response.ok) {
+    const detail = await response.json().then((value: { detail?: string }) => value.detail).catch(() => "Authentication failed");
+    throw new BackendError(detail || "Authentication failed", response.status);
+  }
+}
+
 /** Use the local app when this page is served by it; otherwise the caller falls back to browser mode. */
 export async function detectLocalBackend(base = ""): Promise<HttpBackend | null> {
   try {
-    const response = await fetch(`${base}/api/runtime`, { signal: AbortSignal.timeout(3000) });
-    return response.ok ? new HttpBackend(base) : null;
+    const response = await fetch(`${base}/api/runtime`, { credentials: "same-origin", signal: AbortSignal.timeout(3000) });
+    if (response.ok) return new HttpBackend(base);
+    const body = await response.json().catch(() => ({})) as { auth?: string };
+    if (response.status === 401 && body.auth === "required") return new HttpBackend(base, true);
+    return null;
   } catch {
     return null;
   }

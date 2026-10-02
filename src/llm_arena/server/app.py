@@ -10,20 +10,24 @@ from __future__ import annotations
 
 import json
 import re
+import secrets
 from collections.abc import AsyncIterator, Awaitable, Callable
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from llm_arena.adapters.server.report_html import build_report
+from llm_arena.adapters.server.report_html import render_report, report_csp
 from llm_arena.api import RunListing, RunStartedResponse, RuntimeResponse, SetKey, StartRun, run_listing
-from llm_arena.core.errors import ArenaError
+from llm_arena.core.errors import ArenaError, RunConflictError, RunLimitError
 from llm_arena.llm.errors import LLMError
 from llm_arena.report.leaderboard import Leaderboard
 from llm_arena.runner.config import ExperimentConfig
@@ -33,12 +37,12 @@ from llm_arena.runner.rename import RenameRun
 from llm_arena.runner.run import new_run_id, valid_run_id
 from llm_arena.scenarios.brief import TaskView
 from llm_arena.scenarios.manifest import ScenarioManifest
-from llm_arena.server.channels import Channels
+from llm_arena.server.channels import Channels, RunChannel
 from llm_arena.server.keys import KeyStore
+from llm_arena.server.session import COOKIE_NAME, cookie_matches, session_cookie, token_matches
 from llm_arena.service import ArenaService, Estimate, RunBundle
 
 DEFAULT_PORT = 8787
-DEV_SERVER_PORT = 5173  # Vite dev server for the web UI
 MAX_REQUEST_BYTES = 1024 * 1024
 
 
@@ -88,8 +92,110 @@ class RequestSizeLimitMiddleware:
         await response(scope, receive, send)
 
 
-def local_origins(port: int) -> list[str]:
-    return [f"http://{host}:{p}" for p in (port, DEV_SERVER_PORT) for host in ("127.0.0.1", "localhost")]
+def local_origins(port: int, dev_origin: str | None = None) -> list[str]:
+    origins = [f"http://{host}:{port}" for host in ("127.0.0.1", "localhost", "[::1]")]
+    return [*origins, *([dev_origin] if dev_origin else [])]
+
+
+class SessionRequest(BaseModel):
+    token: str
+
+
+class LocalSecurityMiddleware:
+    """Reject rebinding/cross-site requests, authenticate APIs, and attach local-app headers."""
+
+    _HOSTS = {"127.0.0.1", "localhost", "::1"}
+    _MUTATIONS = {"POST", "PUT", "PATCH", "DELETE"}
+
+    def __init__(self, app: ASGIApp, token: str, port: int, dev_origin: str | None = None) -> None:
+        self.app = app
+        self.token = token
+        self.origins = frozenset(local_origins(port, dev_origin))
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        request = Request(scope)
+        host = request.headers.get("host", "")
+        if not self._trusted_host(host):
+            await self._reject(
+                scope,
+                receive,
+                send,
+                400,
+                f"This server only answers on 127.0.0.1/localhost (Host header was {request.headers.get('host', '')})",
+            )
+            return
+        path = scope.get("path", "")
+        authenticated = cookie_matches(self.token, request.cookies.get(COOKIE_NAME))
+        if request.method in self._MUTATIONS and not self._mutation_allowed(request, authenticated):
+            await self._reject(
+                scope, receive, send, 403, "Cross-site mutation refused; reopen the link printed by arena ui."
+            )
+            return
+        if path.startswith("/api/") and path != "/api/session" and not authenticated:
+            response = JSONResponse(
+                status_code=401,
+                content={"detail": "Open the link printed by arena ui, or run arena ui --link", "auth": "required"},
+            )
+            await self._send_response(response, scope, receive, send)
+            return
+
+        async def secure_send(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                self._security_headers(headers, path)
+            await send(message)
+
+        await self.app(scope, receive, secure_send)
+
+    def _trusted_host(self, authority: str) -> bool:
+        try:
+            parsed = urlsplit(f"//{authority}")
+            port = parsed.port
+        except ValueError:
+            return False
+        return (
+            parsed.hostname in self._HOSTS
+            and parsed.username is None
+            and parsed.password is None
+            and not parsed.path
+            and (port is None or 0 < port <= 65535)
+        )
+
+    def _mutation_allowed(self, request: Request, authenticated: bool) -> bool:
+        origin = request.headers.get("origin")
+        if origin:
+            return origin in self.origins
+        fetch_site = request.headers.get("sec-fetch-site")
+        if fetch_site:
+            return fetch_site in ("same-origin", "none")
+        return authenticated
+
+    async def _reject(self, scope: Scope, receive: Receive, send: Send, status: int, detail: str) -> None:
+        await self._send_response(JSONResponse(status_code=status, content={"detail": detail}), scope, receive, send)
+
+    async def _send_response(self, response: Response, scope: Scope, receive: Receive, send: Send) -> None:
+        self._security_headers(response.headers, str(scope.get("path", "")))
+        await response(scope, receive, send)
+
+    @staticmethod
+    def _security_headers(headers: MutableHeaders, path: str) -> None:
+        headers.setdefault("X-Frame-Options", "DENY")
+        headers.setdefault("X-Content-Type-Options", "nosniff")
+        headers.setdefault("Referrer-Policy", "no-referrer")
+        headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+        headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        if "Content-Security-Policy" in headers:
+            return
+        if path.startswith("/api/"):
+            headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+        else:
+            headers["Content-Security-Policy"] = (
+                "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; "
+                "connect-src 'self'; worker-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+            )
 
 
 def create_app(
@@ -99,10 +205,20 @@ def create_app(
     static_dir: Path | None = None,
     keys: KeyStore | None = None,
     port: int = DEFAULT_PORT,
+    session_token: str | None = None,
+    dev_origin: str | None = None,
 ) -> FastAPI:
+    session_token = session_token or secrets.token_urlsafe(32)
     app = FastAPI(title="LLM Arena", version="0.1.0")
     app.add_middleware(RequestSizeLimitMiddleware)
-    app.add_middleware(CORSMiddleware, allow_origins=local_origins(port), allow_methods=["*"], allow_headers=["*"])
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=local_origins(port, dev_origin),
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    app.add_middleware(LocalSecurityMiddleware, token=session_token, port=port, dev_origin=dev_origin)
 
     @app.exception_handler(RequestValidationError)
     async def readable_validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
@@ -119,6 +235,21 @@ def create_app(
     ui_build = _ui_build(static_dir)
     listing_cache: dict[str, tuple[float, RunListing]] = {}
     keys = keys or KeyStore()
+
+    @app.post("/api/session", status_code=204)
+    def create_session(body: SessionRequest, response: Response) -> Response:
+        if not token_matches(session_token, body.token):
+            raise HTTPException(status_code=401, detail="The UI token is invalid; run arena ui --link for a new link")
+        response.set_cookie(
+            COOKIE_NAME,
+            session_cookie(session_token),
+            httponly=True,
+            samesite="strict",
+            max_age=30 * 24 * 60 * 60,
+            path="/",
+        )
+        response.status_code = 204
+        return response
 
     @app.get("/api/runtime", response_model=RuntimeResponse)
     async def runtime() -> RuntimeResponse:
@@ -166,11 +297,16 @@ def create_app(
         run_id = body.run_id or new_run_id(body.experiment.name)
         if not valid_run_id(run_id):
             raise HTTPException(status_code=400, detail="invalid run id")
-        channel = channels.get(run_id)
+        channel = RunChannel()
         try:
             await service.start_run(body.experiment, sink=channel.publish, run_id=run_id, live=body.live)
+        except RunConflictError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except RunLimitError as exc:
+            raise HTTPException(status_code=429, detail=str(exc)) from exc
         except (ArenaError, LLMError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        channels.add(run_id, channel)
         return RunStartedResponse(run_id=run_id)
 
     @app.get("/api/scenarios/{scenario_id}/tasks", response_model=list[TaskView])
@@ -278,9 +414,13 @@ def create_app(
         return Response(content=data, media_type=media_type, headers=headers)
 
     @app.get("/api/runs/{run_id}/report")
-    def report(run_id: str) -> FileResponse:
+    def report(run_id: str) -> HTMLResponse:
         _require_run(runs_dir, run_id)
-        return FileResponse(build_report(runs_dir / run_id, inline_plotly=True), media_type="text/html")
+        nonce = secrets.token_urlsafe(24)
+        return HTMLResponse(
+            render_report(runs_dir / run_id, inline_plotly=True, nonce=nonce),
+            headers={"Content-Security-Policy": report_csp(nonce, True)},
+        )
 
     @app.middleware("http")
     async def cache_policy(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:

@@ -6,7 +6,6 @@ import base64
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
 from llm_arena.adapters.server.duckdb_store import DuckDBStore
 from llm_arena.adapters.server.subprocess_sandbox import SubprocessSandbox
@@ -22,6 +21,7 @@ from llm_arena.runner.run import ExperimentRunner
 from llm_arena.server.app import create_app
 from llm_arena.server.keys import KeyStore
 from llm_arena.service import ArenaService
+from server_test_client import SESSION_TOKEN, authenticated_client
 
 CHART = (
     "```python\nimport pandas as pd, matplotlib.pyplot as plt\ndf = pd.read_csv('energy.csv')\nfig, ax = plt.subplots()\n"
@@ -92,7 +92,7 @@ async def test_chart_run_keeps_the_rendered_chart_and_the_image_the_critic_saw(t
     assert base64.b64decode(bundle.artifacts[render["artifacts"][0]["key"]].data) == png
     assert service.run_bundle("r", traces=False).traces == {}
 
-    client = TestClient(create_app(service, runs_dir=tmp_path, keys=KeyStore()))
+    client = authenticated_client(create_app(service, runs_dir=tmp_path, keys=KeyStore(), session_token=SESSION_TOKEN))
     response = client.get(f"/api/runs/r/artifacts/{render['artifacts'][0]['key']}")
     assert response.status_code == 200 and response.headers["content-type"] == "image/png"
     assert response.headers["x-content-type-options"] == "nosniff"

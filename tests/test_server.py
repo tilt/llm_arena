@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,7 @@ from llm_arena.runner.ports import Runtime
 from llm_arena.server.app import create_app
 from llm_arena.server.keys import KeyStore
 from llm_arena.service import ArenaService
+from server_test_client import SESSION_TOKEN, authenticated_client
 
 SECRET = "sk-test-DO-NOT-LEAK-1234567890"
 GOOD_SQL = (
@@ -49,7 +51,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
         Runtime(client_factory=client_factory, discover=discover, name="test"),
         store_factory=lambda run_id: DuckDBStore(tmp_path / run_id),
     )
-    return TestClient(create_app(service, runs_dir=tmp_path, keys=KeyStore()))
+    return authenticated_client(create_app(service, runs_dir=tmp_path, keys=KeyStore(), session_token=SESSION_TOKEN))
 
 
 def test_catalog_scenarios_and_estimate(client: TestClient) -> None:
@@ -79,6 +81,9 @@ def test_run_streams_events_then_serves_bundle_report_and_listing(client: TestCl
         assert bundle["trials"][0]["passed"] and bundle["summary"]["configs"][0]["pass_rate"] == 1.0
         report = client.get("/api/runs/r1/report")
         assert report.status_code == 200 and "LLM Arena Report" in report.text
+        nonce = re.search(r'<script nonce="([^"]+)"', report.text)
+        assert nonce and f"script-src 'nonce-{nonce.group(1)}'" in report.headers["content-security-policy"]
+        assert len(report.headers.get_list("content-security-policy")) == 1
         listing = client.get("/api/runs").json()
         assert listing[0]["run_id"] == "r1" and listing[0]["passed"] == 1 and not listing[0]["active"]
 
@@ -117,9 +122,8 @@ def test_placeholder_page_until_the_web_ui_is_built(client: TestClient) -> None:
 def test_allowed_origins_follow_the_configured_port() -> None:
     from llm_arena.server.app import local_origins
 
-    assert local_origins(9001) == [
-        "http://127.0.0.1:9001", "http://localhost:9001", "http://127.0.0.1:5173", "http://localhost:5173",
-    ]  # fmt: skip
+    assert local_origins(9001) == ["http://127.0.0.1:9001", "http://localhost:9001", "http://[::1]:9001"]
+    assert local_origins(9001, "http://127.0.0.1:5173")[-1] == "http://127.0.0.1:5173"
 
 
 def test_leaderboard_endpoint_lists_boards(client: TestClient) -> None:
@@ -153,7 +157,15 @@ def test_runtime_reports_the_ui_build_seen_at_startup(tmp_path: Path) -> None:
     (static / "version.json").write_text('{"build": "b1"}')
     service = ArenaService(Runtime(client_factory=lambda spec: ScriptedLLM(["x"])),
                            store_factory=lambda run_id: DuckDBStore(tmp_path / run_id))  # fmt: skip
-    client = TestClient(create_app(service, runs_dir=tmp_path, static_dir=static, keys=KeyStore()))
+    client = authenticated_client(
+        create_app(
+            service,
+            runs_dir=tmp_path,
+            static_dir=static,
+            keys=KeyStore(),
+            session_token=SESSION_TOKEN,
+        )
+    )
     (static / "version.json").write_text('{"build": "b2"}')  # `make web` while the server runs
     assert client.get("/api/runtime").json()["ui_build"] == "b1"
     assert client.get("/version.json").json()["build"] == "b2"

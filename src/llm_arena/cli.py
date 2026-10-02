@@ -333,6 +333,8 @@ def ui(
     runs_dir: Annotated[Path, typer.Option(help="Where runs are stored")] = Path("runs"),
     static: Annotated[Path | None, typer.Option(help="Built web UI directory (default: web/dist or bundled)")] = None,
     open_browser: Annotated[bool, typer.Option("--open/--no-open", help="Open the browser")] = True,
+    link: Annotated[bool, typer.Option("--link", help="Print the authenticated URL and exit")] = False,
+    new_token: Annotated[bool, typer.Option("--new-token", help="Rotate the local UI token before starting")] = False,
     models_file: ModelsFile = DEFAULT_MODELS,
 ) -> None:
     """Start the local app: web UI + API over the discovered local and remote models (127.0.0.1 only)."""
@@ -343,9 +345,16 @@ def ui(
 
     from llm_arena.adapters.server.duckdb_store import DuckDBStore
     from llm_arena.adapters.server.runtime import server_runtime
+    from llm_arena.runner.config import configured_dev_origin
     from llm_arena.server.app import create_app
+    from llm_arena.server.session import load_ui_token
     from llm_arena.service import ArenaService
 
+    token = load_ui_token(rotate=new_token)
+    authenticated_url = f"http://127.0.0.1:{port}/#token={token}"
+    if link:
+        typer.echo(authenticated_url)
+        return
     selected, hint = _sandbox(sandbox)
     service = ArenaService(
         server_runtime(sandbox=selected, sandbox_hint=hint or ""), store_factory=lambda run_id: DuckDBStore(runs_dir / run_id),
@@ -356,9 +365,18 @@ def ui(
     url = f"http://127.0.0.1:{port}"
     console.print(f"LLM Arena at [link={url}]{url}[/link]  (runs in {runs_dir}/, Ctrl+C to stop)")
     if open_browser:
-        threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+        threading.Timer(1.0, lambda: webbrowser.open(authenticated_url)).start()
+    else:
+        typer.echo(authenticated_url)
     uvicorn.run(
-        create_app(service, runs_dir=runs_dir, static_dir=static_dir, port=port),
+        create_app(
+            service,
+            runs_dir=runs_dir,
+            static_dir=static_dir,
+            port=port,
+            session_token=token,
+            dev_origin=configured_dev_origin(),
+        ),
         host="127.0.0.1",
         port=port,
         log_level="warning",

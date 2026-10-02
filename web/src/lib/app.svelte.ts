@@ -6,7 +6,7 @@ import type { ModelPreset, RuntimeResponse, ScenarioManifest } from "./contracts
 
 export const app = $state({
   backend: null as ArenaBackend | null,
-  mode: "detecting" as "detecting" | "local" | "browser",
+  mode: "detecting" as "detecting" | "local" | "browser" | "locked",
   runtime: null as RuntimeResponse | null,
   scenarios: [] as ScenarioManifest[],
   models: null as ModelsResponse | null,

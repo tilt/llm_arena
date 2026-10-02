@@ -16,7 +16,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from llm_arena.core.errors import ConfigError
+from llm_arena.core.errors import ConfigError, RunConflictError, RunLimitError
 from llm_arena.decisions.config import SERVICES
 from llm_arena.decisions.records import DecisionSummary
 from llm_arena.llm.catalog import Catalog
@@ -35,6 +35,7 @@ from llm_arena.scenarios.brief import TaskView
 from llm_arena.scenarios.manifest import ScenarioManifest
 
 JUDGE_TOKENS_PER_TRIAL = 1500  # rubric judging; a rough allowance for the estimate
+MAX_ACTIVE_RUNS = 4
 
 
 class DecisionServiceInfo(BaseModel):
@@ -116,6 +117,7 @@ class ArenaService:
         self._catalog: Catalog | None = None
         self._runners: dict[str, ExperimentRunner] = {}
         self._tasks: dict[str, asyncio.Task[str]] = {}
+        self._start_lock = asyncio.Lock()
 
     # ---- discovery ------------------------------------------------------------------------
     def list_scenarios(self) -> list[ScenarioManifest]:
@@ -189,11 +191,22 @@ class ArenaService:
             raise ConfigError(
                 "run ids must start with a letter or digit and use at most 121 letters, digits, ., _ or -"
             )
-        runner = self._runner(experiment, run_id=run_id, sink=sink, live=live)
-        await runner.preflight()  # configuration errors go to the caller, not into a background task
-        runner.store = self.store_factory(run_id)
-        self._runners[run_id] = runner
-        self._tasks[run_id] = asyncio.create_task(runner.run())
+        async with self._start_lock:
+            finished = [existing for existing, task in self._tasks.items() if task.done()]
+            for existing in finished:
+                self._tasks.pop(existing, None)
+                self._runners.pop(existing, None)
+            if run_id in self._tasks:
+                raise RunConflictError(f"run {run_id!r} is already active")
+            if len(self._tasks) >= MAX_ACTIVE_RUNS:
+                raise RunLimitError(
+                    "4 runs are already active; wait for one to finish or cancel it before starting another"
+                )
+            runner = self._runner(experiment, run_id=run_id, sink=sink, live=live)
+            await runner.preflight()  # configuration errors go to the caller, not into a background task
+            runner.store = self.store_factory(run_id)
+            self._runners[run_id] = runner
+            self._tasks[run_id] = asyncio.create_task(runner.run())
         return run_id
 
     async def wait(self, run_id: str) -> str:

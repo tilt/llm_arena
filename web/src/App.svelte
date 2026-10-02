@@ -1,6 +1,6 @@
 <script lang="ts">
   import { app, refresh } from "./lib/app.svelte";
-  import { detectLocalBackend } from "./lib/backend";
+  import { detectLocalBackend, exchangeSession } from "./lib/backend";
   import { WorkerBackend } from "./lib/worker-backend";
   import SelftestView from "./views/SelftestView.svelte";
   import { router } from "./lib/router.svelte";
@@ -16,26 +16,56 @@
   import RunsView from "./views/RunsView.svelte";
   import RunView from "./views/RunView.svelte";
 
-  $effect(() => {
-    detectLocalBackend().then(async (backend) => {
+  let unlockValue = $state("");
+  let unlockError = $state("");
+
+  function tokenFrom(value: string): string {
+    const marker = "#token=";
+    return value.includes(marker) ? decodeURIComponent(value.slice(value.indexOf(marker) + marker.length)) : value.trim();
+  }
+
+  async function connectLocal(token = "") {
+    unlockError = "";
+    try {
+      if (token) await exchangeSession(token);
+      const backend = await detectLocalBackend();
       if (backend) {
+        if (backend.locked) {
+          app.backend = null;
+          app.mode = "locked";
+          return;
+        }
         app.backend = backend;
         app.mode = "local";
         await refresh();
-      } else {
-        app.mode = "browser";
-        const wheel = new URL("py/llm_arena-0.1.0-py3-none-any.whl", document.baseURI).href;
-        const worker = new WorkerBackend(wheel, (message) => (app.status = message));
-        try {
-          await worker.ready;
-          app.backend = worker;
-          app.status = "";
-          await refresh();
-        } catch (error) {
-          app.error = `The in-browser engine could not start: ${error instanceof Error ? error.message : String(error)}`;
-        }
+        return;
       }
-    });
+      app.mode = "browser";
+      const wheel = new URL("py/llm_arena-0.1.0-py3-none-any.whl", document.baseURI).href;
+      const worker = new WorkerBackend(wheel, (message) => (app.status = message));
+      await worker.ready;
+      app.backend = worker;
+      app.status = "";
+      await refresh();
+    } catch (error) {
+      unlockError = error instanceof Error ? error.message : String(error);
+      if (app.mode === "browser") app.error = unlockError;
+      else app.mode = "locked";
+    }
+  }
+
+  async function unlock() {
+    await connectLocal(tokenFrom(unlockValue));
+    unlockValue = "";
+  }
+
+  $effect(() => {
+    const fragment = location.hash.startsWith("#token=") ? tokenFrom(location.hash) : "";
+    if (fragment) history.replaceState(null, "", `${location.pathname}${location.search}#/`);
+    void connectLocal(fragment);
+    const lock = () => { app.backend = null; app.mode = "locked"; };
+    window.addEventListener("arena-auth-required", lock);
+    return () => window.removeEventListener("arena-auth-required", lock);
   });
 
   const providers = $derived(Object.entries(app.runtime?.providers ?? {}));
@@ -105,6 +135,17 @@
   {/if}
   {#if app.mode === "detecting"}
     <p class="muted">Connecting…</p>
+  {:else if app.mode === "locked"}
+    <section class="locked" aria-labelledby="locked-title">
+      <h1 id="locked-title">Local arena locked</h1>
+      <p class="lead">Open the link printed by <code>arena ui</code>, or run <code>arena ui --link</code>.</p>
+      <form onsubmit={(event) => { event.preventDefault(); void unlock(); }}>
+        <label for="unlock-token">Authenticated link or token</label>
+        <div class="unlock"><input id="unlock-token" type="password" autocomplete="off" bind:value={unlockValue} />
+          <button class="primary" type="submit" disabled={!unlockValue.trim()}>Unlock</button></div>
+      </form>
+      {#if unlockError}<p class="note" role="alert">{unlockError}</p>{/if}
+    </section>
   {:else if app.mode === "browser" && !app.backend}
     <h1>LLM Arena</h1>
     {#if app.error}
@@ -145,4 +186,8 @@
   .status { margin-left: auto; }
   .update { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: space-between; margin: 0 0 16px; }
   main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 80px; }
+  .locked { max-width: 620px; margin: 64px auto; }
+  .locked form { margin-top: 24px; }
+  .locked label { display: block; font-weight: 600; margin-bottom: 6px; }
+  .unlock { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 </style>

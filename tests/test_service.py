@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import asyncio
+from typing import Any
+
 import pytest
 
+from llm_arena.core.errors import RunConflictError, RunLimitError
 from llm_arena.llm.catalog import Catalog, CatalogEntry
 from llm_arena.llm.client import LLMClient
 from llm_arena.llm.spec import ModelSpec
 from llm_arena.llm.testing import ScriptedLLM
+from llm_arena.llm.types import LLMResponse, Message
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import RunEvent, RunFinished
 from llm_arena.runner.memory_store import MemoryStore
@@ -89,3 +94,41 @@ async def test_start_run_streams_events_and_returns_a_bundle() -> None:
     assert bundle.trials[0]["passed"] and bundle.summary.configs[0].pass_rate == 1.0
     assert bundle.traces[bundle.trials[0]["trial_id"]]["spans"]
     bundle.model_dump_json()  # the bundle is a JSON contract
+
+
+async def test_active_run_admission_is_atomic_and_bounded() -> None:
+    gate = asyncio.Event()
+
+    class BlockingLLM(ScriptedLLM):
+        async def complete(
+            self,
+            messages: list[Message],
+            *,
+            tools: list[dict[str, Any]] | None = None,
+            response_format: dict[str, Any] | None = None,
+            temperature: float | None = None,
+            max_tokens: int | None = None,
+        ) -> LLMResponse:
+            await gate.wait()
+            return await super().complete(
+                messages,
+                tools=tools,
+                response_format=response_format,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+
+    service, _ = _service()
+    service.runtime.client_factory = lambda spec: BlockingLLM([_reply], spec=spec)
+    attempts = await asyncio.gather(
+        *(service.start_run(_experiment("openai:gpt-4.1-nano"), run_id=f"run-{index}") for index in range(8)),
+        return_exceptions=True,
+    )
+    admitted = [result for result in attempts if isinstance(result, str)]
+    refused = [result for result in attempts if isinstance(result, RunLimitError)]
+    assert admitted == ["run-0", "run-1", "run-2", "run-3"]
+    assert len(refused) == 4
+    with pytest.raises(RunConflictError):
+        await service.start_run(_experiment("openai:gpt-4.1-nano"), run_id="run-0")
+    gate.set()
+    await asyncio.gather(*(service.wait(run_id) for run_id in admitted))

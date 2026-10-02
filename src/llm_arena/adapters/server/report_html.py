@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import secrets
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -20,24 +21,30 @@ MAX_SPAN_CHARS = 1500
 PLOTLY_CDN = "https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"
 
 
-def build_report(run_dir: Path, *, inline_plotly: bool = True) -> Path:
+def build_report(run_dir: Path, *, inline_plotly: bool = True, nonce: str | None = None) -> Path:
+    html = render_report(run_dir, inline_plotly=inline_plotly, nonce=nonce)
+    target = run_dir / "report.html"
+    target.write_text(html, encoding="utf-8")
+    return target
+
+
+def render_report(run_dir: Path, *, inline_plotly: bool = True, nonce: str | None = None) -> str:
+    nonce = nonce or secrets.token_urlsafe(24)
     store = DuckDBStore(run_dir)
     summary = summarize(store.load_run())
     environment = Environment(loader=FileSystemLoader(_TEMPLATES), autoescape=select_autoescape(["html", "j2"]))
     environment.filters["pct"] = lambda v: "–" if v is None or _nan(v) else f"{100 * v:.0f}%"
     environment.filters["num"] = lambda v, d=2: "–" if v is None or _nan(v) else f"{v:,.{d}f}"
-    html = environment.get_template("report.html.j2").render(
+    return environment.get_template("report.html.j2").render(
         s=summary,
         chart_data=script_json(_chart_data(summary)),
         traces=_trace_views(store, summary),
         plotly_js=_plotly_js() if inline_plotly else None,
         plotly_cdn=PLOTLY_CDN,
         overall=_overall(summary),
-        csp=_csp(inline_plotly),
+        nonce=nonce,
+        csp=report_csp(nonce, inline_plotly),
     )
-    target = run_dir / "report.html"
-    target.write_text(html, encoding="utf-8")
-    return target
 
 
 # Characters that could end a <script> element or break JavaScript parsing inside it.
@@ -52,9 +59,9 @@ def script_json(value: Any) -> str:
     return text
 
 
-def _csp(inline_plotly: bool) -> str:
-    """The report needs only its own inline script and styles (plus the pinned Plotly CDN when not inlined)."""
-    scripts = "'unsafe-inline'" + ("" if inline_plotly else " https://cdn.jsdelivr.net")
+def report_csp(nonce: str, inline_plotly: bool) -> str:
+    """The report needs only its nonce-bearing scripts (plus the pinned Plotly CDN when not inlined)."""
+    scripts = f"'nonce-{nonce}'" + ("" if inline_plotly else " https://cdn.jsdelivr.net")
     return (f"default-src 'none'; script-src {scripts}; style-src 'unsafe-inline'; img-src data: blob:; "
             "font-src data:; base-uri 'none'; form-action 'none'")  # fmt: skip
 

@@ -13,3 +13,11 @@ class ConfigError(ArenaError):
 
 class CapabilityError(ConfigError):
     """A role was bound to a model that lacks a required capability (e.g. vision)."""
+
+
+class RunConflictError(ArenaError):
+    """A run id is already active."""
+
+
+class RunLimitError(ArenaError):
+    """The local runtime has reached its active-run limit."""

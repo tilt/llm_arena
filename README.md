@@ -33,7 +33,7 @@ git clone https://github.com/tilt/llm_arena.git && cd llm_arena
 make setup                        # checks the requirements, installs the project, creates .env,
                                   # builds the web UI (with Node) and the sandbox image (with Docker)
 make doctor                       # later: re-check tools and which local model servers are reachable
-make ui                           # the app on http://127.0.0.1:8787
+make ui                           # opens an authenticated link to the app on 127.0.0.1:8787
 ```
 
 From the command line:
@@ -68,7 +68,8 @@ Other entry points:
 ## Local app
 
 `make ui` (or `uv run arena ui`) starts the app on http://127.0.0.1:8787 (change it with `--port` or `ARENA_UI_PORT`
-in `.env`). It provides:
+in `.env`) and opens a one-time token link that becomes an HttpOnly session cookie. Run `uv run arena ui --link` to
+print that link again, or `uv run arena ui --new-token` to invalidate existing browser sessions. It provides:
 - the discovered models, with capabilities and prices
 - a page per scenario: what it tests, every task with its expected outcome, the workflow with a model per step
 - model presets (a model per kind of step) and replacement studies
@@ -77,7 +78,7 @@ in `.env`). It provides:
 Details:
 - **Keys** are read from `.env` on the server. You can also set a key for the current session in the app; it is held in
   server memory only. The API reports only whether a key is configured, never the key.
-- **Access** is limited to 127.0.0.1 and localhost origins.
+- **Access** is limited to loopback Host headers and authenticated browser sessions. Cross-site mutations are rejected.
 - **API:** the endpoints mirror `ArenaService`, and their JSON Schemas are in `contracts/schemas` (see `/docs` for the
   OpenAPI view):
 
@@ -112,8 +113,18 @@ Details:
 - **Models:** the catalog, filterable by capability, plus API keys.
 
 The UI uses only the `ArenaBackend` interface, and its TypeScript types are generated from `contracts/schemas`
-(`npm run contracts`). The same UI will run the in-browser engine. `make test-web` runs svelte-check and vitest; for
-development use `cd web && npm run dev`, which proxies `/api` to a running `arena ui`.
+(`npm run contracts`). The same UI will run the in-browser engine. `make test-web` runs svelte-check and vitest.
+
+For Vite development, start the API with the exact development origin and without opening its own tab:
+
+```bash
+ARENA_DEV_ORIGIN=http://localhost:5173 uv run arena ui --no-open
+cd web && npm run dev
+```
+
+In another terminal, run `uv run arena ui --link`, replace its `http://127.0.0.1:8787` origin with
+`http://localhost:5173`, and open the resulting link once. Vite proxies the token exchange and subsequent `/api`
+requests; the cookie remains HttpOnly. Do not configure `ARENA_DEV_ORIGIN` in production.
 
 ## Browser-only mode
 

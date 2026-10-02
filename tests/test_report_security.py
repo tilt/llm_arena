@@ -35,3 +35,7 @@ async def test_report_with_hostile_config_names_contains_no_injected_markup(tmp_
     assert "<script>alert(1)" not in html
     assert len(re.findall(r"<script\b", html)) == 2  # the Plotly loader and the report's own script, nothing else
     assert 'http-equiv="Content-Security-Policy"' in html and "default-src 'none'" in unescape(html)
+    nonces = re.findall(r'<script nonce="([^"]+)"', html)
+    assert len(nonces) == 2 and len(set(nonces)) == 1
+    assert f"script-src 'nonce-{nonces[0]}'" in unescape(html)
+    assert "'unsafe-inline'" not in unescape(html).split("style-src", 1)[0]

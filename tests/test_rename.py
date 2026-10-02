@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
 from llm_arena.adapters.server.duckdb_store import DuckDBStore
 from llm_arena.core.errors import ConfigError
@@ -17,6 +16,7 @@ from llm_arena.runner.run import ExperimentRunner
 from llm_arena.server.app import create_app
 from llm_arena.server.keys import KeyStore
 from llm_arena.service import ArenaService, rename_bundle
+from server_test_client import SESSION_TOKEN, authenticated_client
 from test_control import SPECS, _experiment, _factory
 
 GATE = {"policy": "rules", "control": "gate"}
@@ -87,7 +87,9 @@ async def test_browser_bundles_and_this_tabs_store_rename_alike() -> None:
 
 async def test_api_renames_finished_runs(tmp_path: Path) -> None:
     await _run(DuckDBStore(tmp_path / "run-a"))
-    client = TestClient(create_app(_service(tmp_path), runs_dir=tmp_path, keys=KeyStore()))
+    client = authenticated_client(
+        create_app(_service(tmp_path), runs_dir=tmp_path, keys=KeyStore(), session_token=SESSION_TOKEN)
+    )
     assert client.patch("/api/runs/run-a", json={"name": "renamed", "configs": {"agent": "solo"}}).status_code == 204
     listing = next(r for r in client.get("/api/runs").json() if r["run_id"] == "run-a")
     assert listing["name"] == "renamed"

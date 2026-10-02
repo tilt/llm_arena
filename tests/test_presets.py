@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
 from llm_arena.core.errors import ConfigError
 from llm_arena.llm.client import LLMClient
@@ -15,6 +14,7 @@ from llm_arena.runner.config import ExperimentConfig, PipelineConfig
 from llm_arena.runner.ports import Runtime
 from llm_arena.runner.presets import DEFAULT_PRESETS, ModelPreset, load_presets, save_preset
 from llm_arena.runner.run import ExperimentRunner
+from server_test_client import SESSION_TOKEN, authenticated_client
 
 # What discovery would report: the vision model can see images (capabilities come from the server).
 DISCOVERED = {"ollama:qwen3-vl:8b": ModelSpec(name="ollama:qwen3-vl:8b", provider="ollama", model="qwen3-vl:8b",
@@ -84,7 +84,7 @@ def test_preset_api_lists_saves_and_resets(tmp_path: Path) -> None:
 
     service = ArenaService(Runtime(client_factory=_factory), store_factory=lambda _: MemoryStore(),
                            presets_file=tmp_path / "presets.local.yaml")  # fmt: skip
-    client = TestClient(create_app(service, runs_dir=tmp_path, keys=KeyStore()))
+    client = authenticated_client(create_app(service, runs_dir=tmp_path, keys=KeyStore(), session_token=SESSION_TOKEN))
     assert set(client.get("/api/presets").json()) == {"local-small", "openai-mini"}
     profile = {"label": "Tiny", "models": {"text": "ollama:qwen3:0.6b"}}
     assert "tiny" in client.put("/api/presets/tiny", json=profile).json()
