@@ -51,9 +51,12 @@ Everything a model writes is treated as data:
   already running can finish, so the default mode is explicitly best effort. Set `budget_mode: strict` to refuse
   unknown prices and requests without a finite cost bound. The UI sets a best-effort limit by default. Use
   project keys with a hard limit at the provider.
-- **Browser mode keeps keys in the tab's memory.** They are sent only to the provider's API and are written to local
-  storage only if you opt in. TypeSafe's Jev is not called from the browser: its API does not allow cross-origin
-  requests.
+- **Browser mode keeps keys in the tab's memory by default.** They are sent only to the provider's API. Persistent
+  keys are available only when the production build names an exact `VITE_CREDENTIAL_ORIGIN` and the page's origin
+  matches it exactly. The opt-in stores keys unencrypted in local storage. Every other origin hides the option and
+  deletes the legacy `llm-arena.keys` entry without parsing or sending it to the engine. TypeSafe's Jev is not called
+  from the browser: its API does not allow cross-origin requests. The current `tilt.github.io/llm_arena/` deployment
+  shares an origin with other project sites, so it intentionally does not enable persistent keys.
 - **Ollaya and Ollama run on your machine;** calls to them do not leave it.
 
 ## Residual risks

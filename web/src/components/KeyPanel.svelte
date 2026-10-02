@@ -11,9 +11,10 @@
     if (!app.backend || !drafts[provider]) return;
     busy = provider;
     try {
-      await app.backend.setKey(provider, drafts[provider], remember);
+      const persist = remember && app.canRememberKeys;
+      await app.backend.setKey(provider, drafts[provider], persist);
       drafts[provider] = "";
-      message = `${labels[provider] ?? provider} key set${remember ? " and remembered on this device" : " for this session"}.`;
+      message = `${labels[provider] ?? provider} key set${persist ? " and remembered on this device" : " for this session"}.`;
       await refresh({ models: true });
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);
@@ -49,9 +50,9 @@
       {#if source === "session"}<button onclick={() => clear(provider)}>Forget</button>{/if}
     </div>
   {/each}
-  {#if app.mode === "browser"}
-    <label class="remember"><input type="checkbox" bind:checked={remember} /> Remember keys on this device (stored in this
-      browser's local storage; leave off on shared computers)</label>
+  {#if app.mode === "browser" && app.canRememberKeys}
+    <label class="remember"><input type="checkbox" bind:checked={remember} /> Remember keys on this device (stored
+      unencrypted in this browser's local storage; leave off on shared computers)</label>
   {/if}
   {#if message}<p class="muted">{message}</p>{/if}
 </div>

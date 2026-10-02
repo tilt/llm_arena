@@ -13,6 +13,8 @@ export const app = $state({
   presets: {} as Record<string, ModelPreset>,
   error: "",
   status: "",
+  canRememberKeys: false,
+  credentialNotice: "",
 });
 
 export async function refresh(options: { models?: boolean } = {}): Promise<void> {

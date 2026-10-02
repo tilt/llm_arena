@@ -7,8 +7,7 @@ import type { ModelPreset, Estimate, RenameRun, ExperimentConfig, Leaderboard, R
 import type { EngineMethod, EngineReply } from "../engine/protocol";
 import { editedPresets, storeEditedPresets, usablePresets } from "./presets";
 import { listBundles, loadBundle, saveBundle } from "./idb";
-
-const REMEMBERED = "llm-arena.keys";
+import { enforceCredentialStorage, readRememberedKeys, writeRememberedKeys } from "./credential-storage";
 
 export interface SelftestResult { case: string; status: "pass" | "fail" | "skipped"; mismatches?: string[]; reason?: string }
 
@@ -23,8 +22,10 @@ export class WorkerBackend implements ArenaBackend {
   // Finished runs whose bundle could not be written to IndexedDB (private window, quota): kept for this session.
   private readonly unsaved = new Map<string, RunBundle>();
   private readonly blobUrls = new Map<string, string>();
+  private readonly canRememberKeys: boolean;
 
   constructor(wheelUrl: string, onStatus: (message: string) => void = () => {}) {
+    this.canRememberKeys = enforceCredentialStorage().canRemember;
     this.worker = new Worker(new URL("../engine/engine.worker.ts", import.meta.url), { type: "module" });
     this.worker.onmessage = ({ data }: MessageEvent<EngineReply>) => this.receive(data, onStatus);
     this.ready = this.call("init", wheelUrl).then(() => this.restoreKeys());
@@ -40,17 +41,21 @@ export class WorkerBackend implements ArenaBackend {
 
   async setKey(provider: string, key: string, remember = false): Promise<void> {
     await this.call("set_key", provider, key);
-    const keys = this.remembered();
-    if (remember) keys[provider] = key; else delete keys[provider];
-    localStorage.setItem(REMEMBERED, JSON.stringify(keys));
+    if (this.canRememberKeys) {
+      const keys = readRememberedKeys();
+      if (remember) keys[provider] = key; else delete keys[provider];
+      writeRememberedKeys(keys);
+    }
     await this.call("models", true);
   }
 
   async clearKey(provider: string): Promise<void> {
     await this.call("clear_key", provider);
-    const keys = this.remembered();
-    delete keys[provider];
-    localStorage.setItem(REMEMBERED, JSON.stringify(keys));
+    if (this.canRememberKeys) {
+      const keys = readRememberedKeys();
+      delete keys[provider];
+      writeRememberedKeys(keys);
+    }
     await this.call("models", true);
   }
 
@@ -150,16 +155,9 @@ export class WorkerBackend implements ArenaBackend {
     return this.json("selftest", JSON.stringify(vectors));
   }
 
-  private remembered(): Record<string, string> {
-    try {
-      return JSON.parse(localStorage.getItem(REMEMBERED) ?? "{}") as Record<string, string>;
-    } catch {
-      return {};
-    }
-  }
-
   private async restoreKeys(): Promise<void> {
-    for (const [provider, key] of Object.entries(this.remembered())) await this.call("set_key", provider, key);
+    if (!this.canRememberKeys) return;
+    for (const [provider, key] of Object.entries(readRememberedKeys())) await this.call("set_key", provider, key);
   }
 
   private async json<T>(method: EngineMethod, ...args: unknown[]): Promise<T> {

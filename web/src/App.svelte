@@ -1,6 +1,7 @@
 <script lang="ts">
   import { app, refresh } from "./lib/app.svelte";
   import { detectLocalBackend, exchangeSession } from "./lib/backend";
+  import { enforceCredentialStorage } from "./lib/credential-storage";
   import { WorkerBackend } from "./lib/worker-backend";
   import SelftestView from "./views/SelftestView.svelte";
   import { router } from "./lib/router.svelte";
@@ -60,6 +61,11 @@
   }
 
   $effect(() => {
+    const credentialPolicy = enforceCredentialStorage();
+    app.canRememberKeys = credentialPolicy.canRemember;
+    if (credentialPolicy.removedLegacyKeys) {
+      app.credentialNotice = "Previously remembered API keys were removed because this site is not an approved credential origin.";
+    }
     const fragment = location.hash.startsWith("#token=") ? tokenFrom(location.hash) : "";
     if (fragment) history.replaceState(null, "", `${location.pathname}${location.search}#/`);
     void connectLocal(fragment);
@@ -125,6 +131,10 @@
 </header>
 
 <main>
+  {#if app.credentialNotice}
+    <p class="note credential-notice" role="status"><span>{app.credentialNotice}</span>
+      <button onclick={() => (app.credentialNotice = "")}>Dismiss</button></p>
+  {/if}
   {#if update.available}
     <p class="note update" role="status"><span>A newer version of the arena is available; this tab still runs the old one.
       {#if app.mode === "browser" && live.length}Runs in this tab stop when you reload.{/if}</span>
@@ -185,6 +195,7 @@
   nav a.active { background: var(--surface-2); color: var(--text-primary); font-weight: 600; }
   .status { margin-left: auto; }
   .update { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: space-between; margin: 0 0 16px; }
+  .credential-notice { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin: 0 0 16px; }
   main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 80px; }
   .locked { max-width: 620px; margin: 64px auto; }
   .locked form { margin-top: 24px; }

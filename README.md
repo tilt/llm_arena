@@ -131,7 +131,9 @@ requests; the cookie remains HttpOnly. Do not configure `ARENA_DEV_ORIGIN` in pr
 The same UI also runs with no server at all, as on GitHub Pages. The arena's Python engine then runs in the tab via
 Pyodide, in a Web Worker. Setup:
 - Enter an OpenAI or Anthropic key in **Models**. It is kept in the tab's memory and sent only to the provider's API.
-  Opting in keeps it in local storage on that device.
+  The shared `tilt.github.io` Pages build is session-only. A deployment on a dedicated host may explicitly set
+  `VITE_CREDENTIAL_ORIGIN` to its exact origin to offer a remember option, which stores the key unencrypted in local
+  storage on that device. Every other origin removes the legacy `llm-arena.keys` entry without reading its contents.
 - Set a spend limit on each run.
 
 What changes compared with the local app:
