@@ -41,6 +41,22 @@ jobs:
       - name: Fail if generated types are stale
         run: git diff --exit-code web/src/lib/contracts.ts
 
+  browser-isolation:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install web dependencies and pinned browser engines
+        run: cd web && npm ci && npx playwright install chromium firefox webkit
+      - name: Prove opaque-origin browser isolation assumptions
+        run: cd web && npm run test:isolation
+
   secrets:
     runs-on: ubuntu-latest
     steps:
