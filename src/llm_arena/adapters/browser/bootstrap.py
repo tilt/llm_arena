@@ -20,12 +20,12 @@ async def _load_package(name: str) -> None:
     await pyodide_js.loadPackage(name)
 
 
-def create_arena(emit: Any, sandbox_run: Any = None) -> BrowserArena:
+def create_arena(emit: Any, sandbox_run: Any = None, browser_network: str = "not network-isolated") -> BrowserArena:
     return BrowserArena(
         transport=PyfetchTransport(),
         http_get=pyfetch_get_json,
         get_bytes=pyfetch_bytes,
         emit=lambda raw: emit(raw),
-        sandbox=JsSandbox(sandbox_run) if sandbox_run is not None else None,
+        sandbox=JsSandbox(sandbox_run, network_isolation=browser_network) if sandbox_run is not None else None,
         load_package=_load_package,
     )

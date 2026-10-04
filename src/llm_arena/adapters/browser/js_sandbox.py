@@ -16,8 +16,9 @@ JsRunner = Callable[[str, str, str, float], Awaitable[str]]
 class JsSandbox:
     isolation = "browser worker"
 
-    def __init__(self, run_js: JsRunner) -> None:
+    def __init__(self, run_js: JsRunner, *, network_isolation: str = "not network-isolated") -> None:
         self._run_js = run_js
+        self.network_isolation = network_isolation
 
     async def run(
         self,

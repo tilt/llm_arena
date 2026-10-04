@@ -759,6 +759,10 @@ export interface RuntimeInfo {
    * container | process | browser worker ('' without one)
    */
   sandbox_isolation?: string;
+  /**
+   * browser only: isolated | not network-isolated (empty for other runtimes)
+   */
+  sandbox_network_isolation?: string;
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema
@@ -806,6 +810,10 @@ export interface RuntimeResponse {
    * container | process | browser worker ('' without one)
    */
   sandbox_isolation?: string;
+  /**
+   * browser only: isolated | not network-isolated (empty for other runtimes)
+   */
+  sandbox_network_isolation?: string;
   /**
    * build id of the web UI when the server started ('' if none)
    */

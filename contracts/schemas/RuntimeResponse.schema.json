@@ -81,6 +81,12 @@
       "title": "Sandbox Isolation",
       "type": "string"
     },
+    "sandbox_network_isolation": {
+      "default": "",
+      "description": "browser only: isolated | not network-isolated (empty for other runtimes)",
+      "title": "Sandbox Network Isolation",
+      "type": "string"
+    },
     "ui_build": {
       "default": "",
       "description": "build id of the web UI when the server started ('' if none)",

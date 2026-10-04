@@ -6,12 +6,14 @@
   "scripts": {
     "contracts": "node scripts/gen-types.mjs",
     "dev": "vite",
-    "build": "npm run contracts && vite build",
+    "build": "npm run contracts && npm run verify:assets && vite build",
     "check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
     "test": "vitest run",
-    "test:isolation": "playwright test"
+    "test:isolation": "playwright test",
+    "verify:assets": "node scripts/verify-pyodide-assets.mjs"
   },
   "dependencies": {
+    "pyodide": "314.0.7",
     "yaml": "^2.9.1"
   },
   "devDependencies": {

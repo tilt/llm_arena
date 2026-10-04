@@ -85,7 +85,7 @@
   const SANDBOX: Record<string, { label: string; title: string; warn: boolean }> = {
     container: { label: "sandbox: Docker", title: "Model-written code runs in Docker: no network, no host files, resource limits.", warn: false },
     process: { label: "sandbox: local process", title: "Model-written code runs as a local process with your user's permissions and network access, not isolated. Start Docker and run make sandbox-image, then restart the app (or use --sandbox docker).", warn: true },
-    "browser worker": { label: "sandbox: browser worker", title: "Model-written code runs in a separate Pyodide worker in this tab.", warn: false },
+    "browser worker": { label: "browser sandbox", title: "Model-written code runs in a fresh, disposable Pyodide worker in this tab.", warn: false },
   };
   // Containers always run as the user; the daemon that starts them may run as root (standard Linux install).
   const DAEMON: Record<string, { label: string; title: string }> = {
@@ -95,6 +95,12 @@
   };
   const sandbox = $derived.by(() => {
     const base = SANDBOX[app.runtime?.sandbox_isolation ?? ""];
+    if (base && app.runtime?.sandbox_isolation === "browser worker") {
+      const isolated = app.runtime.sandbox_network_isolation === "isolated";
+      return { ...base, label: `browser sandbox: ${isolated ? "isolated" : "not network-isolated"}`,
+        title: `${base.title} ${isolated ? "The runtime canary confirmed network denial in an opaque origin." : "The runtime could not prove a browser-enforced network boundary."}`,
+        warn: !isolated };
+    }
     const daemon = base && app.runtime?.sandbox_isolation === "container" ? DAEMON[app.runtime?.sandbox_daemon ?? ""] : undefined;
     return base ? { ...base, label: base.label + (daemon?.label ?? ""), title: base.title + (daemon?.title ?? "") } : null;
   });

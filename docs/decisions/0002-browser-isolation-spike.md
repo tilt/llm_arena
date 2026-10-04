@@ -37,9 +37,10 @@ requires a `connect-src` CSP violation event.
 ## Decision
 
 Phase 4 may use the external SRI plus CSP-hash bootstrap and strict opaque-origin messaging in these three engine
-families. It may not use a parent-created bootstrap blob. Production still performs a same-origin canary self-check
-at sandbox start and labels a browser network-isolated only when that request fails. A failed or unsupported runtime
-self-check falls back to disposable workers with the truthful "not network-isolated" label.
+families. It may not use a parent-created bootstrap blob. Production performs a same-origin canary self-check at
+sandbox start and requires both an opaque origin and a blocked request before returning `isolated`. The current
+production worker is disposable and uses pre-execution asset verification plus network API locking, but it is not
+yet hosted by that iframe and therefore remains truthfully labelled `not network-isolated`.
 
 Run locally with:
 

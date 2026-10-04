@@ -130,6 +130,7 @@ async def test_js_sandbox_bridge_round_trips_files() -> None:
                            "timed_out": result.timed_out, "files": {k: base64.b64encode(v).decode() for k, v in result.files.items()}})  # fmt: skip
 
     sandbox = JsSandbox(run_js)
+    assert sandbox.network_isolation == "not network-isolated"
     result = await sandbox.run("print(open('in.txt').read()); open('out.bin','wb').write(b'\\x00\\x01')", files={"in.txt": "hi"},
                                collect=("out.bin",))  # fmt: skip
     assert result.ok and result.stdout.strip() == "hi" and result.files["out.bin"] == b"\x00\x01"

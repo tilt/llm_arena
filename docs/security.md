@@ -22,8 +22,13 @@ Everything a model writes is treated as data:
   Without a usable sandbox image, `auto` leaves code scenarios unavailable. `--sandbox unsafe-process` is the
   explicit compatibility mode: it uses a temporary work directory and resource limits, but model code still has
   your user's permissions and network access. The CLI and app label it as unsafe.
-- **Browser mode** runs code in a separate Pyodide worker, which is terminated on timeout. It is confined by the
-  browser, but it shares the tab's network access.
+- **Browser mode** gives every code execution a fresh Pyodide worker and terminates it after success, failure,
+  timeout or cancellation. At most two execute concurrently, with one pre-warmed spare. Runtime and package bytes
+  are fetched as inert data and checked against the repository's SHA-256 manifest before any module, WebAssembly or
+  wheel is loaded. The worker then locks its direct network APIs. The production worker is not yet hosted in the
+  proven opaque-origin CSP iframe, so the runtime canary deliberately reports **browser sandbox: not
+  network-isolated**. Disposable workers and API locking reduce risk but are not described as a browser-enforced
+  security boundary.
 - **Artifacts** (images, JSON, generated files) are served with `X-Content-Type-Options: nosniff` and a
   `Content-Security-Policy: default-src 'none'; sandbox` header. Keys are validated and resolved strictly inside the
   run folder, so `../` paths are rejected.
@@ -67,5 +72,7 @@ Everything a model writes is treated as data:
 - **Prompt injection.** Scenario content is synthetic and fixed. Live search (`--live`, Tavily or arXiv) brings in
   web content that could steer an agent. Results can be wrong; the tools cannot do more than their mock
   environments allow.
-- **Supply chain.** Dependencies are pinned in `uv.lock` and `web/package-lock.json`. The browser loads Pyodide
-  from a pinned jsDelivr URL.
+- **Supply chain.** Dependencies are pinned in `uv.lock` and `web/package-lock.json`. Browser Pyodide core and
+  pandas/matplotlib dependency artifacts are pinned in `web/src/engine/pyodide-assets.ts`; the build checks core
+  bytes against the exact npm package and wheel digests against Pyodide's lockfile. Runtime code is imported only
+  after SHA-256 verification.

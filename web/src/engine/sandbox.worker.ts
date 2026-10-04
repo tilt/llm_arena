@@ -2,6 +2,7 @@
 // Runs model-written Python in its own Pyodide, away from the engine. The engine terminates this
 // worker on timeout (and starts a fresh one), which is the browser's equivalent of killing a process.
 import { loadPyodide, type Pyodide } from "./pyodide";
+import { validateSandboxRequest, type SandboxReply } from "./sandbox-protocol";
 
 let py: Pyodide | null = null;
 
@@ -137,15 +138,37 @@ def arena_exec(code, files_json, collect_json):
         shutil.rmtree(workdir, ignore_errors=True)
 `;
 
-self.onmessage = async ({ data }: MessageEvent<{ cmd: "init" } | { cmd: "exec"; code: string; files: string; collect: string }>) => {
-  if (data.cmd === "init") {
-    py = await loadPyodide();
-    await py.loadPackage(["matplotlib", "pandas"]);
-    await py.runPythonAsync(`import os\nos.environ["MPLBACKEND"] = "Agg"\n${EXEC}`);
-    self.postMessage("ready");
-    return;
+self.onmessage = async (event: MessageEvent<unknown>) => {
+  let requestId = "unknown-request";
+  try {
+    if (event.currentTarget !== self) throw new Error("invalid sandbox request source");
+    const request = validateSandboxRequest(event.data);
+    requestId = request.requestId;
+    if (request.kind === "init") {
+      const started = performance.now();
+      py = await loadPyodide({ sandbox: true });
+      await py.runPythonAsync(`import os\nos.environ["MPLBACKEND"] = "Agg"\n${EXEC}`);
+      const networkIsolation = await networkSelfCheck();
+      const reply: SandboxReply = { kind: "ready", requestId, initMs: performance.now() - started, networkIsolation };
+      self.postMessage(reply);
+      return;
+    }
+    if (!py) throw new Error("sandbox is not initialized");
+    py.globals.set("_args", [request.code, request.files, request.collect]);
+    const result = await py.runPythonAsync("arena_exec(*_args)");
+    if (typeof result !== "string") throw new Error("sandbox returned a non-string result");
+    const reply: SandboxReply = { kind: "result", requestId, result };
+    self.postMessage(reply);
+  } catch (error) {
+    const reply: SandboxReply = { kind: "error", requestId,
+      error: error instanceof Error ? error.message : String(error) };
+    self.postMessage(reply);
   }
-  py!.globals.set("_args", [data.code, data.files, data.collect]);
-  const result = await py!.runPythonAsync("arena_exec(*_args)");
-  self.postMessage(result);
 };
+
+async function networkSelfCheck(): Promise<"isolated" | "not network-isolated"> {
+  let blocked = false;
+  try { await fetch(new URL("__arena_sandbox_canary__", self.location.href)); }
+  catch { blocked = true; }
+  return blocked && self.location.origin === "null" ? "isolated" : "not network-isolated";
+}
