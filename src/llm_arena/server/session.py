@@ -67,11 +67,16 @@ def session_cookie(token: str) -> str:
     return hmac.new(token.encode("ascii"), COOKIE_CONTEXT, hashlib.sha256).hexdigest()
 
 
+def _bytes(value: str) -> bytes:
+    # compare_digest raises on non-ASCII str; any presented text (lone surrogates included) must just not match.
+    return value.encode("utf-8", "surrogatepass")
+
+
 def token_matches(expected: str, presented: str) -> bool:
-    return hmac.compare_digest(expected.encode("utf-8"), presented.encode("utf-8"))
+    return hmac.compare_digest(_bytes(expected), _bytes(presented))
 
 
 def cookie_matches(token: str, presented: str | None) -> bool:
     if presented is None:
         return False
-    return hmac.compare_digest(session_cookie(token), presented)
+    return hmac.compare_digest(_bytes(session_cookie(token)), _bytes(presented))

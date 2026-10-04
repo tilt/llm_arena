@@ -87,10 +87,21 @@ function required(assets: Map<string, ArrayBuffer>, file: string): ArrayBuffer {
   return bytes;
 }
 
-function denySandboxNetwork(): void {
-  const denied = (): never => { throw new TypeError("Network access is disabled in the browser sandbox"); };
-  for (const name of ["fetch", "WebSocket", "EventSource", "XMLHttpRequest", "Worker", "SharedWorker"]) {
-    try { Object.defineProperty(globalThis, name, { value: denied, writable: false, configurable: false }); }
+/** Model code reaches these through Pyodide's `js` module: network APIs, plus same-origin storage (saved run bundles
+ *  live in IndexedDB) and channels to other same-origin contexts. Dynamic import() cannot be removed this way, which is
+ *  why the sandbox stays labelled "not network-isolated" until it runs in an opaque-origin iframe. */
+export const SANDBOX_DENIED_CALLS = ["fetch", "WebSocket", "EventSource", "XMLHttpRequest", "Worker", "SharedWorker",
+  "BroadcastChannel"] as const;
+export const SANDBOX_DENIED_STORAGE = ["indexedDB", "caches"] as const;
+
+export function denySandboxNetwork(target: object = globalThis): void {
+  const denied = (): never => { throw new TypeError("Network and storage access are disabled in the browser sandbox"); };
+  for (const name of SANDBOX_DENIED_CALLS) {
+    try { Object.defineProperty(target, name, { value: denied, writable: false, configurable: false }); }
+    catch { /* An absent browser API needs no replacement. */ }
+  }
+  for (const name of SANDBOX_DENIED_STORAGE) {
+    try { Object.defineProperty(target, name, { get: denied, configurable: false }); }
     catch { /* An absent browser API needs no replacement. */ }
   }
 }

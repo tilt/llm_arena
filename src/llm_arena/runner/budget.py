@@ -32,7 +32,7 @@ class BudgetGuard:
         self.mode = mode
         self.spent_usd = 0.0
         self.reserved_usd = 0.0
-        self._lock = asyncio.Lock()
+        self._changed = asyncio.Condition()
 
     @property
     def exceeded(self) -> bool:
@@ -43,16 +43,21 @@ class BudgetGuard:
         return None if self.limit_usd is None else max(0.0, self.limit_usd - self.spent_usd - self.reserved_usd)
 
     async def reserve(self, amount_usd: float) -> bool:
-        async with self._lock:
-            if self.limit_usd is not None and self.spent_usd + self.reserved_usd + amount_usd > self.limit_usd:
-                return False
+        """Admit a call whose estimate fits. One that fits only once calls in flight settle (they usually cost less
+        than reserved) waits for them; refused only when it cannot fit even with nothing in flight."""
+        async with self._changed:
+            while self.limit_usd is not None and self.spent_usd + self.reserved_usd + amount_usd > self.limit_usd:
+                if self.reserved_usd <= 0 or self.spent_usd + amount_usd > self.limit_usd:
+                    return False
+                await self._changed.wait()
             self.reserved_usd += amount_usd
             return True
 
     async def settle(self, reserved_usd: float, actual_usd: float) -> None:
-        async with self._lock:
+        async with self._changed:
             self.reserved_usd = max(0.0, self.reserved_usd - reserved_usd)
             self.spent_usd += actual_usd
+            self._changed.notify_all()
 
     def charge(self, amount_usd: float) -> None:
         """Compatibility helper for synchronous test bookkeeping; concurrent paths use settle()."""

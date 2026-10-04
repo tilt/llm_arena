@@ -232,3 +232,13 @@ def test_request_body_limit_applies_before_json_parsing(tmp_path: Path) -> None:
     )
     assert response.status_code == 413
     assert str(MAX_REQUEST_BYTES) in response.text
+
+
+def test_malformed_cookies_and_tokens_are_refused_not_crashing(tmp_path: Path) -> None:
+    client = TestClient(_app(tmp_path), base_url=ORIGIN)
+    # Non-ASCII cookie bytes (e.g. set by another local app on the same host) must give 401, not a server error.
+    response = client.get("/api/runtime", headers={"cookie": f"{COOKIE_NAME}=\xe9t\xe9".encode("latin-1")})
+    assert response.status_code == 401
+    lone_surrogate = client.post("/api/session", content=b'{"token": "\\ud800"}',
+                                 headers={"content-type": "application/json", "origin": ORIGIN})  # fmt: skip
+    assert lone_surrogate.status_code == 401
