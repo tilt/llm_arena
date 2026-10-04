@@ -38,10 +38,22 @@
         socket.onopen = () => { socket.close(); resolve(); };
         socket.onerror = () => { socket.close(); reject(new Error("blocked")); };
       }));
+      const eventSourceBlocked = () => blocked(() => new Promise((resolve, reject) => {
+        const source = new EventSource(target + "/events");
+        source.onopen = () => { source.close(); resolve(); };
+        source.onerror = () => { source.close(); reject(new Error("blocked")); };
+      }));
+      const storageBlocked = (name) => {
+        try { globalThis[name].setItem("arena-spike", "no"); return false; } catch { return true; }
+      };
       (async () => self.postMessage({
         fetch: await blocked(() => fetch(target)),
         websocket: await socketBlocked(),
+        eventSource: await eventSourceBlocked(),
         importScripts: await blocked(() => Promise.resolve().then(() => importScripts(target + "/script.js"))),
+        dynamicImport: await blocked(() => import(target + "/module.js")),
+        localStorage: storageBlocked("localStorage"),
+        sessionStorage: storageBlocked("sessionStorage"),
       }))();`;
     const url = URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
     const worker = new Worker(url);
@@ -74,6 +86,7 @@
       fetch: await blocked(() => fetch(target)),
       websocket: await socketBlocked(() => new WebSocket(websocketTarget)),
       eventSource: await socketBlocked(() => new EventSource(target + "/events")),
+      dynamicImport: await blocked(() => import(target + "/module.js")),
       worker: await workerProbe(),
       assetDigests: [await digest(data.runtimeBytes), await digest(data.packageBytes)],
       expectedDigests: data.expected,

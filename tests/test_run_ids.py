@@ -18,7 +18,22 @@ def test_generated_run_ids_are_strict_slugs(name: str) -> None:
 
 @pytest.mark.parametrize(
     "run_id",
-    ["", ".hidden", "../escape", "a/b", "a\\b", "space name", "nul\0name", "é", "x" * 122],
+    [
+        "",
+        ".hidden",
+        "../escape",
+        "a/b",
+        "a\\b",
+        "space name",
+        "nul\0name",
+        "é",
+        "x" * 122,
+        "CON",
+        "aux.txt",
+        "trailing.",
+        "percent%2fescape",
+        "line\nbreak",
+    ],
 )
 def test_new_run_id_validator_rejects_unsafe_or_nonportable_values(run_id: str) -> None:
     assert not valid_run_id(run_id)

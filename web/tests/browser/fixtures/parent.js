@@ -1,5 +1,5 @@
 const EXPECTED = {
-  "/sandbox-bootstrap.js": "352481948814523e1cb76371f82a3f45ffab2480aa10b157ef48d37d15604cf0",
+  "/sandbox-bootstrap.js": "8b8ebc4c0cb3dc7fdd9b3d0b703ec88fb951598dfd645cd97a49a192e5bba922",
   "/runtime.bin": "b425224227eeadcaf5ca994dd3b7e3a13d2313213123bc692501927ff377c26c",
   "/package.whl": "447afc318a51f5f7aafafc6449cdb20be481ec5163fb48c9280d0e5543f4e704",
 };
@@ -30,11 +30,11 @@ window.__spikeResult = (async () => {
   const iframe = document.createElement("iframe");
   iframe.sandbox = "allow-scripts";
   iframe.srcdoc = `<!doctype html><meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; script-src 'sha256-NSSBlIgUUj4ct2Nx+Co/Rf+rJICqELFX70jTfRVgTPA=' 'wasm-unsafe-eval';
+    content="default-src 'none'; script-src 'sha256-i468TAyz3H/dmz0LcD7Ij7lRWY39ZFzZekmhkuW7qSI=' 'wasm-unsafe-eval';
       worker-src blob:; connect-src 'none';
       img-src 'none'; style-src 'none'; base-uri 'none'; form-action 'none'">
     <script src="http://127.0.0.1:4174/sandbox-bootstrap.js?requestId=${encodeURIComponent(requestId)}"
-      integrity="sha256-NSSBlIgUUj4ct2Nx+Co/Rf+rJICqELFX70jTfRVgTPA=" crossorigin="anonymous"><\/script>`;
+      integrity="sha256-i468TAyz3H/dmz0LcD7Ij7lRWY39ZFzZekmhkuW7qSI=" crossorigin="anonymous"><\/script>`;
   iframe.onload = () => { window.__isolationAudit.iframeLoaded = true; };
   document.body.append(iframe);
 

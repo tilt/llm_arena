@@ -7,7 +7,16 @@ interface SpikeResult {
   fetch: boolean;
   websocket: boolean;
   eventSource: boolean;
-  worker: { fetch: boolean; websocket: boolean; importScripts: boolean };
+  dynamicImport: boolean;
+  worker: {
+    fetch: boolean;
+    websocket: boolean;
+    eventSource: boolean;
+    importScripts: boolean;
+    dynamicImport: boolean;
+    localStorage: boolean;
+    sessionStorage: boolean;
+  };
   assetDigests: string[];
   expectedDigests: string[];
   violations: string[];
@@ -36,7 +45,16 @@ test("opaque verified bootstrap denies storage and network in iframe and blob wo
     fetch: true,
     websocket: true,
     eventSource: true,
-    worker: { fetch: true, websocket: true, importScripts: true },
+    dynamicImport: true,
+    worker: {
+      fetch: true,
+      websocket: true,
+      eventSource: true,
+      importScripts: true,
+      dynamicImport: true,
+      localStorage: true,
+      sessionStorage: true,
+    },
   });
   expect(result.assetDigests).toEqual(result.expectedDigests);
   expect(result.violations).toContain("connect-src");

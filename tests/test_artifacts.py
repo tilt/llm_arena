@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import json
 from pathlib import Path
 
 import pytest
@@ -10,11 +11,13 @@ import pytest
 from llm_arena.adapters.server.duckdb_store import DuckDBStore
 from llm_arena.adapters.server.subprocess_sandbox import SubprocessSandbox
 from llm_arena.core import artifacts
+from llm_arena.core.errors import ConfigError
 from llm_arena.core.trace import Trace
 from llm_arena.llm.client import LLMClient
 from llm_arena.llm.spec import Capabilities, ModelSpec
 from llm_arena.llm.testing import ScriptedLLM
 from llm_arena.runner.config import ExperimentConfig
+from llm_arena.runner.events import RunEvent, RunWarning
 from llm_arena.runner.memory_store import MemoryStore
 from llm_arena.runner.ports import Runtime
 from llm_arena.runner.run import ExperimentRunner
@@ -109,3 +112,76 @@ async def test_memory_store_artifacts_travel_in_the_bundle() -> None:
     await ExperimentRunner(experiment, runtime, store=store, model_specs=SPECS, run_id="m").run()
     bundle = ArenaService(runtime, store_factory=lambda _: store).run_bundle("m", artifacts=True)
     assert any(key.endswith("chart.png") for key in bundle.artifacts)
+
+
+async def test_code_resume_rejects_isolation_change_before_model_calls(tmp_path: Path) -> None:
+    experiment = ExperimentConfig.model_validate({
+        "name": "resume", "scenarios": ["chart_codegen"], "task_ids": ["energy_lines"],
+        "configs": [{"name": "c", "roles": {"*": "vlm"}}],
+    })  # fmt: skip
+    store = DuckDBStore(tmp_path / "resume")
+    await ExperimentRunner(
+        experiment,
+        Runtime(client_factory=_factory, sandbox=SubprocessSandbox()),
+        store=store,
+        model_specs=SPECS,
+        run_id="resume",
+    ).run()
+
+    clients: list[ScriptedLLM] = []
+
+    def recording_factory(spec: ModelSpec) -> LLMClient:
+        client = _factory(spec)
+        assert isinstance(client, ScriptedLLM)
+        clients.append(client)
+        return client
+
+    class ChangedIsolation(SubprocessSandbox):
+        isolation = "container"
+
+    with pytest.raises(ConfigError, match="code trials ran in process"):
+        await ExperimentRunner(
+            experiment,
+            Runtime(client_factory=recording_factory, sandbox=ChangedIsolation()),
+            store=store,
+            model_specs=SPECS,
+            run_id="resume",
+        ).run()
+    assert clients and all(client.calls == [] for client in clients)
+
+
+async def test_code_resume_warns_on_rebuilt_image_and_preserves_trial_attribution(tmp_path: Path) -> None:
+    experiment = ExperimentConfig.model_validate({
+        "name": "image", "scenarios": ["chart_codegen"], "task_ids": ["energy_lines"],
+        "configs": [{"name": "c", "roles": {"*": "vlm"}}],
+    })  # fmt: skip
+
+    class RecordedContainer(SubprocessSandbox):
+        isolation = "container"
+        daemon = "vm"
+
+        def __init__(self, image_id: str) -> None:
+            super().__init__()
+            self.image_id = image_id
+
+    store = DuckDBStore(tmp_path / "image")
+    await ExperimentRunner(
+        experiment,
+        Runtime(client_factory=_factory, sandbox=RecordedContainer("sha256:old")),
+        store=store,
+        model_specs=SPECS,
+        run_id="image",
+    ).run()
+    original = json.loads(store.load_run().trials[0]["execution_json"])
+    events: list[RunEvent] = []
+    await ExperimentRunner(
+        experiment,
+        Runtime(client_factory=_factory, sandbox=RecordedContainer("sha256:new")),
+        store=store,
+        model_specs=SPECS,
+        run_id="image",
+        sink=events.append,
+    ).run()
+    assert any(isinstance(event, RunWarning) and "image_id changed" in event.message for event in events)
+    assert original["image_id"] == "sha256:old"
+    assert json.loads(store.load_run().trials[0]["execution_json"])["image_id"] == "sha256:old"

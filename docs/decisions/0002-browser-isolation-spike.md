@@ -25,7 +25,9 @@ All three engines refused to run it. Parent-created blob URLs are therefore **no
 | iframe message origin is opaque (`null`) | pass | pass | pass |
 | iframe cannot use local or session storage | pass | pass | pass |
 | iframe `fetch`, WebSocket and EventSource reach no loopback listener | pass | pass | pass |
-| blob-worker `fetch`, WebSocket and `importScripts` reach no loopback listener | pass | pass | pass |
+| iframe dynamic remote import reaches no loopback listener | pass | pass | pass |
+| blob-worker `fetch`, WebSocket, EventSource, `importScripts` and dynamic import reach no listener | pass | pass | pass |
+| blob worker cannot use local or session storage | pass | pass | pass |
 | runtime and package bytes arrive with the verified SHA-256 values | pass | pass | pass |
 | external SRI + identical CSP hash runs without inline script permission | pass | pass | pass |
 | strict source/origin/request-id/schema checks reject a malformed message | pass | pass | pass |

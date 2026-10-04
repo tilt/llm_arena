@@ -16,7 +16,7 @@ from llm_arena.llm.testing import ScriptedLLM
 from llm_arena.runner.config import configured_dev_origin
 from llm_arena.runner.memory_store import MemoryStore
 from llm_arena.runner.ports import Runtime
-from llm_arena.server.app import create_app
+from llm_arena.server.app import MAX_REQUEST_BYTES, create_app
 from llm_arena.server.session import COOKIE_NAME, load_ui_token, session_cookie, token_path
 from llm_arena.service import ArenaService
 from server_test_client import ORIGIN, SESSION_TOKEN
@@ -220,3 +220,15 @@ def test_security_csp_contains_no_wildcards_or_unsafe_script_sources(tmp_path: P
     csp = client.get("/").headers["content-security-policy"]
     assert "*" not in csp and "unsafe-inline" not in csp and "unsafe-eval" not in csp
     assert not re.search(r"https?://", csp)
+
+
+def test_request_body_limit_applies_before_json_parsing(tmp_path: Path) -> None:
+    client = TestClient(_app(tmp_path), base_url=ORIGIN)
+    assert client.post("/api/session", json={"token": SESSION_TOKEN}, headers={"Origin": ORIGIN}).status_code == 204
+    response = client.post(
+        "/api/estimate",
+        content=b"{" + b"x" * MAX_REQUEST_BYTES + b"}",
+        headers={"Content-Type": "application/json", "Origin": ORIGIN},
+    )
+    assert response.status_code == 413
+    assert str(MAX_REQUEST_BYTES) in response.text

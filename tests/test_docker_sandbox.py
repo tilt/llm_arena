@@ -20,7 +20,7 @@ def running() -> int:
 
 async def test_code_is_cut_off_from_network_host_and_privileges() -> None:
     sandbox = DockerSandbox()
-    network = await sandbox.run("import urllib.request\nurllib.request.urlopen('http://example.com', timeout=3)")
+    network = await sandbox.run("import urllib.request\nurllib.request.urlopen('http://192.0.2.1', timeout=1)")
     assert network.returncode != 0 and "URLError" in network.stderr
     probe = await sandbox.run(
         "import os\nstatus = open('/proc/self/status').read()\n"

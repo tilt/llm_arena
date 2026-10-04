@@ -56,7 +56,15 @@ SANDBOX_REQUIRED = (
     "user (not isolated)."
 )
 MAX_PLANNED_TRIALS = 20_000
-_RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,120}$")
+_RUN_ID = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,119}[A-Za-z0-9])?$")
+_WINDOWS_DEVICE_NAMES = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *(f"COM{n}" for n in range(1, 10)),
+    *(f"LPT{n}" for n in range(1, 10)),
+}
 
 
 @dataclass
@@ -93,7 +101,7 @@ def new_run_id(name: str) -> str:
 
 
 def valid_run_id(run_id: str) -> bool:
-    return bool(_RUN_ID.fullmatch(run_id))
+    return bool(_RUN_ID.fullmatch(run_id)) and run_id.split(".", 1)[0].upper() not in _WINDOWS_DEVICE_NAMES
 
 
 class ExperimentRunner:
