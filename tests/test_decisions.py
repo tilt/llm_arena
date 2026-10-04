@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Any
 
@@ -9,6 +10,7 @@ from llm_arena.decisions.jev import JevDecisionPolicy
 from llm_arena.decisions.tracing import TracedPolicy
 from llm_arena.decisions.types import Answer, noul_answer
 from llm_arena.llm.errors import ProviderError
+from llm_arena.llm.spec import ModelSpec
 from llm_arena.llm.testing import ScriptedLLM
 from llm_arena.llm.transport import HttpResponse
 from llm_arena.runner.budget import BudgetExceededError, BudgetGuard
@@ -138,6 +140,23 @@ async def test_traced_policy_records_span_and_charges_budget() -> None:
     budget.charge(5)
     with pytest.raises(BudgetExceededError):
         await policy.decide(REQUEST)
+
+
+async def test_traced_llm_policy_refuses_nested_reservation_without_waiting() -> None:
+    spec = ModelSpec(
+        name="paid-decider",
+        provider="openai_compatible",
+        model="paid-decider",
+        input_cost_per_mtok=0.0,
+        output_cost_per_mtok=3.0,
+    )
+    llm = ScriptedLLM([llm_reply()], spec=spec)
+    budget = BudgetGuard(0.02)
+    policy = TracedPolicy(LLMDecisionPolicy(budget.wrap(llm)), Trace(), budget)
+    with pytest.raises(BudgetExceededError):
+        await asyncio.wait_for(policy.decide(REQUEST), timeout=1)
+    assert llm.calls == []
+    assert budget.reserved_usd == 0.0
 
 
 async def test_jev_spend_is_charged_and_counted_in_trace_totals() -> None:

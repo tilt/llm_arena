@@ -19,28 +19,39 @@ async def test_reservations_are_atomic_under_concurrency() -> None:
     await asyncio.sleep(0)
     assert sum(c.done() for c in calls) == 10  # the rest wait for calls in flight instead of failing
     assert guard.reserved_usd == pytest.approx(1.0)
-    for _ in range(10):
-        await guard.settle(0.1, 0.01)  # calls usually cost less than reserved
-    assert all(await asyncio.gather(*calls))
+    for reservation in [call.result() for call in calls if call.done()]:
+        assert reservation is not None
+        await guard.settle(reservation, 0.01)  # calls usually cost less than reserved
+    assert all(reservation is not None for reservation in await asyncio.gather(*calls))
     assert guard.spent_usd + guard.reserved_usd <= 1.0 + 1e-9
 
 
 async def test_a_call_that_can_never_fit_is_refused_at_once() -> None:
     guard = BudgetGuard(1.0)
-    assert await guard.reserve(0.6)
+    reservation = await guard.reserve(0.6)
+    assert reservation is not None
     assert not await asyncio.wait_for(guard.reserve(1.5), timeout=1)  # larger than the whole limit
-    await guard.settle(0.6, 0.6)
+    await guard.settle(reservation, 0.6)
     assert not await asyncio.wait_for(guard.reserve(0.5), timeout=1)  # nothing in flight to wait for
 
 
 async def test_a_waiting_call_is_refused_when_settled_spend_leaves_no_room() -> None:
     guard = BudgetGuard(1.0)
-    assert await guard.reserve(0.6)
+    reservation = await guard.reserve(0.6)
+    assert reservation is not None
     waiting = asyncio.create_task(guard.reserve(0.5))
     await asyncio.sleep(0)
     assert not waiting.done()
-    await guard.settle(0.6, 0.6)  # the call in flight really cost its reservation
-    assert await asyncio.wait_for(waiting, timeout=1) is False
+    await guard.settle(reservation, 0.6)  # the call in flight really cost its reservation
+    assert await asyncio.wait_for(waiting, timeout=1) is None
+
+
+async def test_a_nested_call_does_not_wait_for_its_own_parent_reservation() -> None:
+    guard = BudgetGuard(0.02)
+    parent = await guard.reserve(0.01)
+    assert parent is not None
+    assert await asyncio.wait_for(guard.reserve(0.015), timeout=1) is None
+    await guard.settle(parent, 0.0)
 
 
 class CaptureClient(ScriptedLLM):

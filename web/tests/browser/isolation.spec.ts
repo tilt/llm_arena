@@ -69,3 +69,52 @@ test("opaque verified bootstrap denies storage and network in iframe and blob wo
     bootstrapMechanism: "external-sri+csp-hash",
   });
 });
+
+test("production lockdown denies worker prototype-chain recovery", async ({ page }) => {
+  await page.goto("http://127.0.0.1:4174/");
+  const result = await page.evaluate(async () => {
+    const source = `
+      import { SANDBOX_DENIED_CALLS, SANDBOX_DENIED_STORAGE, denySandboxNetwork }
+        from "http://127.0.0.1:4174/sandbox-lockdown.ts";
+      denySandboxNetwork();
+      const blocked = (name, storage) => {
+        const attempt = (descriptor) => {
+          try {
+            if (descriptor.get) descriptor.get.call(globalThis);
+            else descriptor.value.call(globalThis);
+            return false;
+          } catch { return true; }
+        };
+        let direct;
+        try {
+          if (storage) globalThis[name]; else globalThis[name]();
+          direct = false;
+        } catch { direct = true; }
+        const inherited = [];
+        for (let owner = Object.getPrototypeOf(globalThis); owner; owner = Object.getPrototypeOf(owner)) {
+          const descriptor = Object.getOwnPropertyDescriptor(owner, name);
+          if (descriptor) inherited.push(attempt(descriptor));
+        }
+        return { direct, inherited };
+      };
+      const checks = Object.fromEntries([
+        ...SANDBOX_DENIED_CALLS.map(name => [name, blocked(name, false)]),
+        ...SANDBOX_DENIED_STORAGE.map(name => [name, blocked(name, true)]),
+      ]);
+      postMessage(checks);
+    `;
+    const url = URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
+    const worker = new Worker(url, { type: "module" });
+    return await new Promise<Record<string, { direct: boolean; inherited: boolean[] }>>((resolve, reject) => {
+      worker.onmessage = (event) => { worker.terminate(); URL.revokeObjectURL(url); resolve(event.data); };
+      worker.onerror = (event) => { worker.terminate(); URL.revokeObjectURL(url); reject(new Error(event.message)); };
+    });
+  });
+  for (const check of Object.values(result)) {
+    expect(check.direct).toBe(true);
+    expect(check.inherited.every(Boolean)).toBe(true);
+  }
+  expect(result.fetch.inherited.length).toBeGreaterThan(0);
+  expect(result.indexedDB.inherited.length).toBeGreaterThan(0);
+  expect(result.caches.inherited.length).toBeGreaterThan(0);
+});

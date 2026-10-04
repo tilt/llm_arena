@@ -7,7 +7,7 @@ from typing import Any
 from llm_arena.core.trace import Trace
 from llm_arena.decisions.policy import DecisionPolicy
 from llm_arena.decisions.types import DecisionRequest, DecisionResult
-from llm_arena.runner.budget import BudgetExceededError, BudgetGuard
+from llm_arena.runner.budget import BudgetExceededError, BudgetGuard, BudgetReservation
 
 
 class TracedPolicy:
@@ -24,9 +24,12 @@ class TracedPolicy:
         return self.policy.name
 
     async def decide(self, request: DecisionRequest, labels: dict[str, Any] | None = None) -> DecisionResult:
-        reservation = 0.01 if self.budget is not None and self.budget.limit_usd is not None else 0.0
-        if self.budget is not None and not await self.budget.reserve(reservation):
-            raise BudgetExceededError(f"spend limit of ${self.budget.limit_usd:.2f} reached")
+        reservation: BudgetReservation | None = None
+        if self.budget is not None:
+            amount_usd = 0.01 if self.budget.limit_usd is not None else 0.0
+            reservation = await self.budget.reserve(amount_usd)
+            if reservation is None:
+                raise BudgetExceededError(f"spend limit of ${self.budget.limit_usd:.2f} reached")
         try:
             with self.trace.span("decision", request.point, model=self.policy.name, input=request.state) as span:
                 self.last_span = len(self.trace.spans) - 1
@@ -36,15 +39,16 @@ class TracedPolicy:
                 llm_cost = sum(s.cost_usd for s in self.trace.spans[first_child:] if s.kind == "llm_call")
                 external = max(0.0, result.cost_usd - llm_cost)
                 if self.budget is not None:
+                    assert reservation is not None
                     await self.budget.settle(reservation, external)
-                    reservation = 0.0
+                    reservation = None
                 span.cost_usd = result.cost_usd
                 span.attrs["external_cost_usd"] = external
                 span.output = {name: answer.model_dump() for name, answer in result.answers.items()}
                 span.attrs.update({"labels": labels or {}, "policy": self.policy.name, "latency_s": result.latency_s,
                                    "questions": {k: q.type for k, q in request.questions.items()}})  # fmt: skip
         finally:
-            if self.budget is not None and reservation:
+            if self.budget is not None and reservation is not None:
                 await self.budget.settle(reservation, 0.0)
         return result
 
