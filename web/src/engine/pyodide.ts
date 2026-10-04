@@ -25,14 +25,17 @@ export async function loadPyodide(options: LoadOptions = {}): Promise<Pyodide> {
     [asset.file, await fetchVerified(asset)] as const))));
   const moduleBytes = required(verified, PYODIDE_CORE.module!.file);
   const asmBytes = required(verified, PYODIDE_CORE.asm!.file);
-  const wasmBytes = required(verified, PYODIDE_CORE.wasm!.file);
+  required(verified, PYODIDE_CORE.wasm!.file);
   const lockContents = new TextDecoder().decode(required(verified, PYODIDE_CORE.lock!.file));
   const originalFetch = globalThis.fetch.bind(globalThis);
   const virtualFetch = async (input: RequestInfo | URL): Promise<Response> => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     const file = url.startsWith(VIRTUAL_BASE) ? url.slice(VIRTUAL_BASE.length) : "";
     const bytes = verified.get(file);
-    if (bytes) return new Response(bytes.slice(0), { status: 200 });
+    if (bytes) {
+      const type = file.endsWith(".wasm") ? "application/wasm" : "application/octet-stream";
+      return new Response(bytes.slice(0), { status: 200, headers: { "Content-Type": type } });
+    }
     if (!options.sandbox) return originalFetch(input);
     throw new TypeError("Network access is disabled in the browser sandbox");
   };
@@ -47,15 +50,10 @@ export async function loadPyodide(options: LoadOptions = {}): Promise<Pyodide> {
     ]);
     const pyodide = await load({
       indexURL: VIRTUAL_BASE,
-      packageBaseUrl: VIRTUAL_BASE,
+      packageBaseUrl: options.sandbox ? VIRTUAL_BASE : PYODIDE_BASE_URL,
       stdLibURL: VIRTUAL_BASE + PYODIDE_CORE.stdlib!.file,
       lockFileContents: lockContents,
       createPyodideModule,
-      instantiateWasm: (imports: WebAssembly.Imports,
-        success: (instance: WebAssembly.Instance, module: WebAssembly.Module) => void) => {
-        void WebAssembly.instantiate(wasmBytes, imports).then(({ instance, module }) => success(instance, module));
-        return {};
-      },
     });
     if (options.sandbox) {
       await pyodide.loadPackage([...SANDBOX_PACKAGE_NAMES]);
