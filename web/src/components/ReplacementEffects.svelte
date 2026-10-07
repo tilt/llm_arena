@@ -59,5 +59,4 @@
   .delta.up { color: var(--good); }
   .delta.down { color: var(--critical); }
   .sig { font-size: 11px; }
-  .small { font-size: 12px; }
 </style>

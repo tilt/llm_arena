@@ -221,7 +221,6 @@
 
 <style>
   .crumbs { font-size: 13px; color: var(--text-muted); margin: 0 0 6px; }
-  .small { font-size: 12px; }
   [role="tabpanel"]:focus { outline: none; }
   .overview { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(300px, 1fr); gap: 20px; align-items: start; }
   @media (max-width: 900px) { .overview { grid-template-columns: minmax(0, 1fr); } }
@@ -239,7 +238,6 @@
   .settings label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
   .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
   .errors { color: var(--critical); font-size: 13px; }
-  .link { background: none; border: none; color: var(--accent); padding: 0; text-decoration: underline; cursor: pointer; }
   .empty { display: grid; gap: 10px; justify-items: start; }
   .empty p { margin: 0; }
   .skeleton { height: 120px; border-radius: var(--radius); background: var(--surface-2); }

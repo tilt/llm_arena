@@ -45,6 +45,35 @@ export function joinRef(base: string, reasoning: string, rest: string[] = []): s
   return settings.length && base ? `${base}#${settings.join(",")}` : base;
 }
 
+/** A step binding that keeps the model the step inherits (preset, fallback step, default) and changes only its
+ *  thinking: "#reasoning=low". It keeps following the preset when that changes. The engine takes concrete references
+ *  only, so toExperiment resolves these with applyOverride. "#reasoning=default" means the model's own default. */
+export function isOverride(ref: string): boolean {
+  return ref.startsWith("#");
+}
+
+export function thinkingOverride(reasoning: string): string {
+  return `#reasoning=${reasoning || "default"}`;
+}
+
+/** The thinking an override sets ("" = the model's default). */
+export function overrideReasoning(ref: string): string {
+  const { reasoning } = splitRef(ref);
+  return reasoning === "default" ? "" : reasoning;
+}
+
+/** The concrete reference a binding stands for: an override applied to the inherited reference
+ *  ("#reasoning=low" on "ollama:qwen3:4b#reasoning=none" -> "ollama:qwen3:4b#reasoning=low"); "" when there is
+ *  nothing to inherit. Any other binding is already concrete. */
+export function applyOverride(ref: string, inherited: string): string {
+  if (!isOverride(ref)) return ref;
+  const from = splitRef(inherited);
+  if (!from.base) return "";
+  const { rest } = splitRef(ref);
+  const keys = new Set(rest.map((s) => s.split("=")[0]));
+  return joinRef(from.base, overrideReasoning(ref), [...from.rest.filter((s) => !keys.has(s.split("=")[0])), ...rest]);
+}
+
 /** Short human label: "qwen3:4b · thinking off". */
 export function describeRef(ref: string): string {
   const { base, reasoning, rest } = splitRef(ref);

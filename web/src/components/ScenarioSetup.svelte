@@ -1,7 +1,9 @@
 <script lang="ts">
   import { app } from "../lib/app.svelte";
-  import { describeRef, modelFor } from "../lib/presets";
-  import { CONTROLS, DEFAULT_ROLE, POLICIES, eligibleModels, llmRoles, policyLabel, servicesUsed, type ConfigDraft } from "../lib/builder";
+  import { describeRef, isOverride, overrideReasoning, splitRef, THINKING } from "../lib/presets";
+  import {
+    CONTROLS, DEFAULT_ROLE, POLICIES, eligibleModels, inheritedModel, llmRoles, policyLabel, servicesUsed, stepModel, type ConfigDraft,
+  } from "../lib/builder";
   import type { ParamManifest, ScenarioManifest } from "../lib/contracts";
   import { CONTROL_PARAM, REVIEW_PARAM, resolve, stepRoles } from "../lib/workflow";
   import ModelRefInput from "./ModelRefInput.svelte";
@@ -34,23 +36,29 @@
   const stepsOf = (role: string) => (flow?.steps ?? []).filter((s) => stepRoles(s).includes(role)).map((s) => s.label);
 
   const profile = $derived(config.preset ? app.presets[config.preset] : undefined);
-  // Steps set explicitly keep their model whatever the preset says (e.g. every step of a setup loaded from the leaderboard).
-  const pinned = $derived(Object.entries(config.scenarioRoles[manifest.id] ?? {}).filter(([, ref]) => ref).map(([role]) => role));
+  const own = (role: string) => config.scenarioRoles[manifest.id]?.[role] ?? "";
+  // Steps set explicitly keep their model whatever the preset says (e.g. every step of a setup loaded from the
+  // leaderboard). A step that only changes its thinking still follows the preset's model.
+  const pinned = $derived(Object.entries(config.scenarioRoles[manifest.id] ?? {}).filter(([, ref]) => ref && !isOverride(ref)).map(([role]) => role));
   const unpin = () => (config.scenarioRoles = { ...config.scenarioRoles, [manifest.id]: {} });
   // Mirrors the runner: explicit binding > preset by kind > fallback role > default model.
-  function effective(role: string, seen = new Set<string>()): string {
-    const bound = config.scenarioRoles[manifest.id]?.[role] || config.roles[role];
-    if (bound) return bound;
-    const requirement = manifest.roles.find((r) => r.name === role);
-    if (profile) return modelFor(profile, requirement?.kind ?? "text");
-    const fallback = requirement?.fallback;
-    if (fallback && !seen.has(fallback)) return effective(fallback, new Set([...seen, role]));
-    return config.roles[DEFAULT_ROLE] || "";
+  const effective = (role: string) => stepModel(config, manifest, role, app.presets);
+  const inheritedRef = (role: string) => inheritedModel(config, manifest, role, app.presets);
+  // Where an unset step gets its model from; the thinking shows in its own select.
+  function source(role: { name: string; fallback?: string | null }): string {
+    return profile ? "the preset" : role.fallback ? role.fallback : "the default model";
   }
-  function inherited(role: { name: string; kind?: string; fallback?: string | null }): string {
-    if (profile) return `${profile.label}: ${describeRef(modelFor(profile, role.kind ?? "text"))}`;
-    if (role.fallback) return `same as ${role.fallback} (${describeRef(effective(role.fallback)) || "—"})`;
-    return `default (${describeRef(config.roles[DEFAULT_ROLE] ?? "") || "—"})`;
+  function inherited(role: { name: string; fallback?: string | null }): string {
+    const model = describeRef(splitRef(inheritedRef(role.name)).base) || "—";
+    if (profile) return `${profile.label}: ${model}`;
+    if (role.fallback) return `same as ${role.fallback} (${model})`;
+    return `default (${model})`;
+  }
+  const thinkingLabel = (reasoning: string) => THINKING.find((t) => t.value === reasoning)?.label ?? reasoning;
+  function reset(role: string) {
+    const roles = { ...(config.scenarioRoles[manifest.id] ?? {}) };
+    delete roles[role];
+    config.scenarioRoles = { ...config.scenarioRoles, [manifest.id]: roles };
   }
   // The profile's dedicated decision model ("ollaya:winnow:e4b"), offered as a one-click control policy.
   const service = $derived(profile?.decision_service ? { kind: profile.decision_service.split(":")[0]!, model: profile.decision_service.split(":").slice(1).join(":") } : null);
@@ -171,9 +179,15 @@
           onmouseenter={() => (highlight = r.name)} onmouseleave={() => (highlight = "")}>
           <span><strong>{r.name}</strong> <span class="pill kind">{r.kind ?? "text"}</span>{#if (r.needs ?? []).length} <span class="pill">needs {r.needs?.join(", ")}</span>{/if}
             <span class="muted small">{stepsOf(r.name).join(" · ") || r.description}</span></span>
-          <ModelRefInput id={`${manifest.id}-${r.name}`} value={config.scenarioRoles[manifest.id]?.[r.name] ?? ""}
+          <ModelRefInput id={`${manifest.id}-${r.name}`} value={own(r.name)}
             options={eligibleModels(catalog, r.needs ?? [])} empty={inherited(r)} label={`Model for ${r.name}`}
+            inheritedValue={inheritedRef(r.name)}
             onchange={(ref) => (roles()[r.name] = ref)} />
+          {#if isOverride(own(r.name))}
+            <p class="override small muted">Only the thinking is changed ({thinkingLabel(overrideReasoning(own(r.name)))}); the
+              model still follows {source(r)}.
+              <button class="link" onclick={() => reset(r.name)}>Reset to {thinkingLabel(splitRef(inheritedRef(r.name)).reasoning)}</button></p>
+          {/if}
         </div>
       {/each}
     </fieldset>
@@ -205,9 +219,9 @@
   .role.preset { border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 4px; }
   .role.preset select { width: 100%; }
   .kind { font-size: 11px; }
-  .link { background: none; border: none; color: var(--accent); padding: 0; text-decoration: underline; cursor: pointer; font-size: 13px; justify-self: start; }
+  .link { justify-self: start; }
+  .override { margin: 0; }
   .role :global(select) { width: 100%; min-width: 0; }
-  .small { font-size: 12px; }
   .diagram { padding: 12px; position: sticky; top: 64px; }
   .legend { margin: 8px 0 0; }
   .k { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin: 0 3px 0 8px; vertical-align: -1px; }

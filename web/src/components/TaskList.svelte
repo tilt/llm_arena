@@ -1,6 +1,7 @@
 <script lang="ts">
   import { app } from "../lib/app.svelte";
   import type { TaskView } from "../lib/contracts";
+  import { scenarioTasks } from "../lib/tasks";
   import ExpectationView from "./ExpectationView.svelte";
 
   // A scenario's tasks: searchable and filterable, each opening to its prompt and expected outcome.
@@ -15,7 +16,8 @@
 
   $effect(() => {
     loading = true; error = ""; tasks = [];
-    app.backend?.tasks(scenario).then(
+    if (!app.backend) return;
+    scenarioTasks(app.backend, scenario).then(
       (found) => { tasks = found; loading = false; },
       (e) => { error = e instanceof Error ? e.message : String(e); loading = false; },
     );
@@ -97,7 +99,6 @@
   h4 { margin: 0 0 6px; font-size: 13px; }
   .skeletons { display: grid; gap: 8px; }
   .skeleton { height: 46px; border-radius: var(--radius); background: var(--surface-2); }
-  .link { background: none; border: none; color: var(--accent); padding: 0; text-decoration: underline; cursor: pointer; }
   @media (max-width: 760px) {
     .task summary { grid-template-columns: 1fr; gap: 4px; }
     .prompt { white-space: normal; }

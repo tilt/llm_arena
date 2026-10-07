@@ -129,8 +129,7 @@
   .kind { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
   .facts { margin-left: auto; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
   h4 { margin: 6px 0 0; font-size: 13px; display: flex; gap: 8px; align-items: baseline; }
-  .small { font-size: 12px; }
-  .link { background: none; border: none; padding: 0; color: var(--accent); cursor: pointer; font-size: 12px; text-decoration: underline; }
+  .link { font-size: 12px; }
   .fail-pill { color: var(--critical); }
   .files { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
   .probs { min-width: 180px; }

@@ -280,5 +280,5 @@
   .errors { color: var(--critical); font-size: 13px; }
   .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 16px 0 40px; }
   .estimate { font-size: 14px; }
-  .link { background: none; border: none; color: var(--accent); padding: 0; text-decoration: underline; cursor: pointer; font-size: 13px; white-space: nowrap; }
+  .link { font-size: 13px; white-space: nowrap; }
 </style>

@@ -58,6 +58,14 @@ button { background: var(--surface-2); border: 1px solid var(--border); border-r
 button:hover:not(:disabled) { background: var(--surface-3); }
 button.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
+/* A button that reads as a link inside text, and a link that looks like a primary button. */
+button.link { background: none; border: none; border-radius: 0; padding: 0; color: var(--accent); text-decoration: underline;
+  font: inherit; cursor: pointer; }
+button.link:hover:not(:disabled) { background: none; }
+a.button { display: inline-block; padding: 6px 12px; border-radius: 8px; background: var(--accent); color: var(--accent-ink);
+  text-decoration: none; }
+.small { font-size: 12px; }
+.error { color: var(--critical); }
 select, input[type="text"], input[type="search"], input[type="number"], input[type="password"], textarea {
   background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; }
 select { max-width: 100%; }

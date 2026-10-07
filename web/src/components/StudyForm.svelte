@@ -108,7 +108,6 @@
   .study .card { display: grid; gap: 8px; align-content: start; }
   h3 { margin: 0; font-size: 15px; }
   p { margin: 0; }
-  .small { font-size: 12px; }
   .candidate { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
   fieldset { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; display: grid; gap: 6px; }
   legend { font-size: 13px; }

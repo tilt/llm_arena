@@ -4,6 +4,7 @@
   import { emptyConfig } from "../lib/builder";
   import type { Leaderboard, LeaderboardEntry } from "../lib/contracts";
   import { handoff } from "../lib/draft.svelte";
+  import { newest } from "../lib/latest";
   import { num, pct, usd } from "../lib/format";
   import { modelsOf, roleLines, scenarioSummaries, setupPolicy } from "../lib/leaderboard";
   import { go } from "../lib/router.svelte";
@@ -19,9 +20,28 @@
   let showLegacy = $state(false);
   let version = $state("");
 
-  $effect(() => {
+  let refreshError = $state("");
+  const beginLoad = newest();
+
+  // Also reloads after a rename; a failed reload keeps the board on screen and says so.
+  async function loadLeaderboard() {
     if (!app.backend) return;
-    app.backend.leaderboard().then((b) => (boards = b), (e) => (error = e instanceof Error ? e.message : String(e)));
+    const current = beginLoad();
+    try {
+      const loaded = await app.backend.leaderboard();
+      if (!current()) return;
+      boards = loaded;
+      error = refreshError = "";
+    } catch (e) {
+      if (!current()) return;
+      const message = e instanceof Error ? e.message : String(e);
+      if (boards) refreshError = `The leaderboard could not be refreshed: ${message}`;
+      else error = message;
+    }
+  }
+
+  $effect(() => {
+    void loadLeaderboard();
   });
 
   const titleOf = (id: string) => app.scenarios.find((s) => s.id === id)?.title ?? id;
@@ -49,6 +69,7 @@
   }
 </script>
 
+{#if refreshError}<p class="note" role="alert">{refreshError}</p>{/if}
 {#if !scenario}
   <h1>Leaderboard</h1>
   <p class="lead">Results are ranked per scenario: a setup (models per step, parameters, control policy) only competes with
@@ -132,7 +153,7 @@
                   <div class="muted small">p={num(e.p_vs_leader, 2)}</div>{/if}</td>
             </tr>
             {#if expanded}
-              <tr class="detail-row" id={`detail-${e.fingerprint}`}><td colspan="9"><SetupDetail entry={e} {manifest} onuse={() => use(e)} /></td></tr>
+              <tr class="detail-row" id={`detail-${e.fingerprint}`}><td colspan="9"><SetupDetail entry={e} {manifest} onuse={() => use(e)} onrenamed={loadLeaderboard} /></td></tr>
             {/if}
           {:else}
             <tr><td colspan="9" class="muted">No setup uses {model}. <button class="link" onclick={() => (model = "")}>Show all</button></td></tr>
@@ -148,7 +169,6 @@
 
 <style>
   .crumbs { font-size: 13px; color: var(--text-muted); margin: 0 0 6px; }
-  .small { font-size: 12px; }
   .inline { display: flex; gap: 6px; align-items: center; font-size: 13px; margin-bottom: 12px; }
   .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
   .scenario { display: grid; gap: 10px; text-decoration: none; color: inherit; transition: border-color 0.15s; }
@@ -160,7 +180,6 @@
   .skeleton { height: 150px; background: var(--surface-2); }
   .empty { display: grid; gap: 10px; justify-items: start; }
   .empty p { margin: 0; }
-  .button { display: inline-block; padding: 6px 12px; border-radius: 8px; background: var(--accent); color: var(--accent-ink); text-decoration: none; }
   .filters { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin: 0 0 12px; font-size: 13px; }
   .filters label { display: flex; gap: 6px; align-items: center; }
   .board td { vertical-align: top; }
@@ -175,5 +194,4 @@
   .ci span { position: absolute; top: 0; height: 6px; background: var(--accent); opacity: 0.35; border-radius: 3px; }
   .ci i { position: absolute; top: -2px; width: 2px; height: 10px; background: var(--accent); }
   .few { font-size: 10.5px; color: var(--kind-decision); }
-  .link { background: none; border: none; color: var(--accent); padding: 0; text-decoration: underline; cursor: pointer; }
 </style>

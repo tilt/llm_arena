@@ -84,9 +84,9 @@
   .box { fill: var(--surface-1); stroke: var(--border); }
   .terminal { fill: var(--surface-2); stroke: var(--border); }
   .node { outline: none; cursor: default; }
-  .node.lit .box, .node:focus-visible .box { stroke: var(--accent); stroke-width: 2; }
+  .node.lit .box, .node.lit .terminal, .node:focus-visible .box, .node:focus-visible .terminal { stroke: var(--accent); stroke-width: 2; }
   .node.interactive { cursor: pointer; }
-  .node.selected .box { stroke: var(--accent); stroke-width: 2.5; fill: var(--surface-2); }
+  .node.selected .box, .node.selected .terminal { stroke: var(--accent); stroke-width: 2.5; fill: var(--surface-2); }
   .node.idle { opacity: 0.45; }
   .node.failed .box { stroke: var(--critical); }
   .badge rect { fill: var(--surface-3); stroke: var(--border); }

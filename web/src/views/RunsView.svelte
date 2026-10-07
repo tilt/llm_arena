@@ -121,10 +121,8 @@
   .bar span { display: block; height: 100%; background: var(--accent); transition: width 0.4s ease; }
   .facts { margin: 0; font-size: 13px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
   .actions { display: flex; gap: 8px; }
-  .button { display: inline-block; padding: 6px 12px; border-radius: 8px; text-decoration: none; background: var(--accent); color: var(--accent-ink); }
   .recent-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .search input { min-width: 240px; }
-  .small { font-size: 12px; }
   .mono { font-family: ui-monospace, monospace; }
   .skeleton { height: 120px; border-radius: var(--radius); background: var(--surface-2); }
 </style>

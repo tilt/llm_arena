@@ -5,7 +5,13 @@
 
   // Rename a finished run and its setups. Only names change: ids, links, results and the leaderboard ranking stay
   // (the leaderboard lists a setup under its name in the latest run).
-  let { runId, bundle, onclose }: { runId: string; bundle: RunBundle; onclose: (saved: boolean) => void } = $props();
+  // `heading` names the run where the page does not (e.g. inside a leaderboard row).
+  let {
+    runId, bundle, onclose, heading = "Rename this run",
+  }: { runId: string; bundle: RunBundle; onclose: (saved: boolean) => void; heading?: string } = $props();
+  const uid = $props.id();
+  let first = $state<HTMLInputElement | null>(null);
+  $effect(() => first?.focus());
 
   const configs = $derived.by(() => {
     const listed = (JSON.parse(String(bundle.run.config_json ?? "{}")).configs ?? []) as { name?: string }[];
@@ -47,15 +53,15 @@
   }
 </script>
 
-<form class="card rename" onsubmit={save} aria-labelledby="rename-title">
-  <h2 id="rename-title">Rename this run</h2>
+<form class="card rename" onsubmit={save} aria-labelledby={`${uid}-title`}>
+  <h2 id={`${uid}-title`}>{heading}</h2>
   <p class="muted small">Only names change: results, links and leaderboard rankings stay. The leaderboard lists a setup under
     its name in the latest run that used it.</p>
-  <label>Run name <input type="text" bind:value={runName} required /></label>
+  <label>Run name <input type="text" bind:value={runName} bind:this={first} required /></label>
   {#each configs as c (c.name)}
     <div class="setup">
-      <label for={`rename-${c.name}`}>Setup {#if configs.length > 1}<code>{c.name}</code>{/if}</label>
-      <input id={`rename-${c.name}`} type="text" bind:value={names[c.name]} required />
+      <label for={`${uid}-${c.name}`}>Setup {#if configs.length > 1}<code>{c.name}</code>{/if}</label>
+      <input id={`${uid}-${c.name}`} type="text" bind:value={names[c.name]} required />
       {#if c.suggestion && names[c.name]?.trim() !== c.suggestion}
         <button type="button" class="link" onclick={() => (names[c.name] = c.suggestion)}
           title="Name it after the models it actually ran on">Use “{c.suggestion}”</button>
@@ -76,8 +82,7 @@
   p { margin: 0; }
   label { display: grid; gap: 4px; font-size: 13px; }
   .setup { display: grid; gap: 4px; font-size: 13px; }
-  .small { font-size: 12px; }
-  .error { color: var(--critical); font-size: 13px; }
+  .error { font-size: 13px; }
   .actions { display: flex; gap: 8px; }
-  .link { background: none; border: none; color: var(--accent); padding: 0; text-decoration: underline; cursor: pointer; font-size: 13px; justify-self: start; }
+  .link { font-size: 13px; justify-self: start; }
 </style>

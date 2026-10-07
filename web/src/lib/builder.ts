@@ -3,7 +3,7 @@
 import { stringify } from "yaml";
 
 import type { CatalogItem } from "./backend";
-import { modelFor } from "./presets";
+import { applyOverride, isOverride, modelFor } from "./presets";
 import type { ModelPreset, DecisionConfig, ExperimentConfig, ScenarioManifest } from "./contracts";
 
 export const DEFAULT_ROLE = "*";
@@ -26,7 +26,8 @@ export interface ConfigDraft {
   /** role -> model ref; DEFAULT_ROLE binds every role that is not set explicitly */
   roles: Record<string, string>;
   scenarioParams: Record<string, Record<string, unknown>>;
-  /** scenario -> role -> model ref: per-scenario (per-step) bindings that override `roles` */
+  /** scenario -> role -> model ref: per-scenario (per-step) bindings that override `roles`. A thinking override
+   *  ("#reasoning=low") keeps the inherited model; toExperiment resolves it to a concrete reference. */
   scenarioRoles: Record<string, Record<string, string>>;
   /** control policy for scenarios that support one; null = the agent decides everything */
   decisions: DecisionConfig | null;
@@ -166,8 +167,10 @@ export function suggestName(config: ConfigDraft, profiles: Record<string, ModelP
   const preset = knownPreset(config, profiles);
   const base = preset || (config.roles[DEFAULT_ROLE] ? shortModel(config.roles[DEFAULT_ROLE]) : "");
   const models = [...new Set(pinned.values())];
-  const parts = !base && models.length === 1 ? [shortModel(models[0]!)] // every step on the same model
-    : [base, ...[...pinned].sort(([a], [b]) => a.localeCompare(b)).map(([role, ref]) => `${role}-${shortModel(ref)}`)];
+  // A thinking override names only the thinking ("critic-low"): the model is the inherited one.
+  const part = (role: string, ref: string) => (isOverride(ref) ? `${role}${shortModel(ref)}` : `${role}-${shortModel(ref)}`);
+  const parts = !base && models.length === 1 && !isOverride(models[0]!) ? [shortModel(models[0]!)] // every step on the same model
+    : [base, ...[...pinned].sort(([a], [b]) => a.localeCompare(b)).map(([role, ref]) => part(role, ref))];
   if (config.decisions?.policy) parts.push(config.decisions.policy);
   return parts.filter(Boolean).join("+").slice(0, 80) || "my-setup";
 }
@@ -189,6 +192,13 @@ export function validate(
   if (new Set(names).size !== names.length) errors.push("Configuration names must be unique.");
   const slots = roleSlots(manifests, state.scenarios);
   for (const config of state.configs) {
+    for (const manifest of manifests.filter((m) => state.scenarios.includes(m.id))) {
+      for (const [role, ref] of Object.entries(config.scenarioRoles[manifest.id] ?? {})) {
+        if (isOverride(ref) && !stepModel(config, manifest, role, profiles)) {
+          errors.push(`${config.name}: "${role}" in ${manifest.id} changes the thinking of a model it does not have yet; choose a model.`);
+        }
+      }
+    }
     if (knownPreset(config, profiles)) continue; // a preset binds every role that is not set explicitly
     for (const manifest of manifests.filter((m) => state.scenarios.includes(m.id))) {
       for (const role of manifest.roles.filter((r) => !r.fallback)) {
@@ -215,13 +225,41 @@ export function validate(
   return errors;
 }
 
-/** The model a role runs on in one scenario: per-scenario binding, config-wide role, the preset (by the role's kind),
- *  then the default model. Mirrors ExperimentRunner._bind. */
+/** The model a role is bound to in one scenario: per-scenario binding, config-wide role, the preset (by the role's
+ *  kind), then the default model. Mirrors ExperimentRunner._bind; fallback roles are left to stepModel. */
 export function boundModel(
   config: ConfigDraft, scenario: string, role: string, kind = "text", profiles: Record<string, ModelPreset> = {},
 ): string {
-  return config.scenarioRoles[scenario]?.[role] || config.roles[role]
-    || (knownPreset(config, profiles) ? modelFor(profiles[config.preset!], kind) : "") || config.roles[DEFAULT_ROLE] || "";
+  const inherited = config.roles[role] || (knownPreset(config, profiles) ? modelFor(profiles[config.preset!], kind) : "")
+    || config.roles[DEFAULT_ROLE] || "";
+  const own = config.scenarioRoles[scenario]?.[role];
+  return own ? applyOverride(own, inherited) : inherited;
+}
+
+type RolesOf = Pick<ScenarioManifest, "id" | "roles">;
+
+/** The concrete model a step runs on in one scenario, as the runner binds it: its own binding (a thinking override
+ *  applies to what it would inherit), else what it inherits. */
+export function stepModel(
+  config: ConfigDraft, manifest: RolesOf, role: string, profiles: Record<string, ModelPreset> = {}, seen = new Set<string>(),
+): string {
+  const inherited = inheritedModel(config, manifest, role, profiles, seen);
+  const own = config.scenarioRoles[manifest.id]?.[role];
+  return own ? applyOverride(own, inherited) : inherited;
+}
+
+/** What a step runs on without a binding of its own in this scenario: a config-wide binding, the preset's model for
+ *  the step's kind, the fallback step's model (critic = generator), then the default model. */
+export function inheritedModel(
+  config: ConfigDraft, manifest: RolesOf, role: string, profiles: Record<string, ModelPreset> = {}, seen = new Set<string>(),
+): string {
+  if (config.roles[role]) return config.roles[role];
+  const requirement = manifest.roles.find((r) => r.name === role);
+  const preset = knownPreset(config, profiles);
+  if (preset) return modelFor(profiles[preset], requirement?.kind ?? "text");
+  const fallback = requirement?.fallback;
+  if (fallback && !seen.has(fallback)) return stepModel(config, manifest, fallback, profiles, new Set([...seen, role]));
+  return config.roles[DEFAULT_ROLE] || "";
 }
 
 /** Roles a control policy calls (mirrors DecisionConfig.llm_roles). */
@@ -263,10 +301,14 @@ export function toExperiment(
       const scenarioParams = Object.fromEntries(
         Object.entries(config.scenarioParams).filter(([id, params]) => state.scenarios.includes(id) && Object.keys(params).length),
       );
+      // Thinking overrides become the concrete model they stand for: the engine and the recorded setup see what ran.
+      const concrete = (id: string, role: string, ref: string) => (isOverride(ref)
+        ? stepModel(config, manifests.find((m) => m.id === id) ?? { id, roles: [] }, role, profiles) : ref);
       const scenarioRoles = Object.fromEntries(
         Object.entries(config.scenarioRoles ?? {})
           .filter(([id]) => state.scenarios.includes(id))
-          .map(([id, roles]) => [id, Object.fromEntries(Object.entries(roles).filter(([, ref]) => ref))])
+          .map(([id, roles]) => [id, Object.fromEntries(Object.entries(roles)
+            .map(([role, ref]) => [role, ref && concrete(id, role, ref)]).filter(([, ref]) => ref))])
           .filter(([, roles]) => Object.keys(roles as object).length),
       ) as Record<string, Record<string, string>>;
       return {

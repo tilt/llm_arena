@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { describeRef, joinRef, modelFor, splitRef, usablePresets } from "./presets";
-import { boundModel, emptyConfig, toExperiment, validate, type BuilderState } from "./builder";
+import { applyOverride, describeRef, isOverride, joinRef, modelFor, overrideReasoning, splitRef, thinkingOverride, usablePresets } from "./presets";
+import { boundModel, emptyConfig, inheritedModel, stepModel, suggestName, toExperiment, validate, type BuilderState } from "./builder";
 import type { CatalogItem } from "./backend";
 import type { ModelPreset, ScenarioManifest } from "./contracts";
 
@@ -49,6 +49,56 @@ describe("presets in the builder", () => {
     expect(known).toMatchObject({ preset: "local-small", roles: {} });
     // Without the preset loaded, steps need models of their own.
     expect(validate(state, [manifest], true)).toContainEqual(expect.stringContaining('"generator"'));
+  });
+});
+
+describe("thinking overrides: the inherited model with other thinking", () => {
+  it("apply to whatever model the step inherits", () => {
+    expect(isOverride(thinkingOverride("low"))).toBe(true);
+    expect(isOverride("ollama:qwen3:4b")).toBe(false);
+    expect(applyOverride("#reasoning=low", "ollama:qwen3:4b#reasoning=none")).toBe("ollama:qwen3:4b#reasoning=low");
+    expect(applyOverride("#reasoning=low", "openai:gpt-5-mini#tools=json")).toBe("openai:gpt-5-mini#reasoning=low,tools=json");
+    // "model default" drops the inherited setting instead of being lost in the round trip.
+    expect(thinkingOverride("")).toBe("#reasoning=default");
+    expect(overrideReasoning("#reasoning=default")).toBe("");
+    expect(applyOverride(thinkingOverride(""), "ollama:qwen3:4b#reasoning=none")).toBe("ollama:qwen3:4b");
+    expect(applyOverride("#reasoning=low", "")).toBe(""); // nothing to inherit yet
+    expect(applyOverride("openai:gpt-5-mini", "ollama:qwen3:4b")).toBe("openai:gpt-5-mini"); // concrete stays
+  });
+
+  const manifest = { id: "sql", title: "s", pattern: "p", description: "", kind: "pattern", params: [], pass_criteria: [], tasks: 1,
+    roles: [{ name: "generator", description: "", kind: "code" }, { name: "critic", description: "", fallback: "generator" }] } as ScenarioManifest;
+  const profiles = { "local-small": PROFILE };
+  const withPreset = { ...emptyConfig(0), name: "c", roles: {}, preset: "local-small", scenarioRoles: { sql: { critic: "#reasoning=low" } } };
+
+  it("keep following the preset's model", () => {
+    expect(inheritedModel(withPreset, manifest, "critic", profiles)).toBe("ollama:qwen3:4b#reasoning=none");
+    expect(stepModel(withPreset, manifest, "critic", profiles)).toBe("ollama:qwen3:4b#reasoning=low");
+    const other = { "local-small": { ...PROFILE, models: { text: "openai:gpt-5-mini" } } };
+    expect(stepModel(withPreset, manifest, "critic", other)).toBe("openai:gpt-5-mini#reasoning=low");
+  });
+
+  it("inherit from the fallback step without a preset", () => {
+    const config = { ...emptyConfig(0), roles: { "*": "" }, scenarioRoles: { sql: { generator: "ollama:qwen3:14b#reasoning=none", critic: "#reasoning=high" } } };
+    expect(inheritedModel(config, manifest, "critic")).toBe("ollama:qwen3:14b#reasoning=none");
+    expect(stepModel(config, manifest, "critic")).toBe("ollama:qwen3:14b#reasoning=high");
+  });
+
+  it("reach the engine as concrete references", () => {
+    const state: BuilderState = { name: "e", scenarios: ["sql"], configs: [withPreset], repeats: 1, limit: null, judge: "", arena: false,
+      maxCostUsd: null, budgetMode: "best_effort", split: "all" };
+    expect(validate(state, [manifest], true, {}, profiles)).toEqual([]);
+    expect(toExperiment(state, [manifest], profiles).configs?.[0]?.scenario_roles).toEqual({ sql: { critic: "ollama:qwen3:4b#reasoning=low" } });
+    expect(boundModel(withPreset, "sql", "critic", "text", profiles)).toBe("ollama:qwen3:4b#reasoning=low");
+    expect(suggestName(withPreset, profiles)).toBe("local-small+critic-low");
+  });
+
+  it("are reported when there is no model to change", () => {
+    const config = { ...emptyConfig(0), roles: { "*": "" }, scenarioRoles: { sql: { critic: "#reasoning=low" } } };
+    const state: BuilderState = { name: "e", scenarios: ["sql"], configs: [config], repeats: 1, limit: null, judge: "", arena: false,
+      maxCostUsd: null, budgetMode: "best_effort", split: "all" };
+    expect(validate(state, [manifest], true)).toContainEqual(expect.stringContaining("changes the thinking"));
+    expect(toExperiment(state, [manifest]).configs?.[0]).not.toHaveProperty("scenario_roles");
   });
 });
 

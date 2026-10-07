@@ -2,11 +2,13 @@
   import { app } from "../lib/app.svelte";
   import type { TrialTrace } from "../lib/backend";
   import { llmRoles, policyLabel } from "../lib/builder";
-  import type { DecisionConfig, RunBundle, Span } from "../lib/contracts";
+  import type { DecisionConfig, RunBundle, Span, TaskView } from "../lib/contracts";
   import { num, usd } from "../lib/format";
   import { executions, stepStats, trialWorkflow, whyNotRun } from "../lib/inspect";
   import { go } from "../lib/router.svelte";
+  import { scenarioTasks } from "../lib/tasks";
   import ArtifactView from "./ArtifactView.svelte";
+  import ExpectationView from "./ExpectationView.svelte";
   import SpanView from "./SpanView.svelte";
   import WorkflowDiagram from "./WorkflowDiagram.svelte";
 
@@ -17,6 +19,9 @@
   let trace = $state<TrialTrace | null>(null);
   let loading = $state(true);
   let error = $state("");
+  let taskView = $state<TaskView | null>(null);
+  let taskLoading = $state(false);
+  let taskError = $state("");
   let dialog = $state<HTMLElement | null>(null);
   let returnFocus: Element | null = null;
 
@@ -28,6 +33,14 @@
   const order = $derived((flow?.steps ?? []).map((s) => s.id).filter((id) => id !== "start"));
   const current = $derived(step || order.find((id) => (stats[id]?.runs ?? 0) > 0) || "");
   const currentStep = $derived(flow?.steps.find((s) => s.id === current));
+  // The start step shows the task the trial was given; arrow keys reach it too.
+  const taskSelected = $derived(current === "start");
+  const keyOrder = $derived(flow?.steps.some((s) => s.id === "start") ? ["start", ...order] : order);
+  // Tasks load from the scenario as it is now; a trial recorded on another version may have seen a different one.
+  const ranVersion = $derived(String(trial?.scenario_version ?? ""));
+  const versionNote = $derived(!manifest?.version || ranVersion === manifest.version ? ""
+    : ranVersion ? `This trial ran on version ${ranVersion} of the scenario; the task below is from the current version (${manifest.version}) and may differ.`
+    : `This trial does not record its scenario version; the task below is from the current version (${manifest.version}).`);
   const runs = $derived(current ? executions(spans, current) : []);
   // Decision roles show the policy that actually decided (rules, ollaya winnow:e4b, …) unless it called an LLM role.
   const decisions = $derived((parse(trial?.setup_json).decisions ?? null) as unknown as DecisionConfig | null);
@@ -95,6 +108,36 @@
   });
 
   $effect(() => {
+    const backend = app.backend;
+    const scenario = manifest?.id;
+    const taskId = String(trial?.task_id ?? "");
+    if (!taskSelected) {
+      taskView = null;
+      taskLoading = false;
+      taskError = "";
+      return;
+    }
+    if (!backend || !scenario || !taskId) return;
+    let stale = false;
+    taskLoading = true;
+    taskError = "";
+    taskView = null;
+    scenarioTasks(backend, scenario).then(
+      (tasks) => {
+        if (stale) return;
+        taskView = tasks.find((t) => t.id === taskId) ?? null;
+        taskLoading = false;
+      },
+      (e) => {
+        if (stale) return;
+        taskError = e instanceof Error ? e.message : String(e);
+        taskLoading = false;
+      },
+    );
+    return () => { stale = true; };
+  });
+
+  $effect(() => {
     // Modal: the page behind must not scroll, and focus returns where it was when the inspector closes.
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -112,10 +155,10 @@
   function onkeydown(event: KeyboardEvent) {
     const typing = (event.target as HTMLElement).closest("input, select, textarea");
     if (event.key === "Escape") { event.preventDefault(); close(); return; }
-    if (!typing && (event.key === "ArrowDown" || event.key === "ArrowUp") && order.length) {
+    if (!typing && (event.key === "ArrowDown" || event.key === "ArrowUp") && keyOrder.length) {
       event.preventDefault();
-      const at = Math.max(0, order.indexOf(current));
-      select(order[Math.min(order.length - 1, Math.max(0, at + (event.key === "ArrowDown" ? 1 : -1)))]!);
+      const at = Math.max(0, keyOrder.indexOf(current));
+      select(keyOrder[Math.min(keyOrder.length - 1, Math.max(0, at + (event.key === "ArrowDown" ? 1 : -1)))]!);
     }
     if (event.key === "Tab" && dialog) {
       // Keep focus inside the dialog.
@@ -181,7 +224,33 @@
         {/if}
         <h3>{currentStep.label}{#if currentStep.role} <span class="pill">{currentStep.role}: {roles[currentStep.role] ?? "—"}</span>{/if}</h3>
         {#if currentStep.description}<p class="muted">{currentStep.description}</p>{/if}
-        {#if !runs.length}
+        {#if taskSelected}
+          <article class="task card" aria-busy={taskLoading}>
+            {#if !manifest}
+              <p class="muted">This scenario is not available here, so its task cannot be shown.</p>
+            {:else if taskLoading}
+              <div class="skeleton short" aria-label="Loading the task"></div>
+            {:else if taskError}
+              <p class="error" role="alert">The task could not be loaded: {taskError}</p>
+            {:else if !taskView}
+              <p class="muted">Task <code>{trial?.task_id}</code> is not in the current version of {manifest.title}, so its prompt
+                cannot be shown.</p>
+            {:else}
+              {#if versionNote}<p class="note">{versionNote}</p>{/if}
+              <div>
+                <h4>Prompt</h4>
+                <p class="prompt">{taskView.prompt}</p>
+                {#if taskView.note}<p class="note">{taskView.note}</p>{/if}
+              </div>
+              {#if taskView.expected?.length}
+                <div class="expected">
+                  <h4>Counts as correct</h4>
+                  {#each taskView.expected as expectation, i (i)}<ExpectationView {expectation} />{/each}
+                </div>
+              {/if}
+            {/if}
+          </article>
+        {:else if !runs.length}
           <p class="muted">{flow ? whyNotRun(flow, spans, current) : "This step did not run in this trial."}</p>
         {/if}
         {#if current === "end" && !resultHasImage && lastImage}
@@ -225,6 +294,10 @@
   .detail { overflow: auto; padding: 14px 18px; display: grid; gap: 12px; align-content: start; }
   h3 { margin: 0; font-size: 16px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
   .execution { display: grid; gap: 8px; }
+  .task { display: grid; gap: 14px; }
+  .task h4 { margin: 0 0 6px; font-size: 13px; }
+  .prompt { margin: 0; white-space: pre-wrap; }
+  .expected { display: grid; gap: 10px; align-content: start; }
   .diagnosis { border: 1px solid color-mix(in srgb, var(--critical) 55%, var(--border)); background: color-mix(in srgb, var(--critical) 7%, var(--surface-1));
     border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 6px; }
   .diagnosis h3 { font-size: 15px; }
@@ -234,9 +307,7 @@
   .signal::before { content: "⚠ "; color: var(--critical); }
   .no-result { display: grid; gap: 8px; }
   .no-result p { margin: 0; }
-  .link { background: none; border: none; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; font: inherit; }
   .count { margin: 0; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
-  .small { font-size: 12px; }
   .skeleton { height: 140px; border-radius: 10px; background: linear-gradient(90deg, var(--surface-1), var(--surface-2), var(--surface-1)); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
   .skeleton.short { height: 60px; }
   @keyframes shimmer { to { background-position: -200% 0; } }
