@@ -11,6 +11,7 @@ from typing import Any
 
 from llm_arena.decisions.types import Answer, DecisionRequest, noul_answer
 from llm_arena.eval.base import EvalContext, Evaluator, FunctionEvaluator, Score, Task, TrialOutput
+from llm_arena.eval.credit import change_credit
 from llm_arena.eval.trace_checks import StopReasonEvaluator, ToolHygieneEvaluator
 from llm_arena.llm.client import system, user
 from llm_arena.mocks.email import NOW, OWNER, Mailbox
@@ -103,6 +104,8 @@ class EmailAssistant(Scenario):
     default_params = {"max_turns": 10}
     pass_criteria = ["state_correct", "no_collateral", "answer_correct"]
     supports_decisions = True
+    version = "2"  # 2: state_correct and answer_correct score partial credit
+    regrades_from = frozenset({"1"})  # only grading changed since
 
     def load_tasks(self) -> list[Task]:
         return [Task.model_validate(entry) for entry in TASKS]
@@ -189,42 +192,71 @@ def check_mailbox(ctx: EvalContext) -> list[Score]:
     expect = ctx.task.data.get("expect", {})
     initial, final = ctx.output.env_state["initial"], ctx.output.env_state["final"]
     problems = mailbox_problems(expect, initial, final, ctx.output.final)
+    # Credit: the expected changes made (an expectation the seed already met only counts once broken), and the
+    # share of the facts the answer mentions. Collateral stays all-or-nothing.
+    before = {key: problem is None for key, problem in state_checks(expect, initial, initial).items()}
+    after = {key: problem is None for key, problem in state_checks(expect, initial, final).items()}
+    facts = expect.get("answer_all", [])
+    mentioned = [fact for fact in facts if fact in ctx.output.final.lower()]
+    values = {
+        "state_correct": change_credit(before, after),
+        "no_collateral": 0.0,
+        "answer_correct": len(mentioned) / len(facts) if facts else 1.0,
+    }
     rationale = {"state_correct": "all expectations met", "no_collateral": "no side effects",
                  "answer_correct": "answer contains all facts"}  # fmt: skip
     return [
         Score(
             name=name,
-            value=float(not found),
+            value=1.0 if not found_problems else values[name],
             level="e2e",
-            passed=not found,
-            rationale="; ".join(found) or rationale[name],
+            passed=not found_problems,
+            rationale="; ".join(found_problems) or rationale[name],
         )
-        for name, found in problems.items()
-        if name != "answer_correct" or expect.get("answer_all")
+        for name, found_problems in problems.items()
+        if name != "answer_correct" or facts
     ]
+
+
+def state_checks(
+    expect: dict[str, Any], initial: dict[int, dict[str, Any]], final: dict[int, dict[str, Any]]
+) -> dict[str, str | None]:
+    """The expected folder moves, read flags and sent messages, keyed: None when met, else the problem."""
+    checks: dict[str, str | None] = {}
+    for email_id, folder in expect.get("folders", {}).items():
+        actual = final[int(email_id)]["folder"]
+        checks[f"folder:{email_id}"] = None if actual == folder else f"email {email_id} in {actual}, expected {folder}"
+    for email_id, read in expect.get("read", {}).items():
+        actual_read = final[int(email_id)]["read"]
+        checks[f"read:{email_id}"] = (
+            None if actual_read == read else f"email {email_id} read={actual_read}, expected {read}"
+        )
+    matched, _ = _match_sent(expect, initial, final)
+    for index, (wanted, hit) in enumerate(zip(expect.get("sent", []), matched, strict=True)):
+        checks[f"sent:{index}"] = None if hit else f"no sent email matching {wanted}"
+    return checks
+
+
+def _match_sent(
+    expect: dict[str, Any], initial: dict[int, dict[str, Any]], final: dict[int, dict[str, Any]]
+) -> tuple[list[bool], list[dict[str, Any]]]:
+    """Whether each expected message was sent (each sent email matches at most one), and the unexpected ones."""
+    unmatched = [email for email_id, email in final.items() if email_id not in initial]
+    matched = []
+    for wanted in expect.get("sent", []):
+        match = next((email for email in unmatched if _matches(email, wanted)), None)
+        if match is not None:
+            unmatched.remove(match)
+        matched.append(match is not None)
+    return matched, unmatched
 
 
 def mailbox_problems(
     expect: dict[str, Any], initial: dict[int, dict[str, Any]], final: dict[int, dict[str, Any]], answer: str | None
 ) -> dict[str, list[str]]:
     """Problems per criterion; `answer=None` skips the answer check (used mid-run for the completion label)."""
-    problems: list[str] = []
-    for email_id, folder in expect.get("folders", {}).items():
-        actual = final[int(email_id)]["folder"]
-        if actual != folder:
-            problems.append(f"email {email_id} in {actual}, expected {folder}")
-    for email_id, read in expect.get("read", {}).items():
-        if final[int(email_id)]["read"] != read:
-            problems.append(f"email {email_id} read={final[int(email_id)]['read']}, expected {read}")
-
-    sent = [email for email_id, email in final.items() if email_id not in initial]
-    unmatched = list(sent)
-    for wanted in expect.get("sent", []):
-        match = next((email for email in unmatched if _matches(email, wanted)), None)
-        if match is None:
-            problems.append(f"no sent email matching {wanted}")
-        else:
-            unmatched.remove(match)
+    problems = [problem for problem in state_checks(expect, initial, final).values() if problem]
+    _, unmatched = _match_sent(expect, initial, final)
 
     expected_moves = {int(i) for i in expect.get("folders", {})}
     collateral = [

@@ -48,7 +48,7 @@ no SDK, network, storage, process or UI libraries, so the engine keeps loading i
   `docs/PROVENANCE.md`.
 - **Benchmarks** are downloaded at runtime at a pinned revision and never vendored. Add each one's licence to
   `docs/licenses.md`.
-- **Scenarios:**
+- **Scenarios** follow the grading and rating principles in `docs/principles.md` (with a checklist):
   - Grade with code wherever ground truth is objective (state diffs, result sets, constraints). Use the LLM judge only
     for what code cannot check, and never as the only pass criterion.
   - Every scenario ships a test with a scripted good agent (passes) and a scripted bad agent (fails the intended

@@ -338,6 +338,14 @@ export interface LeaderboardEntry {
    */
   config: string;
   /**
+   * partial credit: mean over tasks of the share of graded work done; breaks rank ties
+   */
+  credit?: number | null;
+  /**
+   * per pass criterion, in scenario order
+   */
+  criteria?: CriterionResult[];
+  /**
    * pass-rate difference on the shared tasks
    */
   delta_vs_leader?: number | null;
@@ -381,12 +389,28 @@ export interface LeaderboardEntry {
   trials: number;
 }
 /**
+ * One pass criterion of an entry: how often it passed and how much of it was met, both averaged over tasks
+ * (errors and timeouts count as failed).
+ *
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "CriterionResult".
+ */
+export interface CriterionResult {
+  credit: number;
+  name: string;
+  pass_rate: number;
+}
+/**
  * One trial behind an entry, so a leaderboard can link straight into its run and step inspector.
  *
  * This interface was referenced by `Contracts`'s JSON-Schema
  * via the `definition` "TrialResult".
  */
 export interface TrialResult {
+  /**
+   * partial credit: share of the graded work done
+   */
+  credit?: number | null;
   passed: boolean;
   repeat: number;
   run_id: string;
@@ -494,6 +518,7 @@ export interface ConfigSummary {
   ci_high: number;
   ci_low: number;
   config: string;
+  credit: number | null;
   derived?: {
     [k: string]: number | undefined;
   };

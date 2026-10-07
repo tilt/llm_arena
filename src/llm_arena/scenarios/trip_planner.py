@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from llm_arena.eval.base import EvalContext, Evaluator, FunctionEvaluator, Score, Task, TrialOutput
+from llm_arena.eval.credit import change_credit
 from llm_arena.eval.trace_checks import ToolHygieneEvaluator
 from llm_arena.llm.client import system, user
 from llm_arena.mocks.travel import CALENDAR, FLIGHTS, HOTELS, TravelAgency
@@ -108,6 +109,8 @@ class TripPlanner(Scenario):
     ]
     default_params = {"mode": "plan_execute", "max_replans": 2, "max_step_turns": 6, "max_turns": 16}
     pass_criteria = ["constraints_satisfied", "no_extra_bookings"]
+    version = "2"  # 2: constraints_satisfied scores the share of constraint checks met (partial credit)
+    regrades_from = frozenset({"1"})  # only grading changed since
 
     def load_tasks(self) -> list[Task]:
         return [Task.model_validate(entry) for entry in TASKS]
@@ -226,21 +229,27 @@ def score_planning(ctx: EvalContext) -> list[Score]:
         ]
     hit_failure = bool(ctx.output.env_state["failed_bookings"])
     if hit_failure:
-        recovered = _constraint_problems(ctx) == []
+        checks = constraint_checks(ctx.task.data["constraints"], ctx.output.env_state["active"])
+        recovered = all(problem is None for problem in checks.values())
         scores.append(Score(name="recovered_from_failure", value=float(recovered), level="step", passed=recovered))
     return scores
 
 
 def check_trip(ctx: EvalContext) -> list[Score]:
-    problems = _constraint_problems(ctx)
     constraints = ctx.task.data["constraints"]
     active = ctx.output.env_state["active"]
+    checks = constraint_checks(constraints, active)
+    problems = [problem for problem in checks.values() if problem]
+    # Credit: the constraint checks met, against the same checks on the empty itinerary (the budget only counts once
+    # it is broken). An unbooked leg fails all of its checks.
+    before = {key: problem is None for key, problem in constraint_checks(constraints, []).items()}
+    credit = change_credit(before, {key: problem is None for key, problem in checks.items()})
     expected_count = len(constraints["flights"]) + (1 if constraints["hotel"] else 0)
     extra = len(active) - expected_count
     return [
         Score(
             name="constraints_satisfied",
-            value=float(not problems),
+            value=1.0 if not problems else credit,
             level="e2e",
             passed=not problems,
             rationale="; ".join(problems) or "all constraints met",
@@ -255,39 +264,46 @@ def check_trip(ctx: EvalContext) -> list[Score]:
     ]
 
 
-def _constraint_problems(ctx: EvalContext) -> list[str]:
-    constraints = ctx.task.data["constraints"]
-    active = ctx.output.env_state["active"]
+def constraint_checks(constraints: dict[str, Any], active: list[dict[str, Any]]) -> dict[str, str | None]:
+    """Keyed constraint checks: None when met, else the problem ("" when the missing booking is the reported cause)."""
     flights = [b for b in active if b["type"] == "flight"]
     hotels = [b for b in active if b["type"] == "hotel"]
-    problems: list[str] = []
-    for leg in constraints["flights"]:
+    checks: dict[str, str | None] = {}
+    for index, leg in enumerate(constraints["flights"]):
         matching = [f for f in flights if f["origin"] == leg["origin"] and f["destination"] == leg["destination"]]
-        if len(matching) != 1:
-            problems.append(f"{len(matching)} bookings for {leg['origin']}->{leg['destination']}, expected 1")
-            continue
-        problems += _flight_problems(matching[0], leg)
+        single = len(matching) == 1
+        checks[f"leg{index}:booked"] = (
+            None if single else f"{len(matching)} bookings for {leg['origin']}->{leg['destination']}, expected 1"
+        )
+        for name, problem in _flight_checks(matching[0] if single else None, leg).items():
+            checks[f"leg{index}:{name}"] = problem
     if spec := constraints["hotel"]:
-        if len(hotels) != 1:
-            problems.append(f"{len(hotels)} hotel bookings, expected 1")
-        else:
-            problems += _hotel_problems(hotels[0], spec)
+        checks["hotel:booked"] = None if len(hotels) == 1 else f"{len(hotels)} hotel bookings, expected 1"
+        for name, problem in _hotel_checks(hotels[0] if len(hotels) == 1 else None, spec).items():
+            checks[f"hotel:{name}"] = problem
     if "budget" in constraints:
         total = sum(b.get("price_eur", b.get("total_eur", 0.0)) for b in active)
-        if total > constraints["budget"]:
-            problems.append(f"total EUR {total:.0f} exceeds budget {constraints['budget']:.0f}")
-    return problems
+        checks["budget"] = (
+            None
+            if total <= constraints["budget"]
+            else f"total EUR {total:.0f} exceeds budget {constraints['budget']:.0f}"
+        )
+    return checks
 
 
-def _flight_problems(flight: dict[str, Any], leg: dict[str, Any]) -> list[str]:
-    problems = []
-    if "arrive_by" in leg and flight["arrives"] > leg["arrive_by"]:
-        problems.append(f"{flight['flight_id']} arrives {flight['arrives']}, after {leg['arrive_by']}")
-    if "depart_after" in leg and flight["departs"] < leg["depart_after"]:
-        problems.append(f"{flight['flight_id']} departs {flight['departs']}, before {leg['depart_after']}")
-    if "date" in leg and not flight["departs"].startswith(leg["date"]):
-        problems.append(f"{flight['flight_id']} is not on {leg['date']}")
-    if leg.get("cheapest_valid"):
+def _flight_checks(flight: dict[str, Any] | None, leg: dict[str, Any]) -> dict[str, str | None]:
+    """The leg's rules that apply; all unmet ("") when the leg is not booked exactly once."""
+    rules = [rule for rule in ("arrive_by", "depart_after", "date", "cheapest_valid") if leg.get(rule)]
+    if flight is None:
+        return dict.fromkeys(rules, "")
+    checks: dict[str, str | None] = dict.fromkeys(rules)
+    if "arrive_by" in checks and flight["arrives"] > leg["arrive_by"]:
+        checks["arrive_by"] = f"{flight['flight_id']} arrives {flight['arrives']}, after {leg['arrive_by']}"
+    if "depart_after" in checks and flight["departs"] < leg["depart_after"]:
+        checks["depart_after"] = f"{flight['flight_id']} departs {flight['departs']}, before {leg['depart_after']}"
+    if "date" in checks and not flight["departs"].startswith(leg["date"]):
+        checks["date"] = f"{flight['flight_id']} is not on {leg['date']}"
+    if "cheapest_valid" in checks:
         valid = [
             f
             for f in FLIGHTS
@@ -299,33 +315,39 @@ def _flight_problems(flight: dict[str, Any], leg: dict[str, Any]) -> list[str]:
         ]
         cheapest = min(valid, key=lambda f: f[5])
         if flight["flight_id"] != cheapest[0]:
-            problems.append(f"booked {flight['flight_id']}, cheapest valid option is {cheapest[0]}")
-    return problems
+            checks["cheapest_valid"] = f"booked {flight['flight_id']}, cheapest valid option is {cheapest[0]}"
+    return checks
 
 
-def _hotel_problems(booking: dict[str, Any], spec: dict[str, Any]) -> list[str]:
+def _hotel_checks(booking: dict[str, Any] | None, spec: dict[str, Any]) -> dict[str, str | None]:
+    """The hotel's rules that apply; all unmet ("") when there is not exactly one hotel booking."""
+    rules = ["city", "dates"] + [
+        rule for rule in ("min_stars", "max_km", "max_price_per_night", "closest") if spec.get(rule)
+    ]
+    if booking is None:
+        return dict.fromkeys(rules, "")
     hotel = next(h for h in HOTELS if h[0] == booking["hotel_id"])
-    problems = []
+    checks: dict[str, str | None] = dict.fromkeys(rules)
     if hotel[1] != spec["city"]:
-        problems.append(f"hotel is in {hotel[1]}")
+        checks["city"] = f"hotel is in {hotel[1]}"
     if booking["check_in"] != spec["check_in"] or int(booking["nights"]) != spec["nights"]:
-        problems.append(
+        checks["dates"] = (
             f"hotel dates {booking['check_in']} x{booking['nights']}, expected {spec['check_in']} x{spec['nights']}"
         )
-    if hotel[3] < spec.get("min_stars", 0):
-        problems.append(f"{hotel[2]} has {hotel[3]} stars")
-    if "max_km" in spec and hotel[5][spec["landmark"]] > spec["max_km"]:
-        problems.append(f"{hotel[2]} is {hotel[5][spec['landmark']]} km from {spec['landmark']}")
-    if "max_price_per_night" in spec and hotel[4] > spec["max_price_per_night"]:
-        problems.append(f"{hotel[2]} costs {hotel[4]} per night")
-    if spec.get("closest"):
+    if "min_stars" in checks and hotel[3] < spec["min_stars"]:
+        checks["min_stars"] = f"{hotel[2]} has {hotel[3]} stars"
+    if "max_km" in checks and hotel[5][spec["landmark"]] > spec["max_km"]:
+        checks["max_km"] = f"{hotel[2]} is {hotel[5][spec['landmark']]} km from {spec['landmark']}"
+    if "max_price_per_night" in checks and hotel[4] > spec["max_price_per_night"]:
+        checks["max_price_per_night"] = f"{hotel[2]} costs {hotel[4]} per night"
+    if "closest" in checks:
         affordable = [
             h for h in HOTELS if h[1] == spec["city"] and h[4] <= spec.get("max_price_per_night", float("inf"))
         ]
         best = min(affordable, key=lambda h: h[5][spec["landmark"]])
         if best[0] != hotel[0]:
-            problems.append(f"booked {hotel[2]}, closest eligible is {best[2]}")
-    return problems
+            checks["closest"] = f"booked {hotel[2]}, closest eligible is {best[2]}"
+    return checks
 
 
 def _flight_rule(f: dict[str, Any]) -> str:

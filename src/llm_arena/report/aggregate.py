@@ -5,10 +5,13 @@ from __future__ import annotations
 import json
 import math
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from functools import cache
 from typing import Any
 
+from llm_arena.core.errors import ConfigError
 from llm_arena.decisions.records import DecisionSummary, summarize_decisions
+from llm_arena.eval.credit import with_credit
 from llm_arena.eval.metrics import (
     bootstrap_ci,
     bradley_terry,
@@ -19,6 +22,7 @@ from llm_arena.eval.metrics import (
     percentile,
 )
 from llm_arena.runner.ports import RunData
+from llm_arena.scenarios.base import get_scenario
 
 
 @dataclass
@@ -33,6 +37,7 @@ class ConfigSummary:
     pass_rate: float
     ci_low: float
     ci_high: float
+    credit: float | None  # partial credit: mean share of the graded work done (None: run predates it)
     pass_hat_k: float  # all k repeats pass (reliability)
     pass_at_k: float  # at least one of k passes (capability)
     errors: int
@@ -82,8 +87,23 @@ class RunSummary:
         return sorted({c.config for c in self.configs})
 
 
+@cache
+def _pass_criteria(scenario: str) -> list[str] | None:
+    try:
+        return list(get_scenario(scenario).pass_criteria)
+    except ConfigError:
+        return None
+
+
+def credited(data: RunData) -> RunData:
+    """The run with partial credit on every trial row, rebuilt from its scores for runs stored before credit."""
+    trials = with_credit(data.trials, data.scores, _pass_criteria)
+    return data if trials is data.trials else replace(data, trials=trials)
+
+
 def summarize(data: RunData) -> RunSummary:
     """Pure: the same summary whichever store produced the rows (DuckDB, memory, browser)."""
+    data = credited(data)
     scores: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in data.scores:
         scores[row["trial_id"]].append(row)
@@ -126,6 +146,9 @@ def _summarize_group(
     step = {name: mean(values) for (level, name), values in sorted(metric_values.items()) if level == "step"}
     e2e = {name: mean(values) for (level, name), values in sorted(metric_values.items()) if level == "e2e"}
     durations = [trial["duration_s"] for trial in trials]
+    credits = [
+        float(trial["credit"]) for trial in trials if trial.get("criteria_json") and trial.get("credit") is not None
+    ]
     return ConfigSummary(
         scenario=scenario,
         pattern=trials[0]["pattern"],
@@ -137,6 +160,7 @@ def _summarize_group(
         pass_rate=rate,
         ci_low=low,
         ci_high=high,
+        credit=mean(credits) if len(credits) == len(trials) else None,
         pass_hat_k=mean([pass_hat_k(len(v), sum(v), k) for v in by_task.values()]),
         pass_at_k=mean([pass_at_k(len(v), sum(v), k) for v in by_task.values()]),
         errors=sum(trial["status"] != "ok" for trial in trials),

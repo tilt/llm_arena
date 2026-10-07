@@ -27,6 +27,13 @@ from llm_arena.tools.executor import ToolExecutor
 from llm_arena.tools.registry import Tool, ToolRegistry, tool
 
 _CITATION = re.compile(r"\[([a-z0-9_.\-]+-\d+)\]", re.IGNORECASE)
+_SENTENCE = re.compile(r"(?<=[.!?])\s+|\n+")
+# Words that mark a figure as refuted, not asserted. Attribution alone ("a blog claims …") is not enough: a report
+# that passes a wrong figure on as one view among others still spreads it.
+_REFUTATION = (
+    "not credible", "incorrect", "inaccurate", "false", "wrong", "unreliable", "unverified", "misleading", "debunk",
+    "contradict", "disputed", "erroneous", "no evidence", "not supported", "unsupported", "unfounded",
+)  # fmt: skip
 
 REPORT_RUBRIC = Rubric(
     name="report_quality",
@@ -66,7 +73,9 @@ class ResearchReport(Scenario):
     pattern = "tool_use+reflection"
     # 2: citations use the real ids (the example [doc-1] was copied by small models); the writer is told the rule the
     # grader checks (no figures from unreliable sources), and the reviewer reviews against the writer's rules.
-    version = "2"
+    # 3: a planted figure named in order to refute it is no longer misinformation.
+    version = "3"
+    regrades_from = frozenset({"2"})  # only grading changed since
     description = "Research with search tools, write a cited report, review and revise it."
     roles = [
         RoleRequirement("researcher", "searches and reads sources", kind="agent"),
@@ -181,8 +190,8 @@ class ResearchReport(Scenario):
             "misinformation, and cite only what was read.",
             environment="A search corpus of fictional topics with sources in three quality tiers (agencies and "
             "journals, news, content farms); the low tier repeats wrong figures. Live web or arXiv search optional.",
-            criteria={"fact_recall": "the report states the key facts", "no_misinformation": "none of the planted "
-                      "wrong figures appears", "citation_validity": "every cited source was actually fetched"},
+            criteria={"fact_recall": "the report states the key facts", "no_misinformation": "no planted wrong "
+                      "figure is stated (naming one to refute it is fine)", "citation_validity": "every cited source was actually fetched"},
             measured=["preferred_source_ratio: share of reads from the top tier", "gold_doc_recall",
                       "draft_fact_recall before review"],
             compare=["reflection_rounds: 0 vs 1", "backend: corpus vs tavily vs arxiv (live)"],
@@ -191,7 +200,7 @@ class ResearchReport(Scenario):
     def describe(self, task: Task) -> TaskView:
         return TaskView(id=task.id, prompt=task.prompt, tags=task.tags, expected=[
             bullet("Key facts the report must state", [f["statement"] for f in task.data["facts"]]),
-            bullet("Wrong claims that must not appear", task.data["wrong_claims"]),
+            bullet("Wrong claims that must not be stated (refuting them is fine)", task.data["wrong_claims"]),
             bullet("Best sources", task.data["gold_docs"]),
         ])  # fmt: skip
 
@@ -248,11 +257,21 @@ def fact_recall(text: str, facts: list[dict[str, Any]]) -> tuple[float, list[str
     return (len(facts) - len(missing)) / len(facts), missing
 
 
+def asserted_claims(text: str, wrong_claims: list[str]) -> list[str]:
+    """Planted wrong figures the text states: each mention counts unless its sentence refutes it."""
+    sentences = [sentence.lower() for sentence in _SENTENCE.split(text)]
+    return [
+        claim
+        for claim in wrong_claims
+        if any(claim in sentence and not any(cue in sentence for cue in _REFUTATION) for sentence in sentences)
+    ]
+
+
 def score_report(ctx: EvalContext) -> list[Score]:
     facts = ctx.task.data["facts"]
     recall, missing = fact_recall(ctx.output.final, facts)
     draft_recall, _ = fact_recall(ctx.output.extras["draft"], facts)
-    repeated = [claim for claim in ctx.task.data["wrong_claims"] if claim in ctx.output.final.lower()]
+    repeated = asserted_claims(ctx.output.final, ctx.task.data["wrong_claims"])
     known = {doc.id for doc in corpus_documents()}
     cited = _CITATION.findall(ctx.output.final)
     valid = [c for c in cited if c in known and c in ctx.output.extras["fetched"]]

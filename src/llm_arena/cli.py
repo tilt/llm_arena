@@ -239,11 +239,11 @@ def _report(run_dir: Path, *, inline: bool = True, json_out: bool = False) -> No
     if json_out:
         (run_dir / "summary.json").write_text(summary_as_json(summary), encoding="utf-8")
     console.print(f"report: [link=file://{path.resolve()}]{path}[/link]")
-    table = Table("scenario", "config", "pass rate", "pass^k", "tokens/trial", "errors")
+    table = Table("scenario", "config", "pass rate", "partial", "pass^k", "tokens/trial", "errors")
     for c in summary.configs:
-        table.add_row(
-            c.scenario, c.config, f"{c.pass_rate:.0%}", f"{c.pass_hat_k:.0%}", f"{c.mean_tokens:,.0f}", str(c.errors)
-        )
+        partial = "–" if c.credit is None else f"{c.credit:.0%}"
+        table.add_row(c.scenario, c.config, f"{c.pass_rate:.0%}", partial, f"{c.pass_hat_k:.0%}",
+                      f"{c.mean_tokens:,.0f}", str(c.errors))  # fmt: skip
     console.print(table)
 
 
@@ -271,7 +271,7 @@ def leaderboard(
     if not boards:
         console.print(f"no runs in {runs_dir}/" + (f" for {scenario}" if scenario else ""))
     for board in boards:
-        table = Table("#", "config", "fingerprint", "pass rate [95% CI]", "tasks", "trials", "runs", "Δ / p vs #1",
+        table = Table("#", "config", "fingerprint", "pass rate [95% CI]", "partial", "tasks", "trials", "runs", "Δ / p vs #1",
                       "$/trial", "p50 s", title=f"{board.scenario} (version {board.scenario_version}, {board.tasks} tasks)")  # fmt: skip
         for e in board.entries:
             versus = (
@@ -280,13 +280,65 @@ def leaderboard(
                 else f"{e.delta_vs_leader:+.0%} / {e.p_vs_leader:.2f} ({e.shared_tasks})"
             )
             table.add_row(str(e.rank), e.config, e.fingerprint, f"{e.pass_rate:.0%} [{e.ci_low:.0%}–{e.ci_high:.0%}]",
-                          str(e.tasks), str(e.trials), str(len(e.runs)), versus, f"{e.mean_cost_usd:.4f}",
+                          "–" if e.credit is None else f"{e.credit:.0%}", str(e.tasks), str(e.trials), str(len(e.runs)), versus, f"{e.mean_cost_usd:.4f}",
                           f"{e.latency_p50_s:.1f}")  # fmt: skip
         console.print(table)
 
 
 def _no_models(spec: ModelSpec) -> Any:
     raise RuntimeError("the leaderboard does not call models")
+
+
+@app.command()
+def regrade(
+    run_ids: Annotated[list[str] | None, typer.Argument(help="Runs to re-grade (default: every run)")] = None,
+    runs_dir: Annotated[Path, typer.Option(help="Where runs are stored")] = Path("runs"),
+    apply: Annotated[bool, typer.Option("--apply", help="Write the new grading (default: only show it)")] = False,
+) -> None:
+    """Move runs of an earlier scenario version onto the current board by re-grading their stored trials.
+
+    Only versions that differ from the current one in grading alone qualify (`regrades_from`). With --apply, each
+    changed run's database and traces are first copied to <runs-dir>/.backups/.
+    """
+    import shutil
+    from datetime import datetime
+
+    from llm_arena.adapters.server.duckdb_store import DuckDBStore
+    from llm_arena.adapters.server.hf_datasets import HubDatasetLoader
+    from llm_arena.benchmarks.hf import configure_loader
+    from llm_arena.service import ArenaService
+
+    configure_loader(HubDatasetLoader())  # benchmark tasks come from pinned (cached) dataset files
+    service = ArenaService(
+        Runtime(client_factory=_no_models), store_factory=lambda run_id: DuckDBStore(runs_dir / run_id)
+    )
+    ids = run_ids or sorted(path.parent.name for path in runs_dir.glob("*/arena.duckdb"))
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+
+    def backup(run_id: str) -> None:
+        target = runs_dir / ".backups" / f"{run_id}-{stamp}"
+        target.mkdir(parents=True)
+        shutil.copy2(runs_dir / run_id / "arena.duckdb", target / "arena.duckdb")
+        shutil.copytree(runs_dir / run_id / "traces", target / "traces")
+
+    reports = asyncio.run(service.regrade(ids, apply=apply, before_write=backup))
+    table = Table("run", "scenario", "version", "trials", "passed before → after", title="Re-graded trials")
+    for report in reports:
+        for (scenario, old, new), (n, before, after) in sorted(report.summary().items()):
+            table.add_row(report.run_id, scenario, f"{old} → {new}", str(n), f"{before} → {after}")
+    console.print(table)
+    skipped: dict[str, int] = {}
+    for report in reports:
+        for reason, count in report.skipped.items():
+            skipped[reason] = skipped.get(reason, 0) + count
+    for reason, count in sorted(skipped.items()):
+        console.print(f"[dim]left as is: {count} × {escape(reason)}[/dim]")
+    if not any(report.trials for report in reports):
+        console.print("nothing to re-grade")
+    elif apply:
+        console.print(f"written; backups in {runs_dir / '.backups'}/")
+    else:
+        console.print(f"dry run: nothing written. Rerun with --apply (backups go to {runs_dir / '.backups'}/).")
 
 
 @app.command("judge-calibrate")

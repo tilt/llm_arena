@@ -127,6 +127,17 @@ async def test_agent_baseline_passes_and_violations_fail() -> None:
     assert not scores["policy_compliant"].passed and not scores["state_correct"].passed
 
 
+async def test_refund_without_a_message_earns_partial_credit() -> None:
+    from llm_arena.eval.credit import trial_credit
+
+    silent = ScriptedLLM([tool_call("issue_refund", order_id=2001, amount=24.0, reason="damaged"), "Refunded $24."])
+    _, scores = await _run("damaged_2001", silent)
+    assert scores["state_correct"].passed and not scores["customer_informed"].passed
+    assert scores["customer_informed"].value == 0.0
+    credit, _ = trial_credit("ok", list(scores.values()), get_scenario("support_desk").pass_criteria)
+    assert credit == 2 / 3
+
+
 async def test_gate_with_rules_sends_unclear_refunds_to_the_human_who_rejects_violations() -> None:
     goodwill = ScriptedLLM([
         tool_call("issue_refund", order_id=2008, amount=15.0, reason="goodwill"),

@@ -65,7 +65,7 @@
     },
     "state_correct": {
       "passed": false,
-      "value": 0.0
+      "value": 0.5
     }
   },
   "steps": [

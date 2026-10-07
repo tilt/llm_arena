@@ -85,6 +85,15 @@ async def test_email_flags_collateral_damage_and_hidden_tools() -> None:
     assert scores["forbidden_attempts"].value == 1  # delete_email was not offered, so it is an unknown tool
 
 
+async def test_email_scores_partial_credit_for_half_the_work() -> None:
+    agent = ScriptedLLM([tool_call("archive_email", email_id=2), "Archived the newsletter."])
+    _, scores = await _run("email_assistant", "archive_newsletters", {"agent": agent})
+    assert not scores["state_correct"].passed and scores["state_correct"].value == 0.5  # one of two newsletters
+    assert scores["no_collateral"].passed
+    _, scores = await _run("email_assistant", "archive_newsletters", {"agent": ScriptedLLM(["Nothing to do."])})
+    assert scores["state_correct"].value == 0.0
+
+
 async def test_email_answer_check() -> None:
     agent = ScriptedLLM([tool_call("read_email", email_id=6), "It starts at 09:30 in Lantern Hall."])
     _, scores = await _run("email_assistant", "offsite_question", {"agent": agent})
@@ -125,8 +134,22 @@ async def test_research_report_scores_sources_facts_and_citations() -> None:
         "research_report", "selm_tidal", {"researcher": researcher, "writer": writer, "reviewer": reviewer}
     )
     assert scores["fact_recall"].value == 1.0 and scores["preferred_source_ratio"].value == 1.0
-    assert not scores["no_misinformation"].passed  # repeats "50 mw" even while debunking: flagged for review
+    assert scores["no_misinformation"].passed  # names "50 MW" only to refute it
     assert scores["citation_validity"].value == 0.5  # selm_tidal-4 was never fetched
+
+
+def test_misinformation_counts_stated_figures_not_refuted_ones() -> None:
+    from llm_arena.scenarios.research_report import asserted_claims
+
+    wrong = ["50 mw", "2019"]
+    assert (
+        asserted_claims("A blog claiming a 50 MW farm opened in 2019 is not credible. The pilot is 12 MW.", wrong) == []
+    )
+    assert asserted_claims("A separate 50 MW farm has run since 2019.", wrong) == wrong
+    # Attribution is not refutation: passing the figure on as another view still spreads it.
+    assert asserted_claims("Another source puts the capacity at 50 MW.", wrong) == ["50 mw"]
+    # Each sentence is judged on its own: a refutation elsewhere does not excuse a statement.
+    assert asserted_claims("It opened in 2019. Reports of 50 MW are wrong.", wrong) == ["2019"]
 
 
 async def test_shop_codeact_policy_violation_is_caught() -> None:
@@ -165,6 +188,14 @@ async def test_trip_planner_rejects_budget_and_calendar_violations() -> None:
     _, scores = await _run("trip_planner", "summit_trip", {"planner": agent}, mode="single_loop")
     rationale = scores["constraints_satisfied"].rationale
     assert "CA101 departs" in rationale and "Grand Westmarch is 2.9 km" in rationale
+
+
+async def test_trip_planner_credits_the_constraints_met() -> None:
+    agent = ScriptedLLM([tool_call("book_flight", flight_id="WM240"), "Booked the outbound flight."])
+    _, scores = await _run("trip_planner", "summit_trip", {"planner": agent}, mode="single_loop")
+    # The outbound leg meets its 3 checks; the return leg (3) and the hotel (5) are not booked. The budget was met
+    # before the agent started and still is, so it is not work done.
+    assert not scores["constraints_satisfied"].passed and scores["constraints_satisfied"].value == 3 / 11
 
 
 async def test_launch_brief_single_agent_scoring() -> None:
@@ -214,6 +245,13 @@ async def test_reflection_writing_constraint_checks() -> None:
     assert (
         not scores["draft_constraints_ok"].passed and scores["constraints_ok"].passed and scores["critic_tp"].value == 1
     )
+
+
+async def test_writing_credits_the_requirements_met() -> None:
+    writer = ScriptedLLM(["word " * 200])
+    _, scores = await _run("reflection_writing", "battery_swap_faq", {"writer": writer}, reflection_rounds=0)
+    # Of length, three required facts and the forbidden phrases, only the forbidden phrases check holds.
+    assert not scores["constraints_ok"].passed and scores["constraints_ok"].value == 1 / 5
 
 
 async def test_chart_codegen_introspects_figure() -> None:

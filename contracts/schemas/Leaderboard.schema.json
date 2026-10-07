@@ -1,5 +1,29 @@
 {
   "$defs": {
+    "CriterionResult": {
+      "description": "One pass criterion of an entry: how often it passed and how much of it was met, both averaged over tasks\n(errors and timeouts count as failed).",
+      "properties": {
+        "credit": {
+          "title": "Credit",
+          "type": "number"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "pass_rate": {
+          "title": "Pass Rate",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "pass_rate",
+        "credit"
+      ],
+      "title": "CriterionResult",
+      "type": "object"
+    },
     "LeaderboardEntry": {
       "properties": {
         "ci_high": {
@@ -14,6 +38,27 @@
           "description": "name of the config in its latest run",
           "title": "Config",
           "type": "string"
+        },
+        "credit": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "partial credit: mean over tasks of the share of graded work done; breaks rank ties",
+          "title": "Credit"
+        },
+        "criteria": {
+          "description": "per pass criterion, in scenario order",
+          "items": {
+            "$ref": "#/$defs/CriterionResult"
+          },
+          "title": "Criteria",
+          "type": "array"
         },
         "delta_vs_leader": {
           "anyOf": [
@@ -145,6 +190,19 @@
     "TrialResult": {
       "description": "One trial behind an entry, so a leaderboard can link straight into its run and step inspector.",
       "properties": {
+        "credit": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "partial credit: share of the graded work done",
+          "title": "Credit"
+        },
         "passed": {
           "title": "Passed",
           "type": "boolean"

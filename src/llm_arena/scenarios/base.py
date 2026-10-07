@@ -95,7 +95,10 @@ class Scenario(ABC):
     tokens_per_trial: ClassVar[int] = 3000  # rough prompt+completion estimate for cost previews
     supports_decisions: ClassVar[bool] = False
     # Bump when prompts, tools or evaluators change: leaderboards only pool trials of the same version.
-    version: ClassVar[str] = "1"  # accepts a control policy (PipelineConfig.decisions)
+    version: ClassVar[str] = "1"
+    # Earlier versions that differ from this one only in grading (same prompts, tools and tasks): their stored
+    # trials can be re-graded into this version (`arena regrade`) instead of being rerun.
+    regrades_from: ClassVar[frozenset[str]] = frozenset()
 
     @abstractmethod
     def load_tasks(self) -> list[Task]: ...

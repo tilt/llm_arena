@@ -62,7 +62,9 @@
   <div class="card report-block"><BarsCI bars={bars(section)} label={`Pass rate with 95% confidence interval for ${section.scenario}`} /></div>
   <div class="card table-wrap report-block">
     <table>
-      <thead><tr><th>Config</th><th>Roles</th><th class="n">Pass rate [95% CI]</th><th class="n">pass^k</th><th class="n">pass@k</th>
+      <thead><tr><th>Config</th><th>Roles</th><th class="n">Pass rate [95% CI]</th>
+        <th class="n" title="Share of the graded checks met, every pass criterion weighing the same; 100% only when passed">Partial</th>
+        <th class="n">pass^k</th><th class="n">pass@k</th>
         <th class="n">Tasks×k</th><th class="n">Tokens/trial</th><th class="n">$/trial</th><th class="n">p50 / p95 s</th><th class="n">Errors</th></tr></thead>
       <tbody>
         {#each section.configs as c (c.config)}
@@ -70,6 +72,7 @@
             <td><strong>{c.config}</strong></td>
             <td>{#each Object.entries(c.roles) as [role, model] (role)}<span class="pill">{role}: {model}</span>{/each}</td>
             <td class="n">{pct(c.pass_rate)} <span class="muted">[{pct(c.ci_low)}–{pct(c.ci_high)}]</span></td>
+            <td class="n">{pct(c.credit)}</td>
             <td class="n">{pct(c.pass_hat_k)}</td><td class="n">{pct(c.pass_at_k)}</td>
             <td class="n">{c.tasks}×{c.repeats}</td><td class="n">{num(c.mean_tokens, 0)}</td><td class="n">{usd(c.mean_cost_usd)}</td>
             <td class="n">{num(c.latency_p50_s, 1)} / {num(c.latency_p95_s, 1)}</td>

@@ -1,9 +1,12 @@
 # Metrics
 
+How each number is computed. Why it is computed that way is in [principles.md](principles.md).
+
 | Metric | Definition | Where |
 |---|---|---|
 | Trial passed | status ok **and** every pass-criterion score of the scenario that produced a verdict passed (at least one must exist) | `runner/run.py` |
 | Pass rate [95% CI] | mean of trial passes; percentile bootstrap (2000 resamples) | `eval/metrics.bootstrap_ci` |
+| Partial credit | per trial: mean over the graded pass criteria of each one's credit (1 if it passed, else its value if that is a share in [0, 1), else 0); errors and timeouts 0. It is 1 exactly when the trial passed. State checks count only the expected changes the initial state lacked, over those plus any expectation the agent broke, so doing nothing earns 0 and collateral costs credit. Safety criteria are all-or-nothing | `eval/credit.py` |
 | pass@k | per task, unbiased estimate that ≥1 of k repeats passes; averaged over tasks | `pass_at_k` |
 | pass^k | per task, probability that all k repeats pass (τ-bench reliability); averaged | `pass_hat_k` |
 | Paired test | leader vs each config on shared tasks (per-task pass means), two-sided sign-flip permutation test | `paired_permutation_test` |
@@ -31,11 +34,37 @@
 - **Pass rate:** mean over tasks of the per-task pass share, so every task weighs the same however often it ran. The
   95% interval bootstraps over tasks. Errors and timeouts count as fails; trials stopped by a spend limit are left out.
 - **Ranking:** by (passes + 1) / (tasks + 2), the pass rate shrunk towards 50% by the amount of evidence: 1 of 1 task
-  (0.67) ranks below 3 of 3 (0.80). The table still shows the plain pass rate.
+  (0.67) ranks below 3 of 3 (0.80). The table still shows the plain pass rate. Ties (common at 0% and 100%) go to
+  the setup with more partial credit, then the cheaper one.
+- **Partial credit and criteria:** the *Partial* column is the mean over tasks of each task's mean credit. An expanded
+  setup shows every pass criterion's pass rate and the share of its checks met, which tells you which gate holds a
+  setup back. Errors and timeouts count as failing every criterion of their task (the criteria its graded trials
+  had), as they fail the pass rate.
+- **Runs stored before partial credit** get it from their stored score values, as graded then: sub-checks added
+  since cannot be recovered, so an old binary criterion stays 0 or 1. The scenario's current pass criteria are used;
+  where the result contradicts the stored verdict (the old version graded other criteria), credit stays unknown.
 - **vs #1:** difference to the leader on the tasks both ran, with a paired permutation test.
 - **Legacy runs** (from before fingerprints) form their own `legacy` board and never mix with versioned results.
 - **Bump `Scenario.version`** whenever prompts, tools, evaluators or pass criteria change; otherwise old and new
   results would pool.
+- **Re-grading:** when only evaluators or pass criteria changed, list the previous version in
+  `Scenario.regrades_from`. `arena regrade` then re-grades that version's stored trials with the current evaluators
+  (from their final output, environment state, extras, trace and result files) and moves them to the current version.
+  - Trials stay on the old board when their task changed, when their trace or result files are missing, or when a
+    current evaluator fails on them: a verdict is only replaced by a complete new one.
+  - Judge rubric scores need a model, so they are carried over from the original grading. Nothing else is, and
+    never a pass criterion, so no verdict or credit comes from the old grading.
+  - The database and the traces change together: new traces are staged, the database commits or rolls back, and
+    only then are the traces swapped in.
+  - Resume keys are updated, so a resumed run does not rerun re-graded trials.
+  - The trace records `regraded: {from_version, passed_before}`.
+  - Legacy runs (no version or fingerprint) cannot be re-graded.
+
+**Pass criteria report their credit as their value.** A pass criterion's `value` is its credit and `passed` its
+verdict, so e2e means of pass criteria in a run report are mean credit; for example, `state_correct` 0.83 means 83% of
+the expected changes were made. Scenarios whose ground truth has no meaningful parts keep binary criteria:
+`reflection_sql` (result-set overlap is easy to game), `react_multihop` (one answer; `f1` is a diagnostic), and the
+classic benchmarks except `ifeval`.
 
 ## Replacement effects
 

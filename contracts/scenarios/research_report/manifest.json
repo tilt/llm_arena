@@ -7,7 +7,7 @@
     "criteria": {
       "citation_validity": "every cited source was actually fetched",
       "fact_recall": "the report states the key facts",
-      "no_misinformation": "none of the planted wrong figures appears"
+      "no_misinformation": "no planted wrong figure is stated (naming one to refute it is fine)"
     },
     "environment": "A search corpus of fictional topics with sources in three quality tiers (agencies and journals, news, content farms); the low tier repeats wrong figures. Live web or arXiv search optional.",
     "measured": [
@@ -82,7 +82,7 @@
   "supports_decisions": false,
   "tasks": 4,
   "title": "Research report with sources",
-  "version": "2",
+  "version": "3",
   "wiki": [
     {
       "title": "Tool use and function calling",

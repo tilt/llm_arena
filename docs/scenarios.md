@@ -19,7 +19,7 @@ config with `params` or `scenario_params`.
 
 ## reflection_writing: constrained writing
 - **Constraints checked by code:** word range, required facts (any-of groups), forbidden phrases, format (bullets or
-  email greeting).
+  email greeting). Partial credit: the share of these requirements met.
 - **Params:** `show_constraints_to_critic`.
 - **Scoring:** the same critic indicators as `reflection_sql`, plus the `writing_quality` judge rubric and pairwise
   arena battles.
@@ -31,6 +31,7 @@ config with `params` or `scenario_params`.
 - **E2E:** `chart_rendered` and `spec_compliance`: series count, labels, legend entries, sorted horizontal bars, and
   the plotted data itself. The harness records every line's values, bar values and scatter points, and they must match
   the values computed from the CSV (every data point present, right units and aggregation; order does not matter).
+  Partial credit: the share of spec checks met (one per data series).
 - **Critic scoring:** `critic_verdict_correct`, `critic_tp/fp/fn` (reviewer precision and recall) and `regressed`
   (a correct draft broken by a revision). The verdict is judged against the spec check, not the critic's wording.
 - **Optional judge:** a VLM judge scores the image when the judge model has vision.
@@ -40,9 +41,9 @@ config with `params` or `scenario_params`.
 - **Permissions:** tasks can restrict them. Tools the task does not permit are *hidden*, so the agent must say it
   cannot comply rather than improvise, for example archiving instead of deleting.
 - **Grading:**
-  - `state_correct`: expected folder moves, read flags and sent messages.
+  - `state_correct`: expected folder moves, read flags and sent messages. Partial credit: the share of those made.
   - `no_collateral`: nothing else was moved or sent.
-  - `answer_correct`: for questions.
+  - `answer_correct`: for questions. Partial credit: the share of the facts mentioned.
   - Tool hygiene from the trace.
 
 ## research_report: tool use + reflection
@@ -51,7 +52,8 @@ config with `params` or `scenario_params`.
 - **Step metrics:** `preferred_source_ratio`, `gold_doc_recall`, `low_quality_fetch_rate` and `draft_fact_recall`.
 - **E2E:**
   - `fact_recall`: code-matched key facts.
-  - `no_misinformation`: planted wrong figures must not appear.
+  - `no_misinformation`: planted wrong figures must not be stated. A figure named in a sentence that refutes it
+    ("… is not credible", "incorrect", "unfounded") does not count; attribution alone ("another source says") does.
   - `citation_validity`: cited ids must have been fetched.
   - The `report_quality` judge.
 
@@ -67,7 +69,8 @@ config with `params` or `scenario_params`.
   is a SQLite file that persists between executions.
 - **Policy:** enforced by the evaluator, not the API, so that violations are possible. The rules: cancel only while
   processing, a 30-day refund window, refunds no higher than the amount paid.
-- **E2E:** `state_correct` and `policy_ok`.
+- **E2E:** `state_correct` (partial credit: the expected status, stock, refund and message changes made; extra ones
+  count against it) and `policy_ok`.
 
 ## support_desk: control policies in a tool loop
 - **Environment:** the ceramics shop as typed tools (orders, products, messages, refunds, cancellations, restocking),
@@ -86,8 +89,9 @@ config with `params` or `scenario_params`.
 - **Policies:** `llm` (role `decider`), `rules` (codified checks that abstain on anything needing the request's meaning;
   abstaining on approval means asking the human), `cascade` (rules → primary → fallback below a confidence threshold;
   role `escalation`), `jev` (TypeSafe's decision model; local app and CLI only).
-- **E2E:** `state_correct`, `customer_informed`, `policy_compliant`; step score `human_reviews`. Decision quality is
-  reported separately (see metrics).
+- **E2E:** `state_correct` (partial credit: the expected refunds and cancellations made; wrong extra ones count
+  against it), `customer_informed` (partial credit: a message, and each fact it must mention), `policy_compliant`;
+  step score `human_reviews`. Decision quality is reported separately (see metrics).
 - `email_assistant` accepts the same policies: its oracle flags moves, deletions and messages the request did not ask
   for, and its rule always sends deletions to the human.
 
@@ -96,7 +100,8 @@ config with `params` or `scenario_params`.
 - **Modes:** `mode: plan_execute` (planner + executor with a validator, repair and replanning) or `single_loop`
   (baseline).
 - **Step metrics:** `plan_repairs`, `replans`, `plan_aborted` and `recovered_from_failure`.
-- **E2E:** `constraints_satisfied` (times, calendar, budget, hotel rules, cheapest/closest) and `no_extra_bookings`.
+- **E2E:** `constraints_satisfied` (times, calendar, budget, hotel rules, cheapest/closest; partial credit: the share
+  of the constraint checks met, with an unbooked leg failing all of its checks) and `no_extra_bookings`.
 
 ## launch_brief: multi-agent with typed handoffs
 - **Team:** researcher (search tools) → analyst (catalog tools) → copywriter, each returning a pydantic object. The
@@ -111,7 +116,8 @@ config with `params` or `scenario_params`.
   - `gsm8k`: numeric answer after "Answer:".
   - `mmlu_pro`: 10 options, stratified by subject.
   - `humaneval` and `mbpp`: reference tests run in the sandbox. The graders pass 100% on the reference solutions.
-  - `ifeval`: own checkers for 24 instruction types; items needing language detection are excluded.
+  - `ifeval`: own checkers for 24 instruction types; items needing language detection are excluded. Partial credit:
+    the share of instructions followed.
 - **`function_calling`:** own suite with simple, multiple, parallel and irrelevance cases, graded by AST-style argument
   comparison.
 - **Sizes:** each loader samples deterministically (seed 0). `limit` in the experiment trims further.

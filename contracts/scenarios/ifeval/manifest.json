@@ -42,7 +42,7 @@
   "supports_decisions": false,
   "tasks": 100,
   "title": "IFEval (instruction following)",
-  "version": "1",
+  "version": "2",
   "wiki": [
     {
       "title": "Evaluation harnesses",

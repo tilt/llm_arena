@@ -120,6 +120,17 @@
           "title": "Config",
           "type": "string"
         },
+        "credit": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Credit"
+        },
         "derived": {
           "additionalProperties": {
             "type": "number"
@@ -223,6 +234,7 @@
         "pass_rate",
         "ci_low",
         "ci_high",
+        "credit",
         "pass_hat_k",
         "pass_at_k",
         "errors",

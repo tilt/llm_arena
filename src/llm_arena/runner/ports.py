@@ -21,6 +21,7 @@ from llm_arena.mocks.search import SearchBackend
 from llm_arena.sandbox.base import Sandbox
 
 if TYPE_CHECKING:
+    from llm_arena.runner.regrade import RegradedTrial
     from llm_arena.runner.rename import RenameRun
 
 ClientFactory = Callable[[ModelSpec], LLMClient]
@@ -50,6 +51,9 @@ class TrialRecord:
     setup: dict[str, Any] = field(default_factory=dict)
     resume_key: str = ""
     execution: dict[str, str] = field(default_factory=dict)
+    # Partial credit (see eval/credit.py): share of the graded work done, and each pass criterion's credit/verdict.
+    credit: float = 0.0
+    criteria: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass
@@ -92,6 +96,10 @@ class RunStore(Protocol):
 
     def rename(self, request: RenameRun) -> None:
         """New run and setup names; ids stay (see runner/rename.py)."""
+        ...
+
+    def regrade(self, trials: list[RegradedTrial]) -> None:
+        """Store new grading for finished trials: version, verdict, credit, scores and trace (see runner/regrade.py)."""
         ...
 
 

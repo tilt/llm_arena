@@ -11,6 +11,7 @@ from llm_arena.core.trace import Trace
 from llm_arena.decisions.records import decision_rows
 from llm_arena.eval.base import Score
 from llm_arena.runner.ports import RunData, TrialRecord
+from llm_arena.runner.regrade import RegradedTrial
 from llm_arena.runner.rename import RenameRun, rename_data, rename_trace
 
 
@@ -45,6 +46,8 @@ def trial_row(run_id: str, record: TrialRecord) -> dict[str, Any]:
         "setup_json": json.dumps(record.setup, default=str, sort_keys=True),
         "resume_key": record.resume_key,
         "execution_json": json.dumps(record.execution, sort_keys=True),
+        "credit": record.credit,
+        "criteria_json": json.dumps(record.criteria),
     }
 
 
@@ -139,6 +142,12 @@ class MemoryStore:
             self.decisions.setdefault(row["trial_id"], []).append(row)
         for trace in self.traces.values():
             rename_trace(trace, renames)
+
+    def regrade(self, trials: list[RegradedTrial]) -> None:
+        for trial in trials:
+            self.trials[trial.trial_id] = {**self.trials[trial.trial_id], **trial.columns}
+            self.scores[trial.trial_id] = [{"trial_id": trial.trial_id, **score.model_dump()} for score in trial.scores]
+            self.traces[trial.trial_id] = json.loads(json.dumps(trial.trace, default=str))
 
     def clear_artifacts(self, trial_id: str) -> None:
         prefix = f"{safe_name(trial_id)}/"

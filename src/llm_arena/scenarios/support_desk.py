@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from llm_arena.eval.base import EvalContext, Evaluator, FunctionEvaluator, Score, Task, TrialOutput
+from llm_arena.eval.credit import change_credit, share
 from llm_arena.eval.trace_checks import StopReasonEvaluator, ToolHygieneEvaluator
 from llm_arena.llm.client import system, user
 from llm_arena.mocks.support import (
@@ -20,6 +21,7 @@ from llm_arena.mocks.support import (
     build_tasks,
     days_since,
     orders_by_id,
+    outcome_checks,
     outcome_problems,
 )  # fmt: skip
 from llm_arena.patterns.controlled_loop import review_run, run_agent
@@ -55,6 +57,8 @@ class SupportDeskScenario(Scenario):
     roles = [RoleRequirement("agent", "the tool-using support agent", kind="agent"), *DECISION_ROLES]
     default_params = {"max_turns": 10}
     pass_criteria = CRITERIA
+    version = "2"  # 2: state_correct and customer_informed score partial credit
+    regrades_from = frozenset({"1"})  # only grading changed since
     supports_decisions = True
     tokens_per_trial = 6000
 
@@ -131,9 +135,23 @@ class SupportDeskScenario(Scenario):
 
 
 def check_desk(ctx: EvalContext) -> list[Score]:
-    problems = outcome_problems(ctx.task.data["expect"], ctx.output.env_state)
+    expect = ctx.task.data["expect"]
+    problems = outcome_problems(expect, ctx.output.env_state)
+    # Credit: the refunds and cancellations that needed doing (wrong extra ones count against it), and the share of
+    # the message checks met. Policy compliance stays all-or-nothing.
+    met = {
+        c: {k: p is None for k, p in checks.items()}
+        for c, checks in outcome_checks(expect, ctx.output.env_state).items()
+    }
+    initial = SupportDesk(expect=expect, customer=ctx.task.data["customer"]).snapshot()
+    before = {k: p is None for k, p in outcome_checks(expect, initial)["state_correct"].items()}
+    credit = {
+        "state_correct": change_credit(before, met["state_correct"]),
+        "customer_informed": share(met["customer_informed"]),
+        "policy_compliant": 0.0,
+    }
     scores = [
-        Score(name=name, value=float(name not in problems), level="e2e", passed=name not in problems,
+        Score(name=name, value=1.0 if name not in problems else credit[name], level="e2e", passed=name not in problems,
               rationale="; ".join(problems.get(name, [])) or "ok")
         for name in CRITERIA
     ]  # fmt: skip

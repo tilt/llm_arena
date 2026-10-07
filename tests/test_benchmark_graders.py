@@ -57,7 +57,10 @@ async def test_ifeval_checkers() -> None:
         data={"instructions": ["punctuation:no_comma", "keywords:existence"], "kwargs": [{}, {"keywords": ["arena"]}]},
     )
     scores = await IFEvalBench().grade(_ctx(task, "the arena, obviously"))
-    assert not scores[0].passed and scores[1].value == 0.5
+    assert not scores[0].passed and scores[0].value == 0.5 and scores[1].value == 0.5  # partial credit: 1 of 2
+    empty = Task(id="e", prompt="", data={"instructions": [], "kwargs": []})
+    (score,) = await IFEvalBench().grade(_ctx(empty, "anything"))
+    assert not score.passed and score.value == 0.0
 
 
 async def test_function_calling_ast_match() -> None:

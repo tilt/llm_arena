@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from llm_arena.eval.base import EvalContext, Evaluator, FunctionEvaluator, Score, Task, TrialOutput
+from llm_arena.eval.credit import share
 from llm_arena.eval.judge import Criterion, Rubric, RubricJudgeEvaluator
 from llm_arena.llm.client import system, user
 from llm_arena.mocks.chart_data import (
@@ -94,7 +95,10 @@ _RULES = (
 @register
 class ChartCodegen(Scenario):
     name = "chart_codegen"
-    version = "2"  # 2: plotted data is checked point by point; the critic separates data from presentation
+    # 2: plotted data is checked point by point; the critic separates data from presentation.
+    # 3: spec_compliance scores the share of spec checks met (partial credit).
+    version = "3"
+    regrades_from = frozenset({"2"})  # only grading changed since
     title = "Chart code with a vision critic"
     tokens_per_trial = 6000
     requires = frozenset({"sandbox"})
@@ -248,32 +252,44 @@ def _spec(result: ExecResult) -> dict[str, Any] | None:
 
 def check_spec(spec: dict[str, Any] | None, expect: dict[str, Any]) -> list[str]:
     """Return the list of failed checks (empty = compliant)."""
+    return [problem for problem in spec_checks(spec, expect).values() if problem]
+
+
+def spec_checks(spec: dict[str, Any] | None, expect: dict[str, Any]) -> dict[str, str | None]:
+    """Each spec check that applies to the task, keyed: None when met, else the problem."""
     if not spec or not spec["axes"]:
-        return ["no figure saved"]
+        return {"figure": "no figure saved"}
     axis = spec["axes"][0]
-    failures = []
-    if not (axis["title"] or spec["suptitle"]):
-        failures.append("missing title")
-    if not axis["xlabel"] or not axis["ylabel"]:
-        failures.append("missing axis label")
-    if "lines" in expect and axis["lines"] != expect["lines"]:
-        failures.append(f"{axis['lines']} lines, expected {expect['lines']}")
-    if "min_lines" in expect and axis["lines"] < expect["min_lines"]:
-        failures.append("missing trend line")
-    if "bars" in expect and len(axis["bars"]) != expect["bars"]:
-        failures.append(f"{len(axis['bars'])} bars, expected {expect['bars']}")
-    if "scatter_points" in expect and axis["scatter_points"] != expect["scatter_points"]:
-        failures.append(f"{axis['scatter_points']} scatter points, expected {expect['scatter_points']}")
+    checks: dict[str, str | None] = {
+        "title": None if axis["title"] or spec["suptitle"] else "missing title",
+        "axis_labels": None if axis["xlabel"] and axis["ylabel"] else "missing axis label",
+    }
+    if "lines" in expect:
+        checks["lines"] = (
+            None if axis["lines"] == expect["lines"] else f"{axis['lines']} lines, expected {expect['lines']}"
+        )
+    if "min_lines" in expect:
+        checks["min_lines"] = None if axis["lines"] >= expect["min_lines"] else "missing trend line"
+    if "bars" in expect:
+        checks["bars"] = (
+            None if len(axis["bars"]) == expect["bars"] else f"{len(axis['bars'])} bars, expected {expect['bars']}"
+        )
+    if "scatter_points" in expect:
+        checks["scatter_points"] = (
+            None if axis["scatter_points"] == expect["scatter_points"]
+            else f"{axis['scatter_points']} scatter points, expected {expect['scatter_points']}"
+        )  # fmt: skip
     if "legend" in expect:
         legend = " ".join(axis["legend"] + spec["figure_legend"]).lower()
         missing = [name for name in expect["legend"] if name.lower() not in legend]
-        if missing:
-            failures.append(f"legend lacks {missing}")
-    if expect.get("horizontal_sorted") and not _sorted_top_down(axis):
-        failures.append("bars not horizontal or not sorted with the largest at the top")
+        checks["legend"] = f"legend lacks {missing}" if missing else None
+    if expect.get("horizontal_sorted"):
+        checks["horizontal_sorted"] = (
+            None if _sorted_top_down(axis) else "bars not horizontal or not sorted with the largest at the top"
+        )
     if check := expect.get("data"):
-        failures += check_data(axis, expected_data(check))
-    return failures
+        checks.update(data_checks(axis, expected_data(check)))
+    return checks
 
 
 def _same_values(got: list[float], want: list[float]) -> bool:
@@ -285,24 +301,35 @@ def _same_values(got: list[float], want: list[float]) -> bool:
 
 def check_data(axis: dict[str, Any], want: dict[str, Any]) -> list[str]:
     """Every data point present with the right value, per series (lines), per bar, or per scatter point."""
-    failures = []
+    return [problem for problem in data_checks(axis, want).values() if problem]
+
+
+def data_checks(axis: dict[str, Any], want: dict[str, Any]) -> dict[str, str | None]:
+    """One check per expected line series, for the bar values and for the scatter points."""
+    checks: dict[str, str | None] = {}
     for series, values in want.get("line_values", {}).items():
         lines = axis.get("line_data", [])
         named = [line for line in lines if line["label"] == series]
+        checks[f"data:{series}"] = None
         if not any(_same_values(line["y"], values) for line in named or lines):
             found = max((len(line["y"]) for line in named), default=None)
             detail = f"{found} points" if found is not None else "no line labelled so"
-            failures.append(f"{series}: expected its {len(values)} data points from the CSV ({detail} or other values)")
-    if "bar_values" in want and not _same_values(axis.get("bar_values", []), want["bar_values"]):
-        failures.append(f"bar values do not match the {len(want['bar_values'])} totals computed from the CSV")
+            checks[f"data:{series}"] = (
+                f"{series}: expected its {len(values)} data points from the CSV ({detail} or other values)"
+            )
+    if "bar_values" in want:
+        checks["data:bars"] = (
+            None if _same_values(axis.get("bar_values", []), want["bar_values"])
+            else f"bar values do not match the {len(want['bar_values'])} totals computed from the CSV"
+        )  # fmt: skip
     if "scatter_points" in want:
         got = sorted((round(x, 1), round(y)) for x, y in axis.get("scatter_offsets", []))
         expected = sorted((round(x, 1), round(y)) for x, y in want["scatter_points"])
-        if got != expected:
-            failures.append(
-                f"scatter points do not match the {len(expected)} rows of the CSV (temperature on x, cups on y)"
-            )
-    return failures
+        checks["data:scatter"] = (
+            None if got == expected
+            else f"scatter points do not match the {len(expected)} rows of the CSV (temperature on x, cups on y)"
+        )  # fmt: skip
+    return checks
 
 
 def _sorted_top_down(axis: dict[str, Any]) -> bool:
@@ -318,6 +345,7 @@ def score_chart(ctx: EvalContext) -> list[Score]:
     expect = ctx.task.data["expect"]
     specs, ok = ctx.output.extras["specs"], ctx.output.extras["ok"]
     draft_failures, final_failures = check_spec(specs[0], expect), check_spec(specs[-1], expect)
+    final_share = share({key: problem is None for key, problem in spec_checks(specs[-1], expect).items()})
     rendered = ok[-1] and "chart.png" in ctx.output.artifacts
     errors = ctx.output.extras.get("errors") or [None] * len(ok)
     if rendered:
@@ -361,7 +389,7 @@ def score_chart(ctx: EvalContext) -> list[Score]:
         ),  # fmt: skip
         Score(
             name="spec_compliance",
-            value=float(not final_failures),
+            value=1.0 if not final_failures else final_share,
             level="e2e",
             passed=not final_failures,
             rationale="; ".join(final_failures) or "all checks passed",
@@ -375,6 +403,9 @@ class VisionJudge:
     def __init__(self, inner: RubricJudgeEvaluator) -> None:
         self.inner = inner
         self.name = inner.name
+
+    def owns(self, score_name: str) -> bool:
+        return self.inner.owns(score_name)
 
     async def evaluate(self, ctx: EvalContext) -> list[Score]:
         if ctx.judge is None or not ctx.judge.spec.capabilities.vision or not ctx.output.artifacts:

@@ -12,6 +12,7 @@ import re
 from typing import Any
 
 from llm_arena.eval.base import EvalContext, Evaluator, FunctionEvaluator, Score, Task, TrialOutput
+from llm_arena.eval.credit import share
 from llm_arena.eval.judge import Criterion, Rubric, RubricJudgeEvaluator
 from llm_arena.llm.client import system, user
 from llm_arena.patterns.reflection import Critique, llm_critique, reflect
@@ -116,23 +117,29 @@ WRITING_RUBRIC = Rubric(
 
 
 def constraint_failures(text: str, checks: dict[str, Any]) -> list[str]:
+    return [problem for problem in constraint_checks(text, checks).values() if problem]
+
+
+def constraint_checks(text: str, checks: dict[str, Any]) -> dict[str, str | None]:
+    """One check per requirement (length, each required fact, the forbidden phrases, format): None when met."""
     lowered = text.lower()
     words = len(re.findall(r"\b\w[\w'’-]*\b", text))
-    failures = []
+    result: dict[str, str | None] = {"length": None}
     if words > checks["max_words"]:
-        failures.append(f"{words} words > {checks['max_words']}")
+        result["length"] = f"{words} words > {checks['max_words']}"
     if words < checks["min_words"]:
-        failures.append(f"{words} words < {checks['min_words']}")
-    failures += [
-        f"missing {group[0]!r}" for group in checks["must_include"] if not any(o.lower() in lowered for o in group)
-    ]
-    failures += [f"contains {phrase!r}" for phrase in checks["must_not_include"] if phrase.lower() in lowered]
+        result["length"] = f"{words} words < {checks['min_words']}"
+    for index, group in enumerate(checks["must_include"]):
+        result[f"include:{index}"] = None if any(o.lower() in lowered for o in group) else f"missing {group[0]!r}"
+    forbidden = [f"contains {phrase!r}" for phrase in checks["must_not_include"] if phrase.lower() in lowered]
+    result["forbidden"] = "; ".join(forbidden) or None
     bullets = sum(1 for line in text.splitlines() if re.match(r"\s*([-*•]|\d+\.)\s", line))
-    if checks["format"] == "bullets" and bullets < 3:
-        failures.append("not a bulleted list")
-    if checks["format"] == "email" and not re.search(r"^\s*(hi|hello|dear|hey)\b", lowered, re.MULTILINE):
-        failures.append("no email greeting")
-    return failures
+    if checks["format"] == "bullets":
+        result["format"] = None if bullets >= 3 else "not a bulleted list"
+    if checks["format"] == "email":
+        greeted = re.search(r"^\s*(hi|hello|dear|hey)\b", lowered, re.MULTILINE)
+        result["format"] = None if greeted else "no email greeting"
+    return result
 
 
 def _checks_text(checks: dict[str, Any]) -> str:
@@ -156,6 +163,8 @@ class ReflectionWriting(Scenario):
     ]
     default_params = {"reflection_rounds": 1, "show_constraints_to_critic": True}
     pass_criteria = ["constraints_ok"]
+    version = "2"  # 2: constraints_ok scores the share of requirements met (partial credit)
+    regrades_from = frozenset({"1"})  # only grading changed since
     open_ended = True
     pairwise_criteria = "Accuracy against the facts, clarity, and fitting tone for the medium."
 
@@ -239,6 +248,7 @@ def score_writing(ctx: EvalContext) -> list[Score]:
     checks = ctx.task.data["checks"]
     drafts, verdicts = ctx.output.extras["drafts"], ctx.output.extras["verdicts"]
     draft_failures, final_failures = constraint_failures(drafts[0], checks), constraint_failures(drafts[-1], checks)
+    final_share = share({key: problem is None for key, problem in constraint_checks(drafts[-1], checks).items()})
     scores = [
         Score(
             name="draft_constraints_ok",
@@ -249,7 +259,7 @@ def score_writing(ctx: EvalContext) -> list[Score]:
         ),
         Score(
             name="constraints_ok",
-            value=float(not final_failures),
+            value=1.0 if not final_failures else final_share,
             level="e2e",
             passed=not final_failures,
             rationale="; ".join(final_failures) or "all constraints met",

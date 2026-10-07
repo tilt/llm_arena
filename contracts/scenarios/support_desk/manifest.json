@@ -75,7 +75,7 @@
   "supports_decisions": true,
   "tasks": 24,
   "title": "Support desk (control policies)",
-  "version": "1",
+  "version": "2",
   "wiki": [
     {
       "title": "Tool use and function calling",

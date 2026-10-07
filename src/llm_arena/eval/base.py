@@ -20,7 +20,7 @@ from llm_arena.sandbox.base import Sandbox
 
 Level = Literal["step", "e2e"]
 
-__all__ = ["EvalContext", "Evaluator", "FunctionEvaluator", "Level", "Score", "Task", "TrialOutput"]
+__all__ = ["EvalContext", "Evaluator", "FunctionEvaluator", "Level", "Score", "Task", "TrialOutput", "evaluate_all"]
 
 
 class Score(BaseModel):
@@ -54,6 +54,17 @@ class Evaluator(Protocol):
     def name(self) -> str: ...
 
     async def evaluate(self, ctx: EvalContext) -> list[Score]: ...
+
+
+async def evaluate_all(evaluators: list[Evaluator], ctx: EvalContext) -> list[Score]:
+    """Every evaluator's scores; a broken evaluator becomes an error score instead of losing the trial."""
+    scores: list[Score] = []
+    for evaluator in evaluators:
+        try:
+            scores += await evaluator.evaluate(ctx)
+        except Exception as exc:
+            scores.append(Score(name=f"{evaluator.name}.error", value=0.0, level="e2e", rationale=f"{exc}"[:500]))
+    return scores
 
 
 ScoreFn = Callable[[EvalContext], "list[Score] | Score | None | Awaitable[list[Score] | Score | None]"]

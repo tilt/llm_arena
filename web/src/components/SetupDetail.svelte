@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { LeaderboardEntry, ScenarioManifest } from "../lib/contracts";
+  import type { LeaderboardEntry, ScenarioManifest, TrialResult } from "../lib/contracts";
   import { pct } from "../lib/format";
   import { roleLines, setupPolicy } from "../lib/leaderboard";
 
@@ -11,7 +11,18 @@
   const byTask = $derived(Object.fromEntries(tasks.map((t) => [t, (entry.results ?? []).filter((r) => r.task_id === t)])));
   const params = $derived(Object.entries((entry.setup.params ?? {}) as Record<string, unknown>));
   const inspect = (runId: string, trialId: string) => `#/runs/${encodeURIComponent(runId)}/trial/${encodeURIComponent(trialId)}`;
+  const errors = $derived((entry.results ?? []).filter((r) => r.status !== "ok").length);
   const kindOf = (role: string) => manifest?.roles.find((r) => r.name === role)?.kind ?? "";
+  // A failed trial that did part of the work: its cell fills from the bottom by its partial credit.
+  const partial = (r: TrialResult) => (!r.passed && r.status === "ok" && r.credit != null ? r.credit : null);
+  const partialFill = (r: TrialResult) => {
+    const credit = partial(r);
+    return credit ? `--credit:${Math.round(credit * 100)}%` : undefined;
+  };
+  const partialNote = (r: TrialResult) => {
+    const credit = partial(r);
+    return credit == null ? "" : ` · ${pct(credit)} of checks met`;
+  };
 </script>
 
 <div class="detail">
@@ -32,6 +43,20 @@
   </section>
 
   <section>
+    {#if entry.criteria?.length}
+      <h4>Pass criteria <span class="muted small">a trial passes when all hold · bar: share of checks met</span></h4>
+      <ul class="criteria">
+        {#each entry.criteria as c (c.name)}
+          <li title={`${c.name}: passed in ${pct(c.pass_rate)} (per task), ${pct(c.credit)} of its checks met`}>
+            <span class="name">{c.name}</span>
+            <span class="bar" aria-hidden="true"><i style={`width:${c.credit * 100}%`}></i></span>
+            <span class="n" class:fail={c.pass_rate < 1}>{pct(c.pass_rate)}</span>
+          </li>
+        {/each}
+      </ul>
+      {#if errors}<p class="muted small note">{errors} {errors === 1 ? "trial" : "trials"} ended in an error or timeout and
+        {errors === 1 ? "counts" : "count"} as failing every criterion of {errors === 1 ? "its" : "their"} task.</p>{/if}
+    {/if}
     <h4>Tasks <span class="muted small">{pct(entry.pass_rate)} over {entry.tasks} tasks · click a trial to walk through its steps</span></h4>
     <div class="grid" role="table" aria-label="Trials per task">
       {#each tasks as task (task)}
@@ -40,9 +65,9 @@
           <span class="cells" role="cell">
             {#each byTask[task] ?? [] as r (r.trial_id)}
               <a class="cell" class:ok={r.passed} class:bad={!r.passed && r.status === "ok"} class:err={r.status !== "ok"}
-                href={inspect(r.run_id, r.trial_id)}
-                title={`${r.passed ? "passed" : r.status === "ok" ? "failed" : r.status} · run ${r.run_id}${r.repeat ? `, repeat ${r.repeat}` : ""} · open the step inspector`}
-                aria-label={`${task}: ${r.passed ? "passed" : r.status === "ok" ? "failed" : r.status}, run ${r.run_id}; open the step inspector`}>
+                href={inspect(r.run_id, r.trial_id)} style={partialFill(r)}
+                title={`${r.passed ? "passed" : r.status === "ok" ? "failed" : r.status}${partialNote(r)} · run ${r.run_id}${r.repeat ? `, repeat ${r.repeat}` : ""} · open the step inspector`}
+                aria-label={`${task}: ${r.passed ? "passed" : r.status === "ok" ? "failed" : r.status}${partialNote(r)}, run ${r.run_id}; open the step inspector`}>
                 {r.passed ? "✓" : r.status === "ok" ? "✗" : "!"}</a>
             {/each}
           </span>
@@ -50,7 +75,7 @@
       {/each}
     </div>
     <p class="muted small legend"><span class="cell ok">✓</span> passed <span class="cell bad">✗</span> failed
-      <span class="cell err">!</span> error or timeout</p>
+      (shaded by the share of checks met) <span class="cell err">!</span> error or timeout</p>
   </section>
 
   <section>
@@ -77,10 +102,19 @@
   .cell { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 5px; font-size: 13px; font-weight: 700;
     text-decoration: none; border: 1px solid var(--border); }
   .cell.ok { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
-  .cell.bad { color: var(--critical); background: color-mix(in srgb, var(--critical) 12%, transparent); }
+  .cell.bad { color: var(--critical); background: linear-gradient(to top, color-mix(in srgb, var(--good) 22%, transparent) var(--credit, 0%),
+    color-mix(in srgb, var(--critical) 12%, transparent) var(--credit, 0%)); }
   .cell.err { color: var(--kind-decision); background: color-mix(in srgb, var(--kind-decision) 14%, transparent); }
   a.cell:hover, a.cell:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .legend { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
   .legend .cell { width: 18px; height: 18px; font-size: 11px; }
+  .note { margin: -8px 0 14px; }
+  .criteria { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 6px; font-size: 12px; }
+  .criteria li { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(50px, 1fr) 40px; gap: 8px; align-items: center; }
+  .criteria .name { font-family: ui-monospace, monospace; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .criteria .bar { position: relative; height: 6px; background: var(--surface-3); border-radius: 3px; overflow: hidden; }
+  .criteria .bar i { position: absolute; inset: 0 auto 0 0; background: var(--accent); opacity: 0.6; }
+  .criteria .n { text-align: right; font-variant-numeric: tabular-nums; }
+  .criteria .fail { color: var(--critical); }
   .runs { margin: 0; padding-left: 16px; font-size: 13px; display: grid; gap: 2px; }
 </style>

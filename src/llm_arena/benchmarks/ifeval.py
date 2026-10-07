@@ -105,6 +105,8 @@ class IFEvalBench(Benchmark):
     description = "IFEval subset (Apache-2.0): verifiable formatting/length/keyword instructions, own checkers."
     sample_size = 100
     pass_criteria = ["correct"]
+    version = "2"  # 2: `correct` scores the share of instructions followed (partial credit)
+    regrades_from = frozenset({"1"})  # only grading changed since
 
     grading: ClassVar[str] = "every verifiable instruction is followed (checked by code)"
 
@@ -134,9 +136,13 @@ class IFEvalBench(Benchmark):
             (instruction, CHECKERS[instruction](ctx.output.final, kwargs))
             for instruction, kwargs in zip(ctx.task.data["instructions"], ctx.task.data["kwargs"], strict=True)
         ]
+        if not results:  # nothing verifiable to check: no evidence of following anything, so no pass
+            return [correct_score(False, "the item has no verifiable instructions")]
         followed = sum(ok for _, ok in results)
         failed = [instruction for instruction, ok in results if not ok]
+        correct = correct_score(not failed, f"failed: {failed}" if failed else "all instructions followed")
         return [
-            correct_score(not failed, f"failed: {failed}" if failed else "all instructions followed"),
+            # Partial credit: the share of instructions followed; the verdict still needs all of them.
+            correct.model_copy(update={"value": followed / len(results)}),
             Score(name="instruction_accuracy", value=followed / len(results), level="e2e"),
         ]

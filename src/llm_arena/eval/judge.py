@@ -7,7 +7,7 @@ Judges are models too, so they are configurable, pinned per experiment, reported
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
@@ -107,6 +107,13 @@ async def _compare(judge: LLMClient, task_prompt: str, a: str, b: str, criteria:
     return verdict
 
 
+@runtime_checkable
+class JudgeEvaluator(Protocol):
+    """An evaluator whose scores need a judge model (so they cannot be recomputed offline, see runner/regrade.py)."""
+
+    def owns(self, score_name: str) -> bool: ...
+
+
 @dataclass
 class RubricJudgeEvaluator:
     """Evaluator adapter: scores `ctx.output.final` with a rubric; emits overall + per-criterion scores."""
@@ -119,6 +126,10 @@ class RubricJudgeEvaluator:
     @property
     def name(self) -> str:
         return f"judge:{self.rubric.name}"
+
+    def owns(self, score_name: str) -> bool:
+        """Whether a score comes from this judge (the rubric's overall score or one of its criteria)."""
+        return score_name == self.rubric.name or score_name.startswith(f"{self.rubric.name}.")
 
     async def evaluate(self, ctx: EvalContext) -> list[Score]:
         if ctx.judge is None:

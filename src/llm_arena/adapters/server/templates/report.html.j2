@@ -153,14 +153,16 @@ pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2
      aria-label="Pass rate with 95% confidence interval per configuration"></div></div>
 <div class="card table-wrap">
   <table>
-    <thead><tr><th>Config</th><th>Roles</th><th class="n">Pass rate [95% CI]</th><th class="n">pass^k</th>
-      <th class="n">pass@k</th><th class="n">Tasks×k</th><th class="n">Tokens/trial</th><th class="n">$/trial</th>
+    <thead><tr><th>Config</th><th>Roles</th><th class="n">Pass rate [95% CI]</th>
+      <th class="n" title="Share of the graded checks met (pass criteria weigh the same); 100% only when passed">Partial</th>
+      <th class="n">pass^k</th><th class="n">pass@k</th><th class="n">Tasks×k</th><th class="n">Tokens/trial</th><th class="n">$/trial</th>
       <th class="n">p50 / p95 s</th><th class="n">Errors</th></tr></thead>
     <tbody>
     {% for c in members | sort(attribute="pass_rate", reverse=True) %}
       <tr><td><strong>{{ c.config }}</strong></td>
         <td>{% for role, model in c.roles.items() %}<span class="pill">{{ role }}: {{ model }}</span>{% endfor %}</td>
         <td class="n">{{ c.pass_rate | pct }} <span class="muted">[{{ c.ci_low | pct }}–{{ c.ci_high | pct }}]</span></td>
+        <td class="n">{{ c.credit | pct }}</td>
         <td class="n">{{ c.pass_hat_k | pct }}</td><td class="n">{{ c.pass_at_k | pct }}</td>
         <td class="n">{{ c.tasks }}×{{ c.repeats }}</td><td class="n">{{ c.mean_tokens | num(0) }}</td>
         <td class="n">{{ c.mean_cost_usd | num(4) }}</td>

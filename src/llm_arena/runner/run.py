@@ -24,7 +24,8 @@ from typing import Any
 from llm_arena.core.errors import ConfigError
 from llm_arena.core.trace import Trace
 from llm_arena.decisions.config import DECIDER_ROLE, ESCALATION_ROLE, DecisionSetup
-from llm_arena.eval.base import EvalContext, Score, Task, TrialOutput
+from llm_arena.eval.base import EvalContext, Score, Task, TrialOutput, evaluate_all
+from llm_arena.eval.credit import trial_credit, trial_passed
 from llm_arena.eval.judge import judge_pairwise
 from llm_arena.llm.cache import cache_salt
 from llm_arena.llm.catalog import Catalog
@@ -397,9 +398,8 @@ class ExperimentRunner:
 
         judge_trace = Trace()
         scores = await self._evaluate(spec, output, trace, judge_trace) if status == "ok" else []
-        criteria = set(spec.scenario.pass_criteria)
-        graded = [score for score in scores if score.name in criteria and score.passed is not None]
-        passed = status == "ok" and bool(graded) and all(score.passed for score in graded)
+        passed = trial_passed(status, scores, spec.scenario.pass_criteria)
+        credit, criteria_detail = trial_credit(status, scores, spec.scenario.pass_criteria)
         setup = spec.setup
         record = TrialRecord(
             trial_id=spec.trial_id,
@@ -423,6 +423,8 @@ class ExperimentRunner:
             setup=setup,
             resume_key=spec.resume_key,
             execution=self.runtime.execution_environment(),
+            credit=credit,
+            criteria=criteria_detail,
         )
         extra = {
             "env_state": output.env_state,
@@ -478,13 +480,7 @@ class ExperimentRunner:
         ctx = EvalContext(
             task=spec.task, output=output, trace=trace, judge=judge, params=spec.params, sandbox=self.runtime.sandbox
         )
-        scores: list[Score] = []
-        for evaluator in spec.scenario.evaluators(spec.params):
-            try:
-                scores += await evaluator.evaluate(ctx)
-            except Exception as exc:  # a broken evaluator must not lose the trial
-                scores.append(Score(name=f"{evaluator.name}.error", value=0.0, level="e2e", rationale=f"{exc}"[:500]))
-        return scores
+        return await evaluate_all(spec.scenario.evaluators(spec.params), ctx)
 
     # ---- arena ----------------------------------------------------------------------------
     async def _run_battles(self, store: RunStore, trials: list[TrialSpec]) -> None:

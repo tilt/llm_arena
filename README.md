@@ -54,6 +54,8 @@ Other entry points:
 - `arena judge-calibrate` checks an LLM judge against hand labels.
 - `arena mock-email` serves the mock mailbox over HTTP.
 - `arena leaderboard [scenario]` ranks setups per scenario across all runs (also in the app's Leaderboard page).
+- `arena regrade [run-id…] [--apply]` re-grades runs of an earlier scenario version whose prompts, tools and
+  tasks are unchanged, so they join the current leaderboard (dry run by default; backs up before writing).
 - `arena contracts [--check]` exports JSON Schemas, scenario data and conformance vectors for the web UI and other
   engines.
 - `arena run … --sandbox auto|docker|unsafe-process` chooses where model-written code runs. `auto` (the default) uses
@@ -288,6 +290,8 @@ It handles:
 
 - [docs/architecture.md](docs/architecture.md): engine, ports, adapters, contracts, and how to extend each.
 - [docs/decisions/](docs/decisions/): architecture decision records (e.g. the Pyodide browser runtime).
+- [docs/principles.md](docs/principles.md): why we grade and rank the way we do: what a score measures, partial
+  credit, reproducibility, fair comparison and uncertainty.
 - [docs/scenarios.md](docs/scenarios.md): every scenario, its step metrics and design rationale.
 - [docs/metrics.md](docs/metrics.md): how scores, pass^k, CIs, significance tests and arena ratings are computed.
 - [docs/security.md](docs/security.md): threat model: sandboxing of model-written code, keys, spending, reports.

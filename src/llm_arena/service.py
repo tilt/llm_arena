@@ -22,12 +22,13 @@ from llm_arena.decisions.records import DecisionSummary
 from llm_arena.llm.catalog import Catalog
 from llm_arena.llm.pricing import known_price, price_per_mtok
 from llm_arena.llm.spec import ModelSpec
-from llm_arena.report.aggregate import ConfigSummary, PairedTest, ReplacementEffect, summarize
+from llm_arena.report.aggregate import ConfigSummary, PairedTest, ReplacementEffect, credited, summarize
 from llm_arena.report.leaderboard import Leaderboard, build_leaderboards
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import EventSink, ignore
 from llm_arena.runner.ports import RunData, RunStore, Runtime
 from llm_arena.runner.presets import DEFAULT_PRESETS, ModelPreset, save_preset
+from llm_arena.runner.regrade import RegradeReport, regrade_run
 from llm_arena.runner.rename import RenameRun, rename_data, rename_trace
 from llm_arena.runner.run import ExperimentRunner, new_run_id, valid_run_id
 from llm_arena.scenarios.base import SCENARIOS, get_scenario
@@ -227,11 +228,32 @@ class ArenaService:
         trials: list[dict[str, Any]] = []
         for run_id in run_ids:
             try:
-                rows = self.store_factory(run_id).load_run().trials
+                rows = credited(self.store_factory(run_id).load_run()).trials
             except Exception:  # a run being written by another process, or a damaged run directory
                 continue
             trials += [{**row, "run_id": row.get("run_id") or run_id} for row in rows]
         return build_leaderboards(trials, scenario)
+
+    async def regrade(
+        self, run_ids: list[str], *, apply: bool = False, before_write: Callable[[str], None] | None = None
+    ) -> list[RegradeReport]:
+        """Re-grade the runs' trials of earlier, grading-only scenario versions (see runner/regrade.py).
+
+        Without `apply` nothing is written. `before_write(run_id)` runs before a run is changed (e.g. a backup).
+        """
+        reports = []
+        for run_id in run_ids:
+            task = self._tasks.get(run_id)
+            if task is not None and not task.done():
+                raise ConfigError(f"run {run_id} is still going: re-grade it once it has finished")
+            store = self.store_factory(run_id)
+            report = await regrade_run(run_id, store.load_run(), store.load_trace, store.load_artifact)
+            if apply and report.trials:
+                if before_write is not None:
+                    before_write(run_id)
+                store.regrade(report.trials)
+            reports.append(report)
+        return reports
 
     def run_bundle(
         self,
@@ -245,7 +267,7 @@ class ArenaService:
         """`traces=False` for a light bundle (the UI then loads traces per trial); `artifacts=True` embeds the
         files the included traces reference, up to `max_artifact_bytes` (exports, browser storage)."""
         store = self.store_factory(run_id)
-        data = store.load_run()
+        data = credited(store.load_run())
         trial_traces = (
             {trial["trial_id"]: store.load_trace(trial["trial_id"]) for trial in data.trials[:max_traces]}
             if traces

@@ -81,7 +81,8 @@
   <p class="crumbs"><a href="#/leaderboard">Leaderboard</a> / {titleOf(scenario)}</p>
   <h1>{titleOf(scenario)}</h1>
   <p class="lead">Setups ranked by pass rate on this scenario's tasks, discounted when few tasks back it (each task weighs
-    the same; 95% interval over tasks). Open a setup to see how each task went and to walk through a trial step by step.</p>
+    the same; 95% interval over tasks); ties go to the setup with more partial credit. Open a setup to see which pass
+    criteria hold it back, how each task went, and to walk through a trial step by step.</p>
   <div class="filters">
     {#if versions.length > 1}
       <label>Scenario version <select bind:value={version}>{#each versions as v (v)}<option value={v}>{v}</option>{/each}</select></label>
@@ -103,6 +104,7 @@
     <div class="card table-wrap">
       <table class="board">
         <thead><tr><th class="n">#</th><th>Setup</th><th>Models per step</th><th class="n">Pass rate [95% CI]</th>
+          <th class="n" title="Share of the graded checks met, every pass criterion weighing the same; breaks ranking ties">Partial</th>
           <th class="n">Tasks · trials</th><th class="n">$/trial</th><th class="n">p50 s</th><th class="n">vs #1</th></tr></thead>
         <tbody>
           {#each rows as e (e.fingerprint)}
@@ -119,6 +121,7 @@
                 <div>{pct(e.pass_rate)} <span class="muted">[{pct(e.ci_low)}–{pct(e.ci_high)}]</span></div>
                 <div class="ci" aria-hidden="true"><span style={`left:${e.ci_low * 100}%;width:${(e.ci_high - e.ci_low) * 100}%`}></span><i style={`left:${e.pass_rate * 100}%`}></i></div>
               </td>
+              <td class="n">{#if e.credit == null}<span class="muted" title="recorded before partial credit">—</span>{:else}{pct(e.credit)}{/if}</td>
               <td class="n">{e.tasks} · {e.trials}{#if e.tasks < 5}<div><span class="pill few" title="Fewer than 5 tasks: the pass rate says little; the ranking discounts it">few tasks</span></div>{/if}</td>
               <td class="n">{usd(e.mean_cost_usd)}</td>
               <td class="n">{num(e.latency_p50_s, 1)}</td>
@@ -129,10 +132,10 @@
                   <div class="muted small">p={num(e.p_vs_leader, 2)}</div>{/if}</td>
             </tr>
             {#if expanded}
-              <tr class="detail-row" id={`detail-${e.fingerprint}`}><td colspan="8"><SetupDetail entry={e} {manifest} onuse={() => use(e)} /></td></tr>
+              <tr class="detail-row" id={`detail-${e.fingerprint}`}><td colspan="9"><SetupDetail entry={e} {manifest} onuse={() => use(e)} /></td></tr>
             {/if}
           {:else}
-            <tr><td colspan="8" class="muted">No setup uses {model}. <button class="link" onclick={() => (model = "")}>Show all</button></td></tr>
+            <tr><td colspan="9" class="muted">No setup uses {model}. <button class="link" onclick={() => (model = "")}>Show all</button></td></tr>
           {/each}
         </tbody>
       </table>

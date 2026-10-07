@@ -76,6 +76,7 @@ def test_fingerprint_covers_call_settings_and_policy() -> None:
 async def test_duckdb_runs_record_fingerprints_and_feed_the_leaderboard(tmp_path: Path) -> None:
     from llm_arena.runner.ports import Runtime
     from llm_arena.runner.run import ExperimentRunner
+    from llm_arena.scenarios.support_desk import SupportDeskScenario as SupportDesk
     from llm_arena.service import ArenaService
     from test_control import SPECS, _experiment, _factory
 
@@ -87,8 +88,12 @@ async def test_duckdb_runs_record_fingerprints_and_feed_the_leaderboard(tmp_path
         Runtime(client_factory=_factory), store_factory=lambda run_id: DuckDBStore(tmp_path / run_id)
     )
     (board,) = service.leaderboards(["run-a", "run-b"])
-    assert board.scenario == "support_desk" and board.scenario_version == "1"
+    assert board.scenario == "support_desk" and board.scenario_version == SupportDesk.version
     assert [(e.trials, len(e.runs)) for e in board.entries] == [(2, 2), (2, 2)]
+    # Partial credit survives the DuckDB round trip, with one result per pass criterion.
+    assert all(
+        e.credit is not None and [c.name for c in e.criteria] == SupportDesk.pass_criteria for e in board.entries
+    )
     assert {e.setup["decisions"]["policy"] if e.setup["decisions"] else None for e in board.entries} == {"rules", None}
     assert all(set(e.setup["roles"]) == {"agent"} for e in board.entries)  # rules use no decider model
 

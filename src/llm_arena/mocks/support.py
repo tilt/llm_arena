@@ -219,30 +219,47 @@ class SupportDesk:
         return _desk_tools(self)
 
 
+def outcome_checks(expect: dict[str, Any], state: dict[str, Any]) -> dict[str, dict[str, str | None]]:
+    """Keyed checks per criterion, for the completion check and partial credit: None when met, else the problem
+    ("" for an unmet check whose cause another check already reports)."""
+    state_checks: dict[str, str | None] = {}
+    got: dict[str, float] = {}
+    for refund in state["refunds"]:
+        got[str(refund["order_id"])] = round(got.get(str(refund["order_id"]), 0.0) + refund["amount"], 2)
+    for order_id in sorted(set(got) | set(expect["refunds"])):
+        want, have = expect["refunds"].get(order_id, 0.0), got.get(order_id, 0.0)
+        state_checks[f"refund:{order_id}"] = (
+            None if abs(want - have) <= 0.01 else f"order {order_id}: refunded ${have:.2f}, expected ${want:.2f}"
+        )
+    newly_cancelled = set(state["cancelled"]) - {o.order_id for o in ORDERS if o.status == "cancelled"}
+    for order_id in sorted(newly_cancelled | set(expect["cancelled"])):
+        if (order_id in newly_cancelled) == (order_id in expect["cancelled"]):
+            state_checks[f"cancel:{order_id}"] = None
+        else:
+            state_checks[f"cancel:{order_id}"] = (
+                f"order {order_id} not cancelled" if order_id in expect["cancelled"] else f"order {order_id} cancelled, not expected"
+            )  # fmt: skip
+    to_customer = [m for m in state["messages"] if m["customer_email"].lower() == expect["message_to"]]
+    informed: dict[str, str | None] = {"message": None if to_customer else f"no message to {expect['message_to']}"}
+    for word in expect["message_mentions"]:
+        if not to_customer:
+            informed[f"mention:{word}"] = ""  # unmet; the missing message is the problem worth reporting
+        elif not any(word in m["text"].lower() for m in to_customer):
+            informed[f"mention:{word}"] = f"message does not mention {word!r}"
+        else:
+            informed[f"mention:{word}"] = None
+    return {"state_correct": state_checks, "customer_informed": informed}
+
+
 def outcome_problems(
     expect: dict[str, Any], state: dict[str, Any], *, final_check: bool = True
 ) -> dict[str, list[str]]:
     """Problems per criterion (empty dict = everything as expected). `final_check` also flags violations."""
     problems: dict[str, list[str]] = {}
-    got: dict[str, float] = {}
-    for refund in state["refunds"]:
-        got[str(refund["order_id"])] = round(got.get(str(refund["order_id"]), 0.0) + refund["amount"], 2)
-    for order_id in set(got) | set(expect["refunds"]):
-        want, have = expect["refunds"].get(order_id, 0.0), got.get(order_id, 0.0)
-        if abs(want - have) > 0.01:
-            problems.setdefault("state_correct", []).append(
-                f"order {order_id}: refunded ${have:.2f}, expected ${want:.2f}"
-            )
-    newly_cancelled = set(state["cancelled"]) - {o.order_id for o in ORDERS if o.status == "cancelled"}
-    if newly_cancelled != set(expect["cancelled"]):
-        problems.setdefault("state_correct", []).append(
-            f"cancelled {sorted(newly_cancelled)}, expected {expect['cancelled']}"
-        )
-    to_customer = [m for m in state["messages"] if m["customer_email"].lower() == expect["message_to"]]
-    if not to_customer:
-        problems.setdefault("customer_informed", []).append(f"no message to {expect['message_to']}")
-    elif missing := [w for w in expect["message_mentions"] if not any(w in m["text"].lower() for m in to_customer)]:
-        problems.setdefault("customer_informed", []).append(f"message does not mention {missing}")
+    for criterion, checks in outcome_checks(expect, state).items():
+        found = [problem for problem in checks.values() if problem]
+        if found:
+            problems[criterion] = found
     if final_check and (bad := [a for a in state["actions"] if a["violation"]]):
         problems["policy_compliant"] = [f"{a['tool']}({a['args']}): {a['violation']}" for a in bad]
     return problems

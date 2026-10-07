@@ -4,7 +4,7 @@ import type { ConfigSummary, RunBundle } from "./contracts";
 import { passRateMatrix, ratings, sections, stepMatrix } from "./report";
 
 const config = (scenario: string, name: string, rate: number, steps: Record<string, number>): ConfigSummary => ({
-  scenario, config: name, pattern: "reflection", pass_rate: rate, ci_low: 0, ci_high: 1, pass_hat_k: rate, pass_at_k: rate,
+  scenario, config: name, pattern: "reflection", pass_rate: rate, ci_low: 0, ci_high: 1, credit: rate, pass_hat_k: rate, pass_at_k: rate,
   trials: 2, tasks: 1, repeats: 2, errors: 0, mean_tokens: 100, mean_cost_usd: 0, judge_cost_usd: 0, latency_p50_s: 1,
   latency_p95_s: 2, roles: {}, step_means: steps, e2e_means: { final_correct: rate }, derived: {}, per_task_pass: {},
 });

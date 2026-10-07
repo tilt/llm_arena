@@ -11,6 +11,7 @@ from typing import Any
 
 from llm_arena.eval.base import EvalContext, Evaluator, FunctionEvaluator, Score, Task, TrialOutput
 from llm_arena.eval.compare import last_number, numbers_match
+from llm_arena.eval.credit import change_credit
 from llm_arena.eval.trace_checks import StopReasonEvaluator
 from llm_arena.mocks.shop import API_DOC, API_SOURCE, POLICY, TODAY, ShopEnvironment
 from llm_arena.patterns.codeact import run_codeact
@@ -73,6 +74,8 @@ class ShopCodeAct(Scenario):
     roles = [RoleRequirement("agent", "writes and runs Python against the shop API", kind="code")]
     default_params = {"max_steps": 6, "timeout_s": 20}
     pass_criteria = ["state_correct", "policy_ok"]
+    version = "2"  # 2: state_correct scores the share of expected changes made (partial credit)
+    regrades_from = frozenset({"1"})  # only grading changed since
 
     def load_tasks(self) -> list[Task]:
         return [Task.model_validate(entry) for entry in TASKS]
@@ -156,34 +159,17 @@ def _step_scores(ctx: EvalContext) -> list[Score]:
 def check_shop(ctx: EvalContext) -> list[Score]:
     expect = ctx.task.data["expect"]
     initial, final = ctx.output.env_state["initial"], ctx.output.env_state["final"]
-    problems: list[str] = []
-    orders = {str(o["order_id"]): o for o in final["orders"]}
-    stock = {p["sku"]: p["stock"] for p in final["products"]}
-    for order_id, status in expect.get("order_status", {}).items():
-        if orders[order_id]["status"] != status:
-            problems.append(f"order {order_id} is {orders[order_id]['status']}, expected {status}")
-    for sku, quantity in expect.get("stock", {}).items():
-        if stock[sku] != quantity:
-            problems.append(f"{sku} stock {stock[sku]}, expected {quantity}")
-    refunds: dict[str, float] = {}
-    for refund in final["refunds"]:
-        refunds[str(refund["order_id"])] = refunds.get(str(refund["order_id"]), 0.0) + refund["amount"]
-    if {k: round(v, 2) for k, v in refunds.items()} != expect.get("refund_total", {}):
-        problems.append(f"refunds {refunds}, expected {expect.get('refund_total', {})}")
-    messaged = sorted({m["customer_email"] for m in final["messages"]})
-    if messaged != sorted(expect.get("messaged", [])):
-        problems.append(f"messaged {messaged}, expected {expect.get('messaged', [])}")
-    # Stock must not change except where the task expects it (cancellations restock their items).
-    initial_stock = {p["sku"]: p["stock"] for p in initial["products"]}
-    stray = [sku for sku in stock if stock[sku] != initial_stock[sku] and sku not in expect.get("stock", {})]
-    if stray:
-        problems.append(f"unexpected stock changes: {stray}")
+    keys = _check_keys(expect, initial, final)
+    checks = shop_checks(expect, initial, final, keys)
+    problems = [problem for problem in checks.values() if problem]
+    before = {key: problem is None for key, problem in shop_checks(expect, initial, initial, keys).items()}
+    credit = change_credit(before, {key: problem is None for key, problem in checks.items()})
 
     violations = _policy_violations(initial, final)
     scores = [
         Score(
             name="state_correct",
-            value=float(not problems),
+            value=1.0 if not problems else credit,
             level="e2e",
             passed=not problems,
             rationale="; ".join(problems) or "state matches",
@@ -200,6 +186,64 @@ def check_shop(ctx: EvalContext) -> list[Score]:
         ok = numbers_match(last_number(ctx.output.final), ctx.task.data["answer_number"], rel_tol=1e-3)
         scores.append(Score(name="answer_correct", value=float(ok), level="e2e", passed=ok))
     return scores
+
+
+def _refund_totals(state: dict[str, Any]) -> dict[str, float]:
+    totals: dict[str, float] = {}
+    for refund in state["refunds"]:
+        totals[str(refund["order_id"])] = totals.get(str(refund["order_id"]), 0.0) + refund["amount"]
+    return {order_id: round(total, 2) for order_id, total in totals.items()}
+
+
+def _check_keys(expect: dict[str, Any], initial: dict[str, Any], final: dict[str, Any]) -> dict[str, list[str]]:
+    """What to check in any state: everything expected plus everything either state touched."""
+    return {
+        "stock": sorted({p["sku"] for p in initial["products"]} | set(expect.get("stock", {}))),
+        "refunds": sorted(set(_refund_totals(initial)) | set(_refund_totals(final)) | set(expect.get("refund_total", {}))),
+        "messaged": sorted({m["customer_email"] for state in (initial, final) for m in state["messages"]}
+                           | set(expect.get("messaged", []))),
+    }  # fmt: skip
+
+
+def shop_checks(
+    expect: dict[str, Any], initial: dict[str, Any], state: dict[str, Any], keys: dict[str, list[str]]
+) -> dict[str, str | None]:
+    """Keyed state checks: None when met, else the problem.
+
+    Stock must not change except where the task expects it (cancellations restock their items); refunds and
+    messages must match exactly, so an extra one is a failed check too.
+    """
+    checks: dict[str, str | None] = {}
+    orders = {str(o["order_id"]): o for o in state["orders"]}
+    for order_id, status in expect.get("order_status", {}).items():
+        actual = orders[order_id]["status"]
+        checks[f"status:{order_id}"] = None if actual == status else f"order {order_id} is {actual}, expected {status}"
+    stock = {p["sku"]: p["stock"] for p in state["products"]}
+    initial_stock = {p["sku"]: p["stock"] for p in initial["products"]}
+    for sku in keys["stock"]:
+        want = expect.get("stock", {}).get(sku, initial_stock.get(sku))
+        if stock.get(sku) != want:
+            checks[f"stock:{sku}"] = (
+                f"{sku} stock {stock.get(sku)}, expected {want}" if sku in expect.get("stock", {})
+                else f"unexpected stock change: {sku}"
+            )  # fmt: skip
+        else:
+            checks[f"stock:{sku}"] = None
+    refunds, wanted_refunds = _refund_totals(state), expect.get("refund_total", {})
+    for order_id in keys["refunds"]:
+        have, want = refunds.get(order_id, 0.0), float(wanted_refunds.get(order_id, 0.0))
+        checks[f"refund:{order_id}"] = (
+            None if abs(have - want) <= 0.005 else f"order {order_id} refunded {have:.2f}, expected {want:.2f}"
+        )
+    messaged, wanted_messages = {m["customer_email"] for m in state["messages"]}, set(expect.get("messaged", []))
+    for email in keys["messaged"]:
+        if (email in messaged) == (email in wanted_messages):
+            checks[f"message:{email}"] = None
+        else:
+            checks[f"message:{email}"] = (
+                f"no message to {email}" if email in wanted_messages else f"unexpected message to {email}"
+            )
+    return checks
 
 
 def _policy_violations(initial: dict[str, Any], final: dict[str, Any]) -> list[str]:

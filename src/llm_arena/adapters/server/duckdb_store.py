@@ -25,6 +25,7 @@ from llm_arena.decisions.records import DECISION_COLUMNS, decision_rows
 from llm_arena.eval.base import Score
 from llm_arena.runner.memory_store import trace_payload, trial_row
 from llm_arena.runner.ports import RunData, TrialRecord
+from llm_arena.runner.regrade import RegradedTrial
 from llm_arena.runner.rename import RenameRun, rename_data, rename_trace
 
 _TRIAL_COLUMNS = (
@@ -32,7 +33,7 @@ _TRIAL_COLUMNS = (
     "duration_s", "llm_calls", "tool_calls", "prompt_tokens", "completion_tokens", "cost_usd", "llm_latency_s",
     "judge_cost_usd", "roles_json", "params_json", "fingerprint", "scenario_version", "task_fp", "setup_json",
     "resume_key",
-    "execution_json",
+    "execution_json", "credit", "criteria_json",
 )  # fmt: skip
 
 _SCHEMA = """
@@ -54,6 +55,8 @@ ALTER TABLE trials ADD COLUMN IF NOT EXISTS setup_json TEXT;
 ALTER TABLE trials ADD COLUMN IF NOT EXISTS resume_key TEXT;
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS execution_json TEXT;
 ALTER TABLE trials ADD COLUMN IF NOT EXISTS execution_json TEXT;
+ALTER TABLE trials ADD COLUMN IF NOT EXISTS credit DOUBLE;
+ALTER TABLE trials ADD COLUMN IF NOT EXISTS criteria_json TEXT;
 CREATE TABLE IF NOT EXISTS scores (
     trial_id TEXT, name TEXT, level TEXT, value DOUBLE, passed BOOLEAN, rationale TEXT
 );
@@ -217,6 +220,47 @@ class DuckDBStore:
             if (trace.get("trial") or {}).get("config") in renames:
                 rename_trace(trace, renames)
                 path.write_text(json.dumps(trace, default=str, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    def regrade(self, trials: list[RegradedTrial]) -> None:
+        """Database and traces change together: the new traces are staged first, the database commits (or rolls
+        back and the staged files are dropped), and only then are the traces swapped in, each by an atomic rename."""
+        columns = ("scenario_version", "passed", "credit", "criteria_json", "resume_key")
+        folder = self.run_dir / "traces"
+        staged: list[tuple[Path, Path]] = []
+        try:
+            for trial in trials:
+                temporary = folder / f"{trial.trial_id}.json.regrade"
+                temporary.write_text(
+                    json.dumps(trial.trace, default=str, ensure_ascii=False, indent=1), encoding="utf-8"
+                )
+                staged.append((temporary, folder / f"{trial.trial_id}.json"))
+            with self._db() as db:
+                db.execute("BEGIN TRANSACTION")
+                try:
+                    for trial in trials:
+                        db.execute(
+                            f"UPDATE trials SET {', '.join(f'{c} = ?' for c in columns)} WHERE trial_id = ?",
+                            [*(trial.columns[c] for c in columns), trial.trial_id],
+                        )
+                        db.execute("DELETE FROM scores WHERE trial_id = ?", [trial.trial_id])
+                        if trial.scores:
+                            db.executemany(
+                                "INSERT INTO scores VALUES (?, ?, ?, ?, ?, ?)",
+                                [
+                                    [trial.trial_id, s.name, s.level, s.value, s.passed, s.rationale]
+                                    for s in trial.scores
+                                ],
+                            )
+                    db.execute("COMMIT")
+                except BaseException:
+                    db.execute("ROLLBACK")
+                    raise
+        except BaseException:
+            for temporary, _ in staged:
+                temporary.unlink(missing_ok=True)
+            raise
+        for temporary, target in staged:
+            temporary.replace(target)
 
     def load_trace(self, trial_id: str) -> dict[str, Any] | None:
         path = self.run_dir / "traces" / f"{trial_id}.json"
