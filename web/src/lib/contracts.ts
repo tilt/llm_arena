@@ -8,6 +8,7 @@ export type RunEvent = RunStarted | TrialStarted | TrialFinished | BudgetExceede
 
 export interface Contracts {
   CatalogEntry?: CatalogEntry;
+  EndpointView?: EndpointView;
   Estimate?: Estimate;
   ExperimentConfig?: ExperimentConfig;
   Leaderboard?: Leaderboard;
@@ -19,6 +20,7 @@ export interface Contracts {
   RunStartedResponse?: RunStartedResponse;
   RuntimeInfo?: RuntimeInfo;
   RuntimeResponse?: RuntimeResponse;
+  SaveEndpoint?: SaveEndpoint;
   ScenarioManifest?: ScenarioManifest;
   Score?: Score;
   SetKey?: SetKey;
@@ -33,6 +35,7 @@ export interface Contracts {
  */
 export interface CatalogEntry {
   context_length?: number | null;
+  endpoint?: string | null;
   input_cost_per_mtok?: number | null;
   loaded?: boolean | null;
   output_cost_per_mtok?: number | null;
@@ -40,7 +43,7 @@ export interface CatalogEntry {
   quantization?: string | null;
   size_gb?: number | null;
   snapshot?: boolean;
-  source: "ollama" | "lmstudio" | "openai" | "anthropic";
+  source: "ollama" | "lmstudio" | "openai" | "anthropic" | "openai_compatible";
   spec: ModelSpec;
 }
 /**
@@ -53,6 +56,8 @@ export interface ModelSpec {
   base_url?: string | null;
   capabilities?: Capabilities;
   concurrency?: number | null;
+  endpoint?: string | null;
+  endpoint_identity?: string | null;
   extra_body?: {
     [k: string]: unknown | undefined;
   };
@@ -85,6 +90,32 @@ export interface Capabilities {
   reasoning?: boolean;
   tools?: boolean;
   vision?: boolean;
+}
+/**
+ * An endpoint plus where its key comes from; never the key itself.
+ *
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "EndpointView".
+ */
+export interface EndpointView {
+  /**
+   * env var holding the key (YAML only)
+   */
+  api_key_env?: string | null;
+  /**
+   * API root including the version, e.g. 'http://203.0.113.7:8000/v1'
+   */
+  base_url: string;
+  capabilities?: Capabilities;
+  concurrency?: number | null;
+  id: string;
+  input_cost_per_mtok?: number;
+  key: "env" | "session" | "missing";
+  output_cost_per_mtok?: number;
+  /**
+   * random, so the endpoint's identity (a keyed hash of its URL) cannot be reversed to the URL
+   */
+  salt?: string;
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema
@@ -843,6 +874,28 @@ export interface RuntimeResponse {
    * build id of the web UI when the server started ('' if none)
    */
   ui_build?: string;
+}
+/**
+ * An endpoint as the app edits it. The id comes from the path; the key env var is not editable here, so a page
+ * cannot point an existing key (say OPENAI_API_KEY) at a host of its choosing.
+ *
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "SaveEndpoint".
+ */
+export interface SaveEndpoint {
+  base_url: string;
+  capabilities?: Capabilities;
+  concurrency?: number | null;
+  input_cost_per_mtok?: number;
+  /**
+   * optional; held in memory for this session only
+   */
+  key?: string | null;
+  output_cost_per_mtok?: number;
+  /**
+   * keep the endpoint's identity (browser mode restores a remembered endpoint with it)
+   */
+  salt?: string | null;
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema

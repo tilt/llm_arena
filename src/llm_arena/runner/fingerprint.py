@@ -27,8 +27,19 @@ def _digest(value: Any, length: int = 12) -> str:
 def setup_of(
     bindings: dict[str, ModelSpec], params: dict[str, Any], decisions: dict[str, Any] | None
 ) -> dict[str, Any]:
-    roles = {role: {field: getattr(spec, field) for field in SPEC_FIELDS} for role, spec in sorted(bindings.items())}
+    roles = {role: _role_setup(spec) for role, spec in sorted(bindings.items())}
     return {"roles": roles, "params": params, "decisions": decisions}
+
+
+def _role_setup(spec: ModelSpec) -> dict[str, Any]:
+    setup = {field: getattr(spec, field) for field in SPEC_FIELDS}
+    # The same model id on two named endpoints may be served differently (quantization, context, engine), so the
+    # endpoint is part of the setup. Added only when set, so every earlier fingerprint stays valid.
+    if spec.endpoint:
+        setup["endpoint"] = spec.endpoint
+        # The keyed hash of its URL (`Endpoint.identity`): the same name pointed at another server is another setup.
+        setup["endpoint_identity"] = spec.endpoint_identity
+    return setup
 
 
 def fingerprint(setup: dict[str, Any]) -> str:

@@ -135,6 +135,14 @@ describe("profiles in browser mode", () => {
     expect(usablePresets(profiles, true)["openai-mini"]!.decision_service).toBeNull();
     expect(Object.keys(usablePresets(profiles, false))).toEqual(["local-small", "openai-mini"]);
   });
+
+  it("keeps profiles on named endpoints, which a page can reach", () => {
+    const profiles = {
+      "gpu": { label: "GPU box", models: { text: "gpu-box:Qwen/Qwen3-32B" } },
+      "env-compatible": { label: "Env endpoint", models: { text: "openai_compatible:qwen3" } },
+    };
+    expect(Object.keys(usablePresets(profiles, true))).toEqual(["gpu"]);
+  });
 });
 
 describe("thinking settings per model", () => {

@@ -110,13 +110,14 @@ export function storeEditedPresets(presets: Record<string, ModelPreset>): void {
   localStorage.setItem(EDITED, JSON.stringify(presets));
 }
 
-/** Providers a web page can call directly (browser mode). Local servers and Ollaya/Jev are out of reach. */
-export const BROWSER_PROVIDERS = ["openai", "anthropic"];
+/** Reference prefixes a web page cannot call (browser mode): local servers and the env-configured compatible endpoint.
+ *  Every other prefix is a remote provider or a named endpoint. Ollaya/Jev are decision services, not models. */
+export const LOCAL_ONLY_PREFIXES = ["ollama", "lmstudio", "openai_compatible"];
 
 /** Presets whose every model runs in this runtime; dedicated decision services are dropped in the browser. */
 export function usablePresets(presets: Record<string, ModelPreset>, browser: boolean): Record<string, ModelPreset> {
   if (!browser) return presets;
-  const runs = (ref: string) => BROWSER_PROVIDERS.includes(ref.split(":")[0] ?? "");
+  const runs = (ref: string) => !LOCAL_ONLY_PREFIXES.includes(ref.split(":")[0] ?? "");
   return Object.fromEntries(Object.entries(presets)
     .filter(([, p]) => Object.values(p.models).every((ref) => !ref || runs(ref)))
     .map(([name, p]) => [name, { ...p, decision_service: null }]));

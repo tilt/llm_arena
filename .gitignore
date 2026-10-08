@@ -17,3 +17,5 @@ spikes/**/package-lock.json
 
 # Your edited model presets (the app writes them here)
 configs/presets.local.yaml
+# Your OpenAI-compatible endpoints (the app writes them here; they may name private hosts)
+configs/endpoints.local.yaml

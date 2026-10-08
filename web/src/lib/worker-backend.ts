@@ -3,11 +3,13 @@
 // are kept in IndexedDB and can be exported/imported as RunBundle files.
 import type { ArenaBackend, ModelsResponse, Persistence, TrialTrace } from "./backend";
 import { BackendError } from "./backend";
-import type { ModelPreset, Estimate, RenameRun, ExperimentConfig, Leaderboard, RunBundle, RunEvent, RunListing, RuntimeResponse, ScenarioManifest, StartRun, TaskView } from "./contracts";
+import type { ModelPreset, EndpointView, Estimate, RenameRun, ExperimentConfig, Leaderboard, RunBundle, RunEvent, RunListing, RuntimeResponse, SaveEndpoint, ScenarioManifest, StartRun, TaskView } from "./contracts";
 import type { EngineMethod, EngineReply } from "../engine/protocol";
 import { editedPresets, storeEditedPresets, usablePresets } from "./presets";
 import { listBundles, loadBundle, saveBundle } from "./idb";
-import { enforceCredentialStorage, readRememberedKeys, writeRememberedKeys } from "./credential-storage";
+import {
+  enforceCredentialStorage, readRememberedEndpoints, readRememberedKeys, writeRememberedEndpoints, writeRememberedKeys,
+} from "./credential-storage";
 
 export interface SelftestResult { case: string; status: "pass" | "fail" | "skipped"; mismatches?: string[]; reason?: string }
 
@@ -55,6 +57,33 @@ export class WorkerBackend implements ArenaBackend {
       const keys = readRememberedKeys();
       delete keys[provider];
       writeRememberedKeys(keys);
+    }
+    await this.call("models", true);
+  }
+
+  async endpoints(): Promise<EndpointView[]> { return this.json("endpoints"); }
+
+  async saveEndpoint(id: string, endpoint: SaveEndpoint, remember = false): Promise<EndpointView> {
+    const view = await this.json<EndpointView>("set_endpoint", id, JSON.stringify(endpoint));
+    if (this.canRememberKeys) {
+      const endpoints = readRememberedEndpoints();
+      const before = endpoints[id];
+      // Same rule as the engine: a key stays with the URL it was entered for.
+      const key = endpoint.key || (before && before.base_url === endpoint.base_url ? before.key : undefined);
+      // The salt keeps the restored endpoint's identity, so its runs keep pooling on the leaderboard.
+      if (remember) endpoints[id] = { ...endpoint, key: key ?? null, salt: view.salt }; else delete endpoints[id];
+      writeRememberedEndpoints(endpoints);
+    }
+    await this.call("models", true);
+    return view;
+  }
+
+  async removeEndpoint(id: string): Promise<void> {
+    await this.call("clear_endpoint", id);
+    if (this.canRememberKeys) {
+      const endpoints = readRememberedEndpoints();
+      delete endpoints[id];
+      writeRememberedEndpoints(endpoints);
     }
     await this.call("models", true);
   }
@@ -158,6 +187,9 @@ export class WorkerBackend implements ArenaBackend {
   private async restoreKeys(): Promise<void> {
     if (!this.canRememberKeys) return;
     for (const [provider, key] of Object.entries(readRememberedKeys())) await this.call("set_key", provider, key);
+    for (const [id, endpoint] of Object.entries(readRememberedEndpoints())) {
+      await this.call("set_endpoint", id, JSON.stringify(endpoint)).catch(() => undefined);  // a stale entry is skipped
+    }
   }
 
   private async json<T>(method: EngineMethod, ...args: unknown[]): Promise<T> {

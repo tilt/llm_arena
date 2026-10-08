@@ -19,7 +19,7 @@ from llm_arena.core.errors import ArenaError
 from llm_arena.llm.errors import LLMError
 from llm_arena.llm.pricing import load_prices
 from llm_arena.llm.probe import ProbeResult, probe_model
-from llm_arena.llm.registry import PROVIDERS, load_model_specs, resolve_model
+from llm_arena.llm.registry import PROVIDERS, EndpointStore, load_model_specs, resolve_model
 from llm_arena.llm.spec import ModelSpec
 from llm_arena.runner.ports import Runtime
 from llm_arena.runner.presets import load_presets
@@ -32,6 +32,8 @@ console = Console()
 
 ModelsFile = Annotated[Path, typer.Option("--models", help="Model specs YAML")]
 DEFAULT_MODELS = Path("configs/models.yaml")
+EndpointsFile = Annotated[Path, typer.Option("--endpoints", help="Named OpenAI-compatible endpoints YAML")]
+DEFAULT_ENDPOINTS = Path("configs/endpoints.local.yaml")  # git-ignored: the app writes it, it may name private hosts
 SandboxOption = Annotated[
     str | None,
     typer.Option(
@@ -68,6 +70,14 @@ def _specs(path: Path) -> dict[str, ModelSpec]:
     return load_model_specs(path) if path.exists() else {}
 
 
+def _endpoints(path: Path) -> EndpointStore:
+    try:
+        return EndpointStore(path)
+    except (OSError, ValueError) as exc:
+        console.print(f"[red]invalid endpoints in {escape(str(path))}:[/] {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+
+
 @models_app.command("list")
 def models_list(
     models_file: ModelsFile = DEFAULT_MODELS,
@@ -76,9 +86,11 @@ def models_list(
         list[str] | None, typer.Option("--needs", help="Only models with this capability (tools, vision, reasoning)")
     ] = None,
     show_all: Annotated[bool, typer.Option("--all", help="Include dated OpenAI snapshots")] = False,
+    endpoints_file: EndpointsFile = DEFAULT_ENDPOINTS,
 ) -> None:
-    """Discover installed/available models (Ollama, LM Studio, OpenAI) plus curated aliases from models.yaml."""
-    catalog = asyncio.run(discover())
+    """Discover installed/available models (Ollama, LM Studio, OpenAI, Anthropic, named endpoints) plus curated
+    aliases from models.yaml."""
+    catalog = asyncio.run(discover(endpoints=_endpoints(endpoints_file).all()))
     entries = catalog.filter(needs=frozenset(needs or []), snapshots=show_all)
     if json_out:
         payload = {
@@ -96,7 +108,7 @@ def models_list(
         tools = "✓" if caps.tools else "json"
         price = (
             "free (local)"
-            if e.source != "openai"
+            if e.source not in ("openai", "openai_compatible") or e.input_cost_per_mtok == e.output_cost_per_mtok == 0
             else (
                 f"{e.input_cost_per_mtok:g} / {e.output_cost_per_mtok:g}"
                 if e.input_cost_per_mtok is not None
@@ -128,10 +140,11 @@ def models_ping(
         list[str] | None, typer.Argument(help="Aliases or provider:model refs (default: all configured)")
     ] = None,
     models_file: ModelsFile = DEFAULT_MODELS,
+    endpoints_file: EndpointsFile = DEFAULT_ENDPOINTS,
 ) -> None:
     """Smoke-test chat, tool calling and structured output for each model."""
     specs = _specs(models_file)
-    discovered = asyncio.run(discover()).specs()
+    discovered = asyncio.run(discover(endpoints=_endpoints(endpoints_file).all())).specs()
     targets = [resolve_model(name, specs, discovered) for name in names] if names else list(specs.values())
 
     async def probe_all() -> list[ProbeResult]:
@@ -184,6 +197,7 @@ def run(
     sandbox: SandboxOption = None,
     docker: Annotated[bool, typer.Option(help="Shortcut for --sandbox docker")] = False,
     runs_dir: Annotated[Path, typer.Option(help="Where runs are stored")] = Path("runs"),
+    endpoints_file: EndpointsFile = DEFAULT_ENDPOINTS,
 ) -> None:
     """Run an experiment: scenarios × model configs × tasks × repeats."""
     from llm_arena.adapters.server.duckdb_store import DuckDBStore
@@ -199,8 +213,9 @@ def run(
         run_id = run_id or new_run_id(experiment.name)
         run_dir = runs_dir / run_id
         selected, hint = _sandbox("docker" if docker else sandbox)
+        runtime = server_runtime(sandbox=selected, sandbox_hint=hint or "", endpoints=_endpoints(endpoints_file))
         runner = ExperimentRunner(
-            experiment, server_runtime(sandbox=selected, sandbox_hint=hint or ""), run_id=run_id, live=live,
+            experiment, runtime, run_id=run_id, live=live,
             model_specs=_specs(Path(experiment.models_file)), sink=RichProgressSink(console, str(run_dir)),
             presets=load_presets(*PRESETS),
         )  # fmt: skip
@@ -347,6 +362,7 @@ def judge_calibrate(
     rubric: Annotated[str, typer.Argument(help="Rubric name, e.g. report_quality, writing_quality, brief_quality")],
     examples: Annotated[Path, typer.Argument(help="JSONL with task/response/label(pass|fail)")],
     models_file: ModelsFile = DEFAULT_MODELS,
+    endpoints_file: EndpointsFile = DEFAULT_ENDPOINTS,
 ) -> None:
     """Agreement and Cohen's kappa between a judge and human labels."""
     from llm_arena.eval.calibration import calibrate
@@ -358,7 +374,8 @@ def judge_calibrate(
     rubrics = {r.name: r for r in (REPORT_RUBRIC, WRITING_RUBRIC, BRIEF_RUBRIC, CHART_RUBRIC)}
     if rubric not in rubrics:
         raise typer.BadParameter(f"unknown rubric; choose from {sorted(rubrics)}")
-    client = get_client(resolve_model(judge, _specs(models_file), asyncio.run(discover()).specs()))
+    discovered = asyncio.run(discover(endpoints=_endpoints(endpoints_file).all())).specs()
+    client = get_client(resolve_model(judge, _specs(models_file), discovered))
     result = asyncio.run(calibrate(client, rubrics[rubric], examples))
     console.print(
         f"{result.judge} on {result.rubric}: n={result.n} agreement={result.agreement:.0%} kappa={result.kappa:.2f}"
@@ -388,6 +405,7 @@ def ui(
     link: Annotated[bool, typer.Option("--link", help="Print the authenticated URL and exit")] = False,
     new_token: Annotated[bool, typer.Option("--new-token", help="Rotate the local UI token before starting")] = False,
     models_file: ModelsFile = DEFAULT_MODELS,
+    endpoints_file: EndpointsFile = DEFAULT_ENDPOINTS,
 ) -> None:
     """Start the local app: web UI + API over the discovered local and remote models (127.0.0.1 only)."""
     import threading
@@ -399,6 +417,7 @@ def ui(
     from llm_arena.adapters.server.runtime import server_runtime
     from llm_arena.runner.config import configured_dev_origin
     from llm_arena.server.app import create_app
+    from llm_arena.server.keys import KeyStore
     from llm_arena.server.session import load_ui_token
     from llm_arena.service import ArenaService
 
@@ -408,8 +427,10 @@ def ui(
         typer.echo(authenticated_url)
         return
     selected, hint = _sandbox(sandbox)
+    endpoints, keys = _endpoints(endpoints_file), KeyStore()
     service = ArenaService(
-        server_runtime(sandbox=selected, sandbox_hint=hint or ""), store_factory=lambda run_id: DuckDBStore(runs_dir / run_id),
+        server_runtime(sandbox=selected, sandbox_hint=hint or "", endpoints=endpoints, endpoint_keys=keys.endpoint_key),
+        store_factory=lambda run_id: DuckDBStore(runs_dir / run_id),
         model_specs=_specs(models_file),
         presets=load_presets(*PRESETS), presets_file=PRESETS[1],
     )  # fmt: skip
@@ -423,6 +444,8 @@ def ui(
     uvicorn.run(
         create_app(
             service,
+            endpoints=endpoints,
+            keys=keys,
             runs_dir=runs_dir,
             static_dir=static_dir,
             port=port,

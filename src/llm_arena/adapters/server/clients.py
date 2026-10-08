@@ -13,6 +13,7 @@ from llm_arena.adapters.server.httpx_transport import HttpxTransport
 from llm_arena.llm.cache import ResponseCache
 from llm_arena.llm.client import LLMClient
 from llm_arena.llm.http_client import ProtocolClient
+from llm_arena.llm.registry import check_key_transport
 from llm_arena.llm.spec import ModelSpec
 
 
@@ -21,13 +22,15 @@ def default_cache() -> ResponseCache | None:
     return DiskCache(directory) if directory else None
 
 
-def get_client(spec: ModelSpec, *, cache: ResponseCache | None = None) -> LLMClient:
+def get_client(spec: ModelSpec, *, cache: ResponseCache | None = None, api_key: str | None = None) -> LLMClient:
+    """`api_key` overrides the key from the environment (a named endpoint's session key in the app)."""
+    check_key_transport(spec, api_key)
     cache = cache or default_cache()
     backend = spec.backend
     if backend == "auto":
         backend = "anthropic" if spec.provider == "anthropic" else "openai"
     if backend == "http":
-        return ProtocolClient(spec, HttpxTransport(), cache=cache)
+        return ProtocolClient(spec, HttpxTransport(), api_key=api_key, cache=cache)
     if backend == "anthropic":
         from llm_arena.adapters.server.anthropic_sdk import AnthropicSDKClient
 
@@ -38,4 +41,4 @@ def get_client(spec: ModelSpec, *, cache: ResponseCache | None = None) -> LLMCli
         return AisuiteClient(spec)
     from llm_arena.adapters.server.openai_sdk import OpenAIChatClient
 
-    return OpenAIChatClient(spec, cache=cache)
+    return OpenAIChatClient(spec, cache=cache, api_key=api_key)

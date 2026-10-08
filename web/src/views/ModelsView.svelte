@@ -1,7 +1,9 @@
 <script lang="ts">
+  import EndpointPanel from "../components/EndpointPanel.svelte";
   import KeyPanel from "../components/KeyPanel.svelte";
   import { app, refresh } from "../lib/app.svelte";
   import type { CatalogItem } from "../lib/backend";
+  import { endpointHint, groupOf } from "../lib/endpoints";
   import { perMtok } from "../lib/format";
 
   const CAPS = ["tools", "vision", "reasoning"] as const;
@@ -12,10 +14,10 @@
 
   const caps = (m: CatalogItem) => (m.spec.capabilities ?? {}) as Record<string, boolean | undefined>;
   const visible = $derived(
-    (app.models?.models ?? []).filter((m) => (!source || m.source === source) && needs.every((n) => caps(m)[n])
+    (app.models?.models ?? []).filter((m) => (!source || groupOf(m) === source) && needs.every((n) => caps(m)[n])
       && (!query || m.ref.toLowerCase().includes(query.toLowerCase()))),
   );
-  const sources = $derived([...new Set((app.models?.models ?? []).map((m) => m.source))]);
+  const sources = $derived([...new Set((app.models?.models ?? []).map(groupOf))]);
 
   async function reload() {
     refreshing = true;
@@ -27,11 +29,12 @@
 
 <h1>Models</h1>
 <p class="lead">
-  {app.mode === "local" ? "Discovered from Ollama, LM Studio and the configured API providers." : "Remote models available with your keys."}
+  {app.mode === "local" ? "Discovered from Ollama, LM Studio, the configured API providers and your endpoints." : "Remote models available with your keys and endpoints."}
   Use the reference in experiments. Models without native tool calling use a text-based JSON protocol automatically.
 </p>
 
 <KeyPanel />
+<EndpointPanel />
 
 <div class="filters">
   <input type="text" placeholder="Search" bind:value={query} aria-label="Search models" />
@@ -41,7 +44,7 @@
 </div>
 
 {#each Object.entries(app.models?.unavailable ?? {}) as [provider, reason] (provider)}
-  <p class="note">{provider} unavailable: {reason}</p>
+  <p class="note">{provider} unavailable: {reason} {endpointHint(reason, app.mode)}</p>
 {/each}
 
 <div class="card table-wrap">

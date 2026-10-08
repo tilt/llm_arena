@@ -5,8 +5,9 @@ from __future__ import annotations
 import json
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from llm_arena.llm.spec import Capabilities, Endpoint
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import RunProgress
 from llm_arena.runner.run import valid_run_id
@@ -46,6 +47,29 @@ class RunListing(BaseModel):
 
 class SetKey(BaseModel):
     key: str
+
+
+class SaveEndpoint(BaseModel):
+    """An endpoint as the app edits it. The id comes from the path; the key env var is not editable here, so a page
+    cannot point an existing key (say OPENAI_API_KEY) at a host of its choosing."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    base_url: str
+    capabilities: Capabilities = Field(default_factory=Capabilities)
+    input_cost_per_mtok: float = Field(default=0.0, ge=0)
+    output_cost_per_mtok: float = Field(default=0.0, ge=0)
+    concurrency: int | None = Field(default=None, ge=1)
+    key: str | None = Field(default=None, description="optional; held in memory for this session only")
+    salt: str | None = Field(
+        default=None, description="keep the endpoint's identity (browser mode restores a remembered endpoint with it)"
+    )
+
+
+class EndpointView(Endpoint):
+    """An endpoint plus where its key comes from; never the key itself."""
+
+    key: KeySource
 
 
 class RuntimeResponse(RuntimeInfo):

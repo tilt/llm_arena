@@ -3,6 +3,7 @@
 import type {
   ModelPreset,
   CatalogEntry,
+  EndpointView,
   Estimate,
   Leaderboard,
   ExperimentConfig,
@@ -12,6 +13,7 @@ import type {
   RunListing,
   RenameRun,
   RuntimeResponse,
+  SaveEndpoint,
   ScenarioManifest,
   StartRun,
   TaskView,
@@ -44,6 +46,11 @@ export interface ArenaBackend {
   /** remember: keep the key on this device (browser mode only; the local app keeps keys server-side). */
   setKey(provider: string, key: string, remember?: boolean): Promise<void>;
   clearKey(provider: string): Promise<void>;
+  /** Named OpenAI-compatible endpoints; key material is never returned, only where it comes from. */
+  endpoints(): Promise<EndpointView[]>;
+  /** Add or edit an endpoint (a new URL forgets its key). remember: as for setKey. */
+  saveEndpoint(id: string, endpoint: SaveEndpoint, remember?: boolean): Promise<EndpointView>;
+  removeEndpoint(id: string): Promise<void>;
   estimate(experiment: ExperimentConfig): Promise<Estimate>;
   startRun(request: StartRun): Promise<string>;
   /** Subscribe to a run's events (history first, then live). Returns an unsubscribe function. */
@@ -106,6 +113,18 @@ export class HttpBackend implements ArenaBackend {
 
   clearKey(provider: string): Promise<void> {
     return this.request("DELETE", `/api/keys/${encodeURIComponent(provider)}`);
+  }
+
+  endpoints(): Promise<EndpointView[]> {
+    return this.request("GET", "/api/endpoints");
+  }
+
+  saveEndpoint(id: string, endpoint: SaveEndpoint): Promise<EndpointView> {
+    return this.request("PUT", `/api/endpoints/${encodeURIComponent(id)}`, endpoint);
+  }
+
+  removeEndpoint(id: string): Promise<void> {
+    return this.request("DELETE", `/api/endpoints/${encodeURIComponent(id)}`);
   }
 
   estimate(experiment: ExperimentConfig): Promise<Estimate> {

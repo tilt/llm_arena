@@ -1,7 +1,7 @@
 """The browser engine's entry point, called from the Pyodide web worker.
 
-Wraps ArenaService with a browser Runtime: remote models only (OpenAI, Anthropic) with keys kept in
-this worker's memory, fetch-based discovery using the shared catalog builders, a JS-bridged
+Wraps ArenaService with a browser Runtime: remote models only (OpenAI, Anthropic, named
+OpenAI-compatible endpoints that allow this page's origin via CORS) with keys kept in this worker's memory, fetch-based discovery using the shared catalog builders, a JS-bridged
 sandbox, and benchmark files prefetched from the Hugging Face CDN. Methods take and return JSON
 strings, which keeps the JS <-> Python bridge trivial and matches the local app's HTTP payloads.
 
@@ -18,16 +18,17 @@ from typing import Any
 
 from pydantic import TypeAdapter
 
-from llm_arena.api import KeySource, RunListing, RuntimeResponse, StartRun, run_listing
+from llm_arena.api import EndpointView, KeySource, RunListing, RuntimeResponse, SaveEndpoint, StartRun, run_listing
 from llm_arena.benchmarks.base import Benchmark
 from llm_arena.benchmarks.hf import HFSource, configure_loader, hub_url
 from llm_arena.conformance import CASES, record
 from llm_arena.core.errors import ConfigError
-from llm_arena.llm.catalog import Catalog, anthropic_entries, openai_entries
+from llm_arena.llm.catalog import Catalog, anthropic_entries, compatible_entries, openai_entries
 from llm_arena.llm.client import LLMClient
 from llm_arena.llm.http_client import ProtocolClient
 from llm_arena.llm.protocols.anthropic_messages import API_VERSION
-from llm_arena.llm.spec import ModelSpec
+from llm_arena.llm.registry import bound_session_key, check_key_transport
+from llm_arena.llm.spec import Endpoint, ModelSpec, key_transport_ok
 from llm_arena.llm.transport import ChatTransport, HttpResponse
 from llm_arena.report.leaderboard import Leaderboard, build_leaderboards
 from llm_arena.runner.config import ExperimentConfig
@@ -87,7 +88,8 @@ class BrowserArena:
         self._get_bytes = get_bytes
         self._emit = emit
         self._load_package = load_package
-        self._keys: dict[str, str] = {}
+        self._keys: dict[str, str] = {}  # provider, or "endpoint:<id>" for a named endpoint
+        self._endpoints: dict[str, Endpoint] = {}
         self._stores: dict[str, MemoryStore] = {}
         self._finished: set[str] = set()
         self._events: dict[str, list[RunEvent]] = {}
@@ -109,6 +111,36 @@ class BrowserArena:
 
     def key_status(self) -> dict[str, KeySource]:
         return {provider: "session" if provider in self._keys else "missing" for provider in PROVIDERS}
+
+    # ---- named endpoints ------------------------------------------------------------------
+    def set_endpoint(self, endpoint_id: str, body_json: str) -> str:
+        """Same contract as the local app's PUT /api/endpoints/{id}; a URL change forgets the endpoint's key."""
+        body = SaveEndpoint.model_validate_json(body_json)
+        previous = self._endpoints.get(endpoint_id)
+        # Keeping the salt across edits makes the identity change only with the URL.
+        salt = body.salt or (previous.salt if previous else None)
+        endpoint = Endpoint(
+            id=endpoint_id, **body.model_dump(exclude={"key", "salt"}), **({"salt": salt} if salt else {})
+        )
+        if body.key and body.key.strip() and not key_transport_ok(endpoint.base_url):
+            raise ConfigError("a key is only sent over https:// (or to a local or private network address)")
+        if previous and previous.base_url != endpoint.base_url:
+            self._keys.pop(_endpoint_key(endpoint_id), None)
+        self._endpoints[endpoint_id] = endpoint
+        if body.key and body.key.strip():
+            self._keys[_endpoint_key(endpoint_id)] = body.key.strip()
+        return self._endpoint_view(endpoint).model_dump_json()
+
+    def clear_endpoint(self, endpoint_id: str) -> None:
+        self._endpoints.pop(endpoint_id, None)
+        self._keys.pop(_endpoint_key(endpoint_id), None)
+
+    def endpoints(self) -> str:
+        return json.dumps([self._endpoint_view(endpoint).model_dump() for endpoint in self._endpoints.values()])
+
+    def _endpoint_view(self, endpoint: Endpoint) -> EndpointView:
+        key: KeySource = "session" if _endpoint_key(endpoint.id) in self._keys else "missing"
+        return EndpointView(**endpoint.model_dump(), key=key)
 
     # ---- API (JSON in / JSON out) ---------------------------------------------------------
     async def runtime(self) -> str:
@@ -202,6 +234,15 @@ class BrowserArena:
         self._emit(json.dumps({"run_id": run_id, "event": event.model_dump()}))
 
     def _client(self, spec: ModelSpec) -> LLMClient:
+        if spec.provider == "openai_compatible":
+            endpoint = self._endpoints.get(spec.endpoint or "")
+            # The key goes only to the URL it was entered for: a spec from before a URL change gets none.
+            if endpoint is None or spec.base_url != endpoint.base_url:
+                raise ConfigError(f"{spec.name}: add its endpoint on the Models page first")
+            session = bound_session_key(spec, self._endpoints, lambda id_: self._keys.get(_endpoint_key(id_)))
+            api_key = session or "none"  # self-hosted servers often need none
+            check_key_transport(spec, api_key)
+            return ProtocolClient(spec, self._transport, api_key=api_key, browser=True)
         if spec.provider not in PROVIDERS:
             raise ConfigError(f"{spec.name}: browser mode runs remote models only (install the app for local models)")
         key = self._keys.get(spec.provider)
@@ -220,7 +261,20 @@ class BrowserArena:
                 catalog.entries.extend(await self._list_models(provider, key))
             except Exception as exc:  # reported per provider, like server discovery
                 catalog.errors[provider] = f"{type(exc).__name__}: {exc}"[:200]
+        for endpoint in self._endpoints.values():
+            try:
+                catalog.entries.extend(await self._list_endpoint_models(endpoint))
+            except Exception as exc:
+                catalog.errors[endpoint.id] = f"{type(exc).__name__}: {exc}"[:200]
         return catalog
+
+    async def _list_endpoint_models(self, endpoint: Endpoint) -> list[Any]:
+        key = self._keys.get(_endpoint_key(endpoint.id))
+        response = await self._http_get(
+            f"{endpoint.base_url}/models", {"Authorization": f"Bearer {key}"} if key else {}
+        )
+        _raise_for_status(response)
+        return compatible_entries(endpoint, response.data.get("data", []))
 
     async def _list_models(self, provider: str, key: str) -> list[Any]:
         if provider == "openai":
@@ -244,6 +298,10 @@ class BrowserArena:
                 if not path.exists():
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_bytes(await self._get_bytes(hub_url(source)))
+
+
+def _endpoint_key(endpoint_id: str) -> str:
+    return f"endpoint:{endpoint_id}"
 
 
 def _raise_for_status(response: HttpResponse) -> None:

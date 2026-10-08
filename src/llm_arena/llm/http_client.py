@@ -100,7 +100,7 @@ class ProtocolClient:
             last_error = f"HTTP {response.status}: {self._protocol.error_message(response.data)}"
             if self._protocol.is_permanent(response.status, response.data):
                 break
-        raise ProviderError(f"{self.spec.name}: {last_error}")
+        raise ProviderError(self.spec.redact(f"{self.spec.name}: {last_error}"))
 
 
 def _jittered_backoff(attempt: int) -> float:

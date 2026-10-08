@@ -1,0 +1,106 @@
+{
+  "$defs": {
+    "Capabilities": {
+      "description": "What a model can do; checked before a run so a bad role binding fails fast.",
+      "properties": {
+        "json_schema": {
+          "default": true,
+          "title": "Json Schema",
+          "type": "boolean"
+        },
+        "reasoning": {
+          "default": false,
+          "title": "Reasoning",
+          "type": "boolean"
+        },
+        "tools": {
+          "default": true,
+          "title": "Tools",
+          "type": "boolean"
+        },
+        "vision": {
+          "default": false,
+          "title": "Vision",
+          "type": "boolean"
+        }
+      },
+      "title": "Capabilities",
+      "type": "object"
+    }
+  },
+  "description": "An endpoint plus where its key comes from; never the key itself.",
+  "properties": {
+    "api_key_env": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "env var holding the key (YAML only)",
+      "title": "Api Key Env"
+    },
+    "base_url": {
+      "description": "API root including the version, e.g. 'http://203.0.113.7:8000/v1'",
+      "title": "Base Url",
+      "type": "string"
+    },
+    "capabilities": {
+      "$ref": "#/$defs/Capabilities"
+    },
+    "concurrency": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Concurrency"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "input_cost_per_mtok": {
+      "default": 0.0,
+      "minimum": 0,
+      "title": "Input Cost Per Mtok",
+      "type": "number"
+    },
+    "key": {
+      "enum": [
+        "env",
+        "session",
+        "missing"
+      ],
+      "title": "Key",
+      "type": "string"
+    },
+    "output_cost_per_mtok": {
+      "default": 0.0,
+      "minimum": 0,
+      "title": "Output Cost Per Mtok",
+      "type": "number"
+    },
+    "salt": {
+      "description": "random, so the endpoint's identity (a keyed hash of its URL) cannot be reversed to the URL",
+      "pattern": "^[0-9a-f]{16,64}$",
+      "title": "Salt",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "base_url",
+    "key"
+  ],
+  "title": "EndpointView",
+  "type": "object"
+}

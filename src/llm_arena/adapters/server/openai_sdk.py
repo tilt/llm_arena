@@ -14,7 +14,7 @@ from openai import AsyncOpenAI
 from tenacity import AsyncRetrying, retry_if_exception, stop_after_attempt, wait_random_exponential
 
 from llm_arena.llm.cache import ResponseCache
-from llm_arena.llm.errors import ProviderError
+from llm_arena.llm.errors import LLMError, ProviderError
 from llm_arena.llm.limits import limiter_for
 from llm_arena.llm.protocols import openai_chat
 from llm_arena.llm.registry import resolve_api_key, resolve_base_url
@@ -35,11 +35,22 @@ def is_transient(exc: BaseException) -> bool:
 
 
 class OpenAIChatClient:
-    def __init__(self, spec: ModelSpec, *, sdk_client: AsyncOpenAI | None = None, cache: ResponseCache | None = None):
+    def __init__(
+        self,
+        spec: ModelSpec,
+        *,
+        sdk_client: AsyncOpenAI | None = None,
+        cache: ResponseCache | None = None,
+        api_key: str | None = None,
+    ):
         self.spec = spec
+        base_url = resolve_base_url(spec)
+        if sdk_client is None and base_url is None and spec.provider == "openai_compatible":
+            # The SDK would default to api.openai.com and send this endpoint's key there.
+            raise LLMError(f"{spec.name}: an openai_compatible model needs a base_url")
         self._sdk = sdk_client or AsyncOpenAI(
-            base_url=resolve_base_url(spec),
-            api_key=resolve_api_key(spec),
+            base_url=base_url,
+            api_key=api_key or resolve_api_key(spec),
             timeout=spec.timeout_s,
             max_retries=0,  # tenacity owns retries so they are counted in one place
         )
@@ -89,5 +100,5 @@ class OpenAIChatClient:
                 with attempt:
                     return await self._sdk.chat.completions.create(**body, extra_body=extra or None)
         except openai.OpenAIError as exc:
-            raise ProviderError(f"{self.spec.name}: {type(exc).__name__}: {exc}") from exc
+            raise ProviderError(self.spec.redact(f"{self.spec.name}: {type(exc).__name__}: {exc}")) from exc
         raise ProviderError(f"{self.spec.name}: no attempt was made")  # unreachable; keeps mypy honest

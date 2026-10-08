@@ -80,6 +80,30 @@
       "default": null,
       "title": "Concurrency"
     },
+    "endpoint": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Endpoint"
+    },
+    "endpoint_identity": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Endpoint Identity"
+    },
     "extra_body": {
       "additionalProperties": true,
       "title": "Extra Body",

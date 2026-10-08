@@ -80,6 +80,30 @@
           "default": null,
           "title": "Concurrency"
         },
+        "endpoint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Endpoint"
+        },
+        "endpoint_identity": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Endpoint Identity"
+        },
         "extra_body": {
           "additionalProperties": true,
           "title": "Extra Body",
@@ -217,6 +241,18 @@
       "default": null,
       "title": "Context Length"
     },
+    "endpoint": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Endpoint"
+    },
     "input_cost_per_mtok": {
       "anyOf": [
         {
@@ -299,7 +335,8 @@
         "ollama",
         "lmstudio",
         "openai",
-        "anthropic"
+        "anthropic",
+        "openai_compatible"
       ],
       "title": "Source",
       "type": "string"

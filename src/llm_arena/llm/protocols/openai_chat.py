@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from llm_arena.llm.errors import LLMError
 from llm_arena.llm.pricing import cost_usd
 from llm_arena.llm.reasoning import sampling_params, split_think
 from llm_arena.llm.registry import resolve_base_url
@@ -30,7 +31,11 @@ JSON_STEP_FORMAT: dict[str, Any] = {
 
 
 def endpoint(spec: ModelSpec) -> str:
-    base = resolve_base_url(spec) or "https://api.openai.com/v1"
+    base = resolve_base_url(spec)
+    if base is None and spec.provider == "openai_compatible":
+        # Falling back to api.openai.com would send this endpoint's key (and prompts) to OpenAI.
+        raise LLMError(f"{spec.name}: an openai_compatible model needs a base_url")
+    base = base or "https://api.openai.com/v1"
     return f"{base.rstrip('/')}/chat/completions"
 
 

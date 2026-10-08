@@ -140,7 +140,7 @@ class ArenaService:
 
     async def runtime_info(self) -> RuntimeInfo:
         catalog = await self.catalog()
-        providers: dict[str, str] = {entry.source: "available" for entry in catalog.entries}
+        providers: dict[str, str] = {entry.endpoint or entry.source: "available" for entry in catalog.entries}
         providers.update({source: reason for source, reason in catalog.errors.items() if source not in providers})
         return RuntimeInfo(
             runtime=self.runtime.name,

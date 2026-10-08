@@ -33,6 +33,7 @@ The base install (pydantic + pyyaml) is exactly what the engine needs, and it lo
 | Abstraction | Where | Role |
 |---|---|---|
 | `ModelSpec` | `llm/spec.py` | One model: provider (`openai`, `anthropic`, `ollama`, `lmstudio`, `openai_compatible`), backend, tool mode, sampling, capabilities, prices. |
+| `Endpoint` | `llm/spec.py` | A named OpenAI-compatible server (`base_url`, key env var, default capabilities and prices); its models are `ModelSpec`s with `provider: openai_compatible` and `endpoint` set, referenced as `<endpoint>:<model>`. Loaded and saved by `llm/registry.py` (`EndpointStore`). |
 | Protocol mappers | `llm/protocols/{openai_chat,anthropic_messages}.py` | Pure request/response mapping on JSON dicts. Shared by every client in every runtime. |
 | `ChatTransport` + `ProtocolClient` | `llm/transport.py`, `llm/http_client.py` | POST JSON → JSON. `ProtocolClient` adds retries (quota errors are permanent), JSON tool mode and caching on top of any transport. |
 | SDK clients | `adapters/server/{openai_sdk,anthropic_sdk,aisuite_client}.py` | Official SDKs on the server (`backend: auto`); they reuse the same mappers. |

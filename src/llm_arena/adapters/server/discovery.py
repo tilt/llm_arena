@@ -1,4 +1,4 @@
-"""Server-side discovery: query Ollama, LM Studio, OpenAI and Anthropic, build the catalog.
+"""Server-side discovery: query Ollama, LM Studio, OpenAI, Anthropic and named endpoints, build the catalog.
 
 Unreachable providers are reported, not raised: a machine without LM Studio still gets a catalog.
 """
@@ -6,6 +6,8 @@ Unreachable providers are reported, not raised: a machine without LM Studio stil
 from __future__ import annotations
 
 import asyncio
+import os
+from collections.abc import Awaitable, Callable, Mapping
 
 import httpx
 
@@ -14,13 +16,14 @@ from llm_arena.llm.catalog import (
     CatalogEntry,
     Source,
     anthropic_entries,
+    compatible_entries,
     lmstudio_entries,
     ollama_entries,
     openai_entries,
 )
 from llm_arena.llm.protocols.anthropic_messages import API_VERSION
 from llm_arena.llm.registry import resolve_api_key, resolve_base_url
-from llm_arena.llm.spec import ModelSpec, Provider
+from llm_arena.llm.spec import Endpoint, ModelSpec, Provider, key_transport_ok
 
 ALL_SOURCES: tuple[Source, ...] = ("ollama", "lmstudio", "openai", "anthropic")
 
@@ -29,14 +32,20 @@ async def discover(
     timeout_s: float = 3.0,
     sources: tuple[Source, ...] = ALL_SOURCES,
     transport: httpx.AsyncBaseTransport | None = None,  # tests inject httpx.MockTransport
+    endpoints: Mapping[str, Endpoint] | None = None,
+    endpoint_keys: Callable[[str], str | None] | None = None,  # the app's session keys, by endpoint id
 ) -> Catalog:
+    """Errors are keyed by provider, or by endpoint id for named endpoints."""
     catalog = Catalog()
     probes = {"ollama": _ollama, "lmstudio": _lmstudio, "openai": _openai, "anthropic": _anthropic}
     async with httpx.AsyncClient(timeout=timeout_s, transport=transport) as http:
-        results = await asyncio.gather(*(probes[source](http) for source in sources), return_exceptions=True)
-    for source, result in zip(sources, results, strict=True):
+        calls: dict[str, Awaitable[list[CatalogEntry]]] = {source: probes[source](http) for source in sources}
+        session = endpoint_keys or (lambda _: None)
+        calls |= {e.id: _endpoint(http, e, session(e.id)) for e in (endpoints or {}).values()}
+        results = await asyncio.gather(*calls.values(), return_exceptions=True)
+    for name, result in zip(calls, results, strict=True):
         if isinstance(result, BaseException):
-            catalog.errors[source] = f"{type(result).__name__}: {result}"[:200]
+            catalog.errors[name] = f"{type(result).__name__}: {result}"[:200]
         else:
             catalog.entries.extend(result)
     return catalog
@@ -80,3 +89,13 @@ async def _anthropic(http: httpx.AsyncClient) -> list[CatalogEntry]:
         "https://api.anthropic.com/v1/models?limit=100", headers={"x-api-key": key, "anthropic-version": API_VERSION}
     )
     return anthropic_entries(response.raise_for_status().json().get("data", []))
+
+
+async def _endpoint(http: httpx.AsyncClient, endpoint: Endpoint, session_key: str | None) -> list[CatalogEntry]:
+    # Many self-hosted servers run without a key; send one only when it is set, and only to its own endpoint.
+    key = session_key or (os.getenv(endpoint.api_key_env) if endpoint.api_key_env else None)
+    if key and not key_transport_ok(endpoint.base_url):
+        raise RuntimeError("a key is set but the URL is not https; use https:// so the key is not sent in cleartext")
+    headers = {"Authorization": f"Bearer {key}"} if key else {}
+    response = await http.get(f"{endpoint.base_url}/models", headers=headers)
+    return compatible_entries(endpoint, response.raise_for_status().json().get("data", []))

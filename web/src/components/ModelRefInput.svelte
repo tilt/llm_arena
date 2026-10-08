@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { CatalogItem } from "../lib/backend";
   import { THINKING, isOverride, joinRef, overrideReasoning, splitRef, thinkingLevels, thinkingOverride } from "../lib/presets";
+  import { groupOf } from "../lib/endpoints";
   import { perMtok } from "../lib/format";
 
   // A model reference with its thinking setting ("ollama:qwen3:4b#reasoning=none"). Models that are not installed or
@@ -31,7 +32,7 @@
       { value: reasoning, label: `${THINKING.find((t) => t.value === reasoning)?.label ?? reasoning} (not supported)` }]
     : accepted);
   const levelLabel = (r: string) => THINKING.find((t) => t.value === r)?.label ?? r;
-  const groups = $derived([...new Set(options.map((o) => o.source))]);
+  const groups = $derived([...new Set(options.map(groupOf))]);
   const why = $derived(!base ? "Choose a model first"
     : unsupported ? "This model does not accept this thinking setting; choose another"
     : overriding ? `Changed for this step; the inherited setting is “${levelLabel(inherited.reasoning)}”`
@@ -61,7 +62,7 @@
     {#if parts.base && !options.some((o) => o.ref === parts.base)}<option value={parts.base}>{parts.base} (not available right now)</option>{/if}
     {#each groups as group (group)}
       <optgroup label={group}>
-        {#each options.filter((o) => o.source === group) as o (o.ref)}
+        {#each options.filter((o) => groupOf(o) === group) as o (o.ref)}
           <option value={o.ref}>{o.ref.replace(`${group}:`, "")} · {perMtok(o.input_cost_per_mtok, o.output_cost_per_mtok)}</option>
         {/each}
       </optgroup>

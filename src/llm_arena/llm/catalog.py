@@ -2,8 +2,9 @@
 
 Pure part of discovery: the types plus builders that turn each provider's metadata JSON into
 catalog entries (capabilities, tool mode, prices), keyed by the canonical reference
-`provider:model`. Fetching that JSON is runtime-specific — `adapters.server.discovery` (httpx,
-local servers included) or the browser engine (fetch, remote providers only).
+`provider:model` (`endpoint:model` for a named OpenAI-compatible endpoint). Fetching that JSON is
+runtime-specific — `adapters.server.discovery` (httpx, local servers included) or the browser engine
+(fetch, remote providers and endpoints only).
 """
 
 from __future__ import annotations
@@ -13,14 +14,15 @@ from dataclasses import asdict, dataclass, field, replace
 from typing import Any, Literal
 
 from llm_arena.llm.pricing import known_price
-from llm_arena.llm.spec import Capabilities, ModelSpec
+from llm_arena.llm.spec import Capabilities, Endpoint, ModelSpec
 
-Source = Literal["ollama", "lmstudio", "openai", "anthropic"]
+Source = Literal["ollama", "lmstudio", "openai", "anthropic", "openai_compatible"]
 
 # OpenAI lists every model the key may use, including audio, image and embedding models; the
 # arena needs chat models only.
 _OPENAI_CHAT_PREFIXES = ("gpt-5", "gpt-4.1", "gpt-4o", "o3", "o4")
 _SNAPSHOT = re.compile(r"-\d{4}-\d{2}-\d{2}$")
+_UNREFERENCEABLE = re.compile(r"[#\s]")
 _OPENAI_EXCLUDE = ("audio", "realtime", "transcribe", "tts", "search", "image", "embedding", "codex", "chat-latest")
 
 
@@ -36,6 +38,7 @@ class CatalogEntry:
     input_cost_per_mtok: float | None = None
     output_cost_per_mtok: float | None = None
     snapshot: bool = False  # dated OpenAI snapshot of a model family that is listed as well
+    endpoint: str | None = None  # the named OpenAI-compatible endpoint (source openai_compatible)
 
     @property
     def ref(self) -> str:
@@ -166,6 +169,51 @@ def anthropic_entries(models: list[dict[str, Any]]) -> list[CatalogEntry]:
         entry = _priced(spec, "anthropic")
         entries.append(replace(entry, context_length=model.get("max_input_tokens")))
     return entries
+
+
+def compatible_entries(endpoint: Endpoint, models: list[dict[str, Any]]) -> list[CatalogEntry]:
+    """From an OpenAI-compatible endpoint's /v1/models. The listing carries no capabilities, so every model gets
+    the endpoint's; no name filter either: the endpoint serves what its owner chose to serve."""
+    entries = []
+    # The listing is untrusted input: an id that is not a plain string, or holds '#' (the settings separator of a
+    # reference) or whitespace, could not be referenced unambiguously.
+    usable = [m for m in models if isinstance(m.get("id"), str) and m["id"] and not _UNREFERENCEABLE.search(m["id"])]
+    for model in sorted(usable, key=lambda m: str(m["id"])):
+        spec = ModelSpec(
+            name=f"{endpoint.id}:{model['id']}",
+            provider="openai_compatible",
+            model=model["id"],
+            endpoint=endpoint.id,
+            base_url=endpoint.base_url,
+            endpoint_identity=endpoint.identity,
+            api_key_env=endpoint.api_key_env,
+            tool_mode="native" if endpoint.capabilities.tools else "json",
+            capabilities=endpoint.capabilities,
+            concurrency=endpoint.concurrency,
+            input_cost_per_mtok=endpoint.input_cost_per_mtok,
+            output_cost_per_mtok=endpoint.output_cost_per_mtok,
+        )
+        context = model.get("max_model_len") or model.get("context_length")  # vLLM / some proxies
+        entries.append(
+            CatalogEntry(
+                spec=spec,
+                source="openai_compatible",
+                endpoint=endpoint.id,
+                context_length=_positive_int(context),
+                input_cost_per_mtok=endpoint.input_cost_per_mtok,
+                output_cost_per_mtok=endpoint.output_cost_per_mtok,
+            )
+        )
+    return entries
+
+
+def _positive_int(value: Any) -> int | None:
+    """A metadata number from an untrusted listing, or None: one odd entry must not hide the endpoint's models."""
+    try:
+        number = int(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return number if number > 0 else None
 
 
 def _priced(spec: ModelSpec, source: Source, *, snapshot: bool = False) -> CatalogEntry:

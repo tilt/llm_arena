@@ -21,14 +21,25 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from llm_arena.adapters.server.report_html import render_report, report_csp
-from llm_arena.api import RunListing, RunStartedResponse, RuntimeResponse, SetKey, StartRun, run_listing
+from llm_arena.api import (
+    EndpointView,
+    RunListing,
+    RunStartedResponse,
+    RuntimeResponse,
+    SaveEndpoint,
+    SetKey,
+    StartRun,
+    run_listing,
+)
 from llm_arena.core.errors import ArenaError, RunConflictError, RunLimitError
 from llm_arena.llm.errors import LLMError
+from llm_arena.llm.registry import EndpointStore
+from llm_arena.llm.spec import Endpoint, key_transport_ok
 from llm_arena.report.leaderboard import Leaderboard
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import progress
@@ -204,6 +215,7 @@ def create_app(
     runs_dir: Path,
     static_dir: Path | None = None,
     keys: KeyStore | None = None,
+    endpoints: EndpointStore | None = None,
     port: int = DEFAULT_PORT,
     session_token: str | None = None,
     dev_origin: str | None = None,
@@ -235,6 +247,10 @@ def create_app(
     ui_build = _ui_build(static_dir)
     listing_cache: dict[str, tuple[float, RunListing]] = {}
     keys = keys or KeyStore()
+    endpoints = endpoints if endpoints is not None else EndpointStore()
+
+    def endpoint_view(endpoint: Endpoint) -> EndpointView:
+        return EndpointView(**endpoint.model_dump(), key=keys.endpoint_source(endpoint))
 
     @app.post("/api/session", status_code=204)
     def create_session(body: SessionRequest, response: Response) -> Response:
@@ -283,6 +299,49 @@ def create_app(
             keys.clear(provider)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+        await service.catalog(refresh=True)
+
+    @app.get("/api/endpoints", response_model=list[EndpointView])
+    def list_endpoints() -> list[EndpointView]:
+        return [endpoint_view(endpoint) for endpoint in endpoints.all().values()]
+
+    @app.put("/api/endpoints/{endpoint_id}", response_model=EndpointView)
+    async def save_endpoint(endpoint_id: str, body: SaveEndpoint) -> EndpointView:
+        previous = endpoints.get(endpoint_id)
+        moved = previous is not None and previous.base_url != body.base_url.strip().rstrip("/")
+        try:
+            endpoint = Endpoint(
+                id=endpoint_id,
+                # A YAML-configured key env stays bound to its URL: moving the endpoint unbinds it.
+                api_key_env=previous.api_key_env if previous and not moved else None,
+                **body.model_dump(exclude={"key", "salt"}),
+                **_salt(body.salt or (previous.salt if previous else None)),
+            )
+        except ValidationError as exc:
+            raise HTTPException(status_code=400, detail=_first_error(exc)) from exc
+        if body.key and not key_transport_ok(endpoint.base_url):
+            raise HTTPException(
+                status_code=400,
+                detail="a key is only sent over https:// (or to a local or private "
+                "network address); change the URL to https",
+            )
+        if previous and moved:
+            keys.clear_endpoint_key(endpoint_id)  # a session key is bound to the host it was entered for
+        endpoints.put(endpoint)
+        if body.key:
+            try:
+                keys.set_endpoint_key(endpoint_id, body.key)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+        await service.catalog(refresh=True)
+        return endpoint_view(endpoint)
+
+    @app.delete("/api/endpoints/{endpoint_id}", status_code=204)
+    async def remove_endpoint(endpoint_id: str) -> None:
+        removed = endpoints.remove(endpoint_id)
+        if removed is None:
+            raise HTTPException(status_code=404, detail=f"unknown endpoint {endpoint_id!r}")
+        keys.clear_endpoint_key(endpoint_id)
         await service.catalog(refresh=True)
 
     @app.post("/api/estimate", response_model=Estimate)
@@ -440,6 +499,18 @@ def create_app(
             return _PLACEHOLDER
 
     return app
+
+
+def _salt(salt: str | None) -> dict[str, str]:
+    """Keep an endpoint's salt across edits: its identity then changes only with its URL."""
+    return {"salt": salt} if salt else {}
+
+
+def _first_error(exc: ValidationError) -> str:
+    first = exc.errors()[0]
+    field = ".".join(str(part) for part in first.get("loc", ()))
+    message = str(first.get("msg", "invalid value")).removeprefix("Value error, ")
+    return f"{field}: {message}" if field else message
 
 
 def _ui_build(static_dir: Path | None) -> str:

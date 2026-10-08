@@ -118,8 +118,8 @@ Details:
   vision critic saw. Deep links: `#/runs/<run>/trial/<trial>/step/<step>`.
 - **Leaderboard:** every run pooled per scenario and setup, filterable by model.
 - **Presets:** edit the model presets. The serverless version offers only presets whose models a web page can call
-  (OpenAI, Anthropic).
-- **Models:** the catalog, filterable by capability, plus API keys.
+  (OpenAI, Anthropic, your endpoints).
+- **Models:** the catalog, filterable by capability, plus API keys and your OpenAI-compatible endpoints.
 
 The UI uses only the `ArenaBackend` interface, and its TypeScript types are generated from `contracts/schemas`
 (`npm run contracts`). The same UI will run the in-browser engine. `make test-web` runs svelte-check and vitest.
@@ -146,7 +146,9 @@ Pyodide, in a Web Worker. Setup:
 - Set a spend limit on each run.
 
 What changes compared with the local app:
-- **Models:** remote only (OpenAI, Anthropic), because a web page cannot reach your local model servers.
+- **Models:** remote only (OpenAI, Anthropic, and your OpenAI-compatible endpoints if they allow the page's origin
+  via CORS and use https), because a web page cannot reach your local model servers. Endpoint URLs follow the key
+  policy: on a shared origin such as `tilt.github.io` they stay in the tab's memory.
 - **Code execution:** runs in a separate Pyodide worker that is terminated on timeout.
 - **Benchmarks:** fetch their pinned files from the Hugging Face CDN.
 - **Runs:** stored in the browser (IndexedDB). They can be exported and imported as run bundles, which the local app
@@ -240,6 +242,8 @@ per million tokens:
 | Ollama | `/api/tags` + `/api/show` |
 | LM Studio | `/api/v0/models` |
 | OpenAI | `/v1/models` |
+| Anthropic | `/v1/models` |
+| Your OpenAI-compatible endpoints | `<base URL>/models` |
 
 Use a reference directly in experiments: `ollama:qwen3:14b`, `lmstudio:qwen/qwen3-14b`, `openai:gpt-4.1-mini`.
 A reference can carry call settings after `#`, for example `ollama:qwen3:4b#reasoning=none` (thinking off, about 10×
@@ -248,6 +252,37 @@ faster for Qwen3) or `openai:gpt-5-mini#reasoning=low,temperature=0`.
 - **Models without native tool support** automatically use the JSON tool protocol.
 - **A provider that isn't running** is reported and skipped.
 - **Other flags:** `--needs vision` filters by capability; `--json` emits the catalog for tooling or a UI.
+
+### Your own OpenAI-compatible endpoints
+
+Any server that speaks the OpenAI chat API (vLLM, llama.cpp, LiteLLM, a hosted gateway) can be added as a named
+endpoint. Its models are listed from `<base URL>/models` and referenced as `<name>:<model>`, for example
+`gpu-box:Qwen/Qwen3-32B#reasoning=none`. Add one in **Models → OpenAI-compatible endpoints** or in
+`configs/endpoints.local.yaml` (git-ignored; the local app writes it, `--endpoints` picks another file):
+
+```yaml
+endpoints:
+  gpu-box:
+    base_url: https://llm.example.com/v1
+    api_key_env: GPU_BOX_KEY        # optional: the env var (e.g. in .env) holding its key
+    capabilities: {tools: true, json_schema: true, vision: false, reasoning: false}
+    input_cost_per_mtok: 0          # self-hosted: free; a paid gateway can state its price
+    output_cost_per_mtok: 0
+```
+
+- The `/models` listing carries no capabilities, so the endpoint states them for all its models. Without tool
+  calling, its models use the JSON tool protocol. A curated alias in `configs/models.yaml` can refine one model.
+- A key is sent only to its own endpoint, and only over https (or plain http to a local or private address).
+  Keys are never written to the endpoints file. Changing an endpoint's URL in the app forgets its key: the session
+  key, and the `api_key_env` binding too.
+- **Each endpoint has an identity:** a keyed hash of its URL, with a random `salt` that the arena adds to the file on
+  first load. It is part of each setup:
+  - The same model on two endpoints counts as two setups on the leaderboard.
+  - An endpoint moved to another server, by hand or in the app, starts a new setup and never resumes earlier
+    trials.
+  - The URL itself never enters a run.
+- For browser mode the server must allow the page's origin, e.g. `vllm serve … --api-key "$KEY"
+  --allowed-origins '["https://your.page.origin"]'`.
 
 `configs/models.yaml` is optional and holds curated aliases for *call variants*: JSON tool mode, reasoning effort, a
 pinned-temperature judge, the aisuite backend. An alias always wins over discovery. OpenAI prices live in

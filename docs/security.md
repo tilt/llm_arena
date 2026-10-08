@@ -62,6 +62,34 @@ Everything a model writes is treated as data:
   deletes the legacy `llm-arena.keys` entry without parsing or sending it to the engine. TypeSafe's Jev is not called
   from the browser: its API does not allow cross-origin requests. The current `tilt.github.io/llm_arena/` deployment
   shares an origin with other project sites, so it intentionally does not enable persistent keys.
+- **OpenAI-compatible endpoints** (named servers such as vLLM; `configs/endpoints.local.yaml` or the Models page):
+  - A key is bound to one endpoint and sent only to it, never to another host.
+    - An env key applies only through the `api_key_env` written next to the URL in the YAML file. No variable is read
+      just because its name matches an endpoint's name, and the provider-wide `ARENA_OPENAI_COMPATIBLE_KEY` is never
+      used for a named endpoint.
+    - The app cannot set `api_key_env`, so a page cannot point an existing key (say `OPENAI_API_KEY`) at a host.
+    - Changing an endpoint's URL in the app forgets its session key and removes its `api_key_env` from the file, so
+      the env key stays behind even after a restart.
+    - Session keys live in the key store's memory, not in the process environment. A model resolved before a move
+      gets no session key (`llm/registry.py:bound_session_key`).
+    - A run that is already going keeps the clients it built: they still send the old key to the old URL until the
+      run ends. Editing or removing an endpoint never sends a key to a new host, but it does not stop calls already
+      underway either; cancel the run for that.
+  - Keys travel only over https, or over plain http to a loopback or private-network address. The engine refuses a
+    key for a public `http://` URL (`llm/spec.py:key_transport_ok`). URLs with credentials, a query or a fragment
+    are rejected.
+  - Endpoint URLs are not persisted with runs: experiments store references (`gpu-box:model`), and model errors
+    name the endpoint instead of its URL (`ModelSpec.redact`).
+  - The setup records the endpoint's identity instead: an HMAC of its URL under a random per-endpoint salt
+    (`Endpoint.identity`). A moved endpoint therefore never pools or resumes with earlier runs, and a run bundle does
+    not reveal the URL. A plain hash would: an IP address and port can be brute-forced from one in seconds.
+  - Endpoints are defined only by you, in the YAML file or the form. A shared link, preset or run bundle cannot
+    define one, so it cannot redirect a key.
+  - Browser mode stores endpoint definitions under the same rule as keys: only on the exact `VITE_CREDENTIAL_ORIGIN`,
+    and only when you choose to remember them. On any other origin, including the shared `tilt.github.io`, they
+    stay in the tab's memory, and a stored `llm-arena.endpoints` entry is deleted unread.
+  - The local app calls whatever endpoint URL its authenticated user enters, including LAN addresses; that is the
+    point of the feature, and the session cookie and origin checks keep other sites from adding one.
 - **Ollaya and Ollama run on your machine;** calls to them do not leave it.
 
 ## Residual risks

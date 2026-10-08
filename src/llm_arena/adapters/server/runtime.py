@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from typing import Literal
 
 import httpx
@@ -18,6 +19,10 @@ from llm_arena.core.errors import ConfigError
 from llm_arena.decisions.config import Service
 from llm_arena.decisions.jev import OLLAYA_BASE_URL, JevDecisionPolicy
 from llm_arena.decisions.policy import DecisionPolicy
+from llm_arena.llm.catalog import Catalog
+from llm_arena.llm.client import LLMClient
+from llm_arena.llm.registry import EndpointStore, bound_session_key
+from llm_arena.llm.spec import ModelSpec
 from llm_arena.runner.ports import Runtime
 from llm_arena.sandbox.base import Sandbox
 
@@ -77,12 +82,31 @@ def choose_sandbox(mode: SandboxMode = "auto") -> tuple[Sandbox | None, str | No
     )
 
 
-def server_runtime(*, sandbox: Sandbox | None, sandbox_hint: str = "") -> Runtime:
-    """Compose the runtime with an explicitly selected sandbox, including an intentional None."""
+def server_runtime(
+    *,
+    sandbox: Sandbox | None,
+    sandbox_hint: str = "",
+    endpoints: EndpointStore | None = None,
+    endpoint_keys: Callable[[str], str | None] | None = None,
+) -> Runtime:
+    """Compose the runtime with an explicitly selected sandbox, including an intentional None.
+
+    `endpoints` is read on every discovery, so an endpoint added in the app is listed after the next refresh;
+    `endpoint_keys` gives the app's session keys by endpoint id.
+    """
     configure_loader(HubDatasetLoader())
+    store = endpoints or EndpointStore()
+    session = endpoint_keys or (lambda _: None)
+
+    async def discover_all() -> Catalog:
+        return await discover(endpoints=store.all(), endpoint_keys=session)
+
+    def client_for(spec: ModelSpec) -> LLMClient:
+        return get_client(spec, api_key=bound_session_key(spec, store.all(), session))
+
     return Runtime(
-        client_factory=get_client,
-        discover=discover,
+        client_factory=client_for,
+        discover=discover_all,
         sandbox=sandbox,
         sandbox_hint=sandbox_hint,
         live_search=live_search,
