@@ -93,12 +93,35 @@ describe("thinking overrides: the inherited model with other thinking", () => {
     expect(suggestName(withPreset, profiles)).toBe("local-small+critic-low");
   });
 
+  it("role-level thinking overrides expand per selected scenario", () => {
+    const roleOverride = { ...emptyConfig(0), name: "c", roles: { critic: "#reasoning=low" }, preset: "local-small" };
+    const state: BuilderState = { name: "e", scenarios: ["sql"], configs: [roleOverride], repeats: 1, limit: null, judge: "", arena: false,
+      maxCostUsd: null, budgetMode: "best_effort", split: "all" };
+
+    expect(validate(state, [manifest], true, {}, profiles)).toEqual([]);
+    expect(stepModel(roleOverride, manifest, "critic", profiles)).toBe("ollama:qwen3:4b#reasoning=low");
+    expect(toExperiment(state, [manifest], profiles).configs?.[0]).toMatchObject({
+      preset: "local-small",
+      roles: {},
+      scenario_roles: { sql: { critic: "ollama:qwen3:4b#reasoning=low" } },
+    });
+    expect(suggestName(roleOverride, profiles)).toBe("local-small+critic-low");
+  });
+
   it("are reported when there is no model to change", () => {
     const config = { ...emptyConfig(0), roles: { "*": "" }, scenarioRoles: { sql: { critic: "#reasoning=low" } } };
     const state: BuilderState = { name: "e", scenarios: ["sql"], configs: [config], repeats: 1, limit: null, judge: "", arena: false,
       maxCostUsd: null, budgetMode: "best_effort", split: "all" };
     expect(validate(state, [manifest], true)).toContainEqual(expect.stringContaining("changes the thinking"));
     expect(toExperiment(state, [manifest]).configs?.[0]).not.toHaveProperty("scenario_roles");
+  });
+
+  it("reports role-level thinking overrides when there is no inherited model", () => {
+    const config = { ...emptyConfig(0), roles: { critic: "#reasoning=low" } };
+    const state: BuilderState = { name: "e", scenarios: ["sql"], configs: [config], repeats: 1, limit: null, judge: "", arena: false,
+      maxCostUsd: null, budgetMode: "best_effort", split: "all" };
+    expect(validate(state, [manifest], true)).toContainEqual(expect.stringContaining('"critic" changes the thinking'));
+    expect(toExperiment(state, [manifest]).configs?.[0]).not.toHaveProperty("roles.critic");
   });
 });
 

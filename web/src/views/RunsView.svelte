@@ -36,7 +36,7 @@
   {#if runs.list === null}
     <div class="skeleton" aria-busy="true"></div>
   {:else if !running.length}
-    <p class="muted empty">Nothing is running. <a href="#/build">Build an experiment</a> or open a scenario to run a setup.</p>
+    <p class="muted empty">Nothing is running. <a href="#/experiments">Run an experiment</a> or open a scenario to run a setup.</p>
   {:else}
     <div class="live" aria-live="polite">
       {#each running as run (run.run_id)}

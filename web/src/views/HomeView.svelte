@@ -21,7 +21,7 @@
     <h2>Running in your browser</h2>
     <p>
       The arena engine runs in this tab. To compare remote models, add an <a href="#/models">OpenAI or Anthropic key</a>.
-      It stays in this tab and goes only to the provider. Then <a href="#/build">build an experiment</a> with a small
+      It stays in this tab and goes only to the provider. Then <a href="#/experiments">run an experiment</a> with a small
       spend limit.
     </p>
     <p>
@@ -34,7 +34,7 @@ make install && make web && uv run arena ui</pre>
 {/if}
 
 <div class="actions">
-  <a class="cta" href="#/build">Build an experiment →</a>
+  <a class="cta" href="#/experiments">Run an experiment →</a>
   <a class="cta secondary" href="#/models">See available models</a>
   <a class="cta secondary" href="#/runs">Past runs</a>
 </div>

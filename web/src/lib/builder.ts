@@ -3,7 +3,7 @@
 import { stringify } from "yaml";
 
 import type { CatalogItem } from "./backend";
-import { applyOverride, isOverride, modelFor } from "./presets";
+import { KINDS, applyOverride, isOverride, modelFor, splitRef } from "./presets";
 import type { ModelPreset, DecisionConfig, ExperimentConfig, ScenarioManifest } from "./contracts";
 
 export const DEFAULT_ROLE = "*";
@@ -35,6 +35,17 @@ export interface ConfigDraft {
   preset?: string;
   /** the user typed the name; otherwise it follows the models (suggestName) */
   named?: boolean;
+  /** step kind -> model: this bundle's own model for a kind, over the preset's (or the one model's) */
+  kinds?: Record<string, string>;
+}
+
+/** One way of running the scenarios (a method variant): parameters and a control policy. Every model bundle runs
+ *  every variant; no variants means one plain run per bundle. */
+export interface VariantDraft {
+  name: string;
+  /** applied to every selected scenario that has the parameter */
+  params: Record<string, unknown>;
+  decisions: DecisionConfig | null;
 }
 
 export const POLICIES: { value: NonNullable<DecisionConfig["policy"]>; label: string }[] = [
@@ -77,6 +88,10 @@ export interface BuilderState {
   split: "all" | "dev" | "test";
   /** replacement study instead of hand-built configurations */
   study?: StudyDraft | null;
+  /** the suite that filled in what to run ("" = the user's own choice) */
+  suite?: string;
+  /** method variants; every bundle runs each one */
+  variants?: VariantDraft[];
 }
 
 export interface StudyDraft {
@@ -123,6 +138,16 @@ export function emptyConfig(index: number): ConfigDraft {
   return { name: `config-${index + 1}`, roles: { [DEFAULT_ROLE]: "" }, scenarioParams: {}, scenarioRoles: {}, decisions: null };
 }
 
+/** A setup that runs every step on one model (named after it until the user types a name). */
+export function configForModel(ref: string): ConfigDraft {
+  return { ...emptyConfig(0), name: shortModel(ref), roles: { [DEFAULT_ROLE]: ref }, preset: "" };
+}
+
+/** A setup that gives each step its preset's model for the step's kind. */
+export function configForPreset(preset: string): ConfigDraft {
+  return { ...emptyConfig(0), name: preset, preset };
+}
+
 /** Union of roles over the selected scenarios; capability needs are merged. */
 export function roleSlots(manifests: ScenarioManifest[], selected: string[]): RoleSlot[] {
   const slots = new Map<string, RoleSlot>();
@@ -159,6 +184,7 @@ export function shortModel(ref: string): string {
  *  policy. "local-small", "qwen3.8-27b-mlx", "local-small+critic-gpt-5-mini", "qwen3-14b+ollaya". */
 export function suggestName(config: ConfigDraft, profiles: Record<string, ModelPreset>, scenarios?: string[]): string {
   const pinned = new Map<string, string>();
+  for (const [kind, ref] of Object.entries(config.kinds ?? {})) if (ref) pinned.set(kind, ref);
   for (const [role, ref] of Object.entries(config.roles)) if (ref && role !== DEFAULT_ROLE) pinned.set(role, ref);
   for (const [scenario, roles] of Object.entries(config.scenarioRoles ?? {})) {
     if (scenarios && !scenarios.includes(scenario)) continue;
@@ -175,65 +201,114 @@ export function suggestName(config: ConfigDraft, profiles: Record<string, ModelP
   return parts.filter(Boolean).join("+").slice(0, 80) || "my-setup";
 }
 
+/** The models a bundle runs per step kind: its own per kind (a thinking override changes only the thinking of the
+ *  inherited one), else its preset's, else its one model. */
+export function bundleModels(config: ConfigDraft, profiles: Record<string, ModelPreset>): Record<string, string> {
+  const preset = knownPreset(config, profiles);
+  return Object.fromEntries(KINDS.map(({ kind }) => {
+    const inherited = preset ? modelFor(profiles[preset], kind) : config.roles[DEFAULT_ROLE] || "";
+    const own = config.kinds?.[kind] || "";
+    return [kind, own ? applyOverride(own, inherited) : inherited];
+  }));
+}
+
+const hasKinds = (config: ConfigDraft) => Object.values(config.kinds ?? {}).some(Boolean);
+
+/** A bundle with models of its own per kind runs as a preset of its own, defined in the experiment (the engine
+ *  binds roles by kind only through presets). Its name never shadows a real preset. Other bundles stay as they are. */
+export function withKinds(
+  config: ConfigDraft, profiles: Record<string, ModelPreset>,
+): { config: ConfigDraft; profiles: Record<string, ModelPreset> } {
+  if (!hasKinds(config)) return { config, profiles };
+  let name = `${config.name.trim() || "bundle"}-models`;
+  for (let i = 2; profiles[name]; i++) name = `${config.name.trim() || "bundle"}-models-${i}`;
+  const base = knownPreset(config, profiles);
+  const label = base ? `${profiles[base]!.label}, edited` : "Models per step kind";
+  const roles = Object.fromEntries(Object.entries(config.roles).filter(([role]) => role !== DEFAULT_ROLE));
+  return {
+    config: { ...config, preset: name, roles, kinds: {} },
+    profiles: { ...profiles, [name]: { label, description: `Models of ${config.name} in this experiment`, models: bundleModels(config, profiles) } },
+  };
+}
+
 /** The config's preset if this page knows it, else "" (then the config runs on its own models). */
 export function knownPreset(config: ConfigDraft, profiles: Record<string, ModelPreset>): string {
   return config.preset && profiles[config.preset] ? config.preset : "";
 }
 
+/** The engine configurations a draft runs: every model bundle with every variant ("bundle/variant"), or each bundle
+ *  on its own when there are no variants. A variant's control policy replaces the bundle's. */
+export function expandConfigs(state: BuilderState): { bundle: ConfigDraft; variant: VariantDraft | null; name: string }[] {
+  const variants = state.variants ?? [];
+  if (!variants.length) return state.configs.map((bundle) => ({ bundle, variant: null, name: bundle.name.trim() }));
+  return state.configs.flatMap((bundle) => variants.map((variant) => ({
+    bundle: { ...bundle, decisions: variant.decisions }, variant, name: `${bundle.name.trim()}/${variant.name.trim()}`,
+  })));
+}
+
 export function validate(
   state: BuilderState, manifests: ScenarioManifest[], runtimeHasSandbox: boolean,
-  serviceStatus: Partial<Record<Service, string>> = {}, profiles: Record<string, ModelPreset> = {},
+  serviceStatus: Partial<Record<Service, string>> = {}, allProfiles: Record<string, ModelPreset> = {}, catalog: CatalogItem[] = [],
 ): string[] {
   const errors: string[] = [];
   if (!state.name.trim()) errors.push("Give the experiment a name.");
   if (state.scenarios.length === 0) errors.push("Select at least one scenario.");
-  if (state.configs.length === 0) errors.push("Add at least one model configuration.");
-  const names = state.configs.map((c) => c.name.trim());
-  if (new Set(names).size !== names.length) errors.push("Configuration names must be unique.");
-  const slots = roleSlots(manifests, state.scenarios);
-  for (const config of state.configs) {
-    for (const manifest of manifests.filter((m) => state.scenarios.includes(m.id))) {
+  if (state.configs.length === 0) errors.push("Add at least one setup.");
+  const bundles = state.configs.map((c) => c.name.trim());
+  if (new Set(bundles).size !== bundles.length) errors.push("Setup names must be unique.");
+  const variants = (state.variants ?? []).map((v) => v.name.trim());
+  if (variants.some((v) => !v)) errors.push("Give every variant a name.");
+  if (new Set(variants).size !== variants.length) errors.push("Variant names must be unique.");
+  const selected = manifests.filter((m) => state.scenarios.includes(m.id));
+  for (const bundle of state.configs) {
+    const { config, profiles } = withKinds(bundle, allProfiles);
+    for (const manifest of selected) {
+      for (const role of manifest.roles) {
+        if (isOverride(config.roles[role.name] || "") && !inheritedModel(config, manifest, role.name, profiles)) {
+          errors.push(`${config.name}: "${role.name}" changes the thinking of a model it does not have yet; choose a model or preset.`);
+        }
+      }
       for (const [role, ref] of Object.entries(config.scenarioRoles[manifest.id] ?? {})) {
         if (isOverride(ref) && !stepModel(config, manifest, role, profiles)) {
           errors.push(`${config.name}: "${role}" in ${manifest.id} changes the thinking of a model it does not have yet; choose a model.`);
         }
       }
-    }
-    if (knownPreset(config, profiles)) continue; // a preset binds every role that is not set explicitly
-    for (const manifest of manifests.filter((m) => state.scenarios.includes(m.id))) {
-      for (const role of manifest.roles.filter((r) => !r.fallback)) {
-        if (!boundModel(config, manifest.id, role.name)) {
-          errors.push(`${config.name}: choose a model for "${role.name}" in ${manifest.id} (or a default model).`);
+      for (const role of manifest.roles.filter((r) => !r.fallback || knownPreset(config, profiles))) {
+        if (!stepModel(config, manifest, role.name, profiles)) {
+          errors.push(`${config.name}: choose a model for "${role.name}" in ${manifest.id}.`);
         }
       }
     }
   }
-  void slots;
   if (!runtimeHasSandbox) {
-    const needSandbox = manifests.filter((m) => state.scenarios.includes(m.id) && (m.requires ?? []).includes("sandbox"));
+    const needSandbox = selected.filter((m) => (m.requires ?? []).includes("sandbox"));
     if (needSandbox.length) errors.push(`Code execution is unavailable for ${needSandbox.map((m) => m.id).join(", ")}. Start Docker and run make sandbox-image, or restart with --sandbox unsafe-process (not isolated).`);
   }
+  errors.push(...missingCapabilities(state, manifests, allProfiles, catalog));
   if (state.arena && !state.judge) errors.push("Arena battles need a judge model.");
   const controllable = controllableScenarios(state, manifests);
-  for (const config of state.configs.filter((c) => c.decisions)) {
-    if (!controllable.length) errors.push(`${config.name}: none of the selected scenarios supports a control policy.`);
-    for (const service of servicesUsed(config.decisions)) {
+  for (const { bundle, name } of expandConfigs(state).filter(({ bundle }) => bundle.decisions)) {
+    if (!controllable.length) errors.push(`${name}: none of the selected scenarios supports a control policy.`);
+    for (const service of servicesUsed(bundle.decisions)) {
       const status = serviceStatus[service] ?? "available";
-      if (status !== "available") errors.push(`${config.name}: ${SERVICE_LABELS[service]} is unavailable (${status}).`);
+      if (status !== "available") errors.push(`${name}: ${SERVICE_LABELS[service]} is unavailable (${status}).`);
     }
   }
-  return errors;
+  return [...new Set(errors)];
 }
 
 /** The model a role is bound to in one scenario: per-scenario binding, config-wide role, the preset (by the role's
  *  kind), then the default model. Mirrors ExperimentRunner._bind; fallback roles are left to stepModel. */
 export function boundModel(
-  config: ConfigDraft, scenario: string, role: string, kind = "text", profiles: Record<string, ModelPreset> = {},
+  bundle: ConfigDraft, scenario: string, role: string, kind = "text", allProfiles: Record<string, ModelPreset> = {},
 ): string {
-  const inherited = config.roles[role] || (knownPreset(config, profiles) ? modelFor(profiles[config.preset!], kind) : "")
+  const { config, profiles } = withKinds(bundle, allProfiles);
+  const ownRole = config.roles[role] || "";
+  const inherited = (ownRole && !isOverride(ownRole) ? ownRole : "") || (knownPreset(config, profiles) ? modelFor(profiles[config.preset!], kind) : "")
     || config.roles[DEFAULT_ROLE] || "";
+  const withRole = ownRole && isOverride(ownRole) ? applyOverride(ownRole, inherited) : inherited;
   const own = config.scenarioRoles[scenario]?.[role];
-  return own ? applyOverride(own, inherited) : inherited;
+  return own ? applyOverride(own, withRole) : withRole;
 }
 
 type RolesOf = Pick<ScenarioManifest, "id" | "roles">;
@@ -251,15 +326,17 @@ export function stepModel(
 /** What a step runs on without a binding of its own in this scenario: a config-wide binding, the preset's model for
  *  the step's kind, the fallback step's model (critic = generator), then the default model. */
 export function inheritedModel(
-  config: ConfigDraft, manifest: RolesOf, role: string, profiles: Record<string, ModelPreset> = {}, seen = new Set<string>(),
+  bundle: ConfigDraft, manifest: RolesOf, role: string, allProfiles: Record<string, ModelPreset> = {}, seen = new Set<string>(),
 ): string {
-  if (config.roles[role]) return config.roles[role];
+  const { config, profiles } = withKinds(bundle, allProfiles);
+  const ownRole = config.roles[role] || "";
+  if (ownRole && !isOverride(ownRole)) return ownRole;
   const requirement = manifest.roles.find((r) => r.name === role);
   const preset = knownPreset(config, profiles);
-  if (preset) return modelFor(profiles[preset], requirement?.kind ?? "text");
-  const fallback = requirement?.fallback;
-  if (fallback && !seen.has(fallback)) return stepModel(config, manifest, fallback, profiles, new Set([...seen, role]));
-  return config.roles[DEFAULT_ROLE] || "";
+  const inherited = preset ? modelFor(profiles[preset], requirement?.kind ?? "text")
+    : requirement?.fallback && !seen.has(requirement.fallback) ? stepModel(config, manifest, requirement.fallback, profiles, new Set([...seen, role]))
+      : config.roles[DEFAULT_ROLE] || "";
+  return ownRole && isOverride(ownRole) ? applyOverride(ownRole, inherited) : inherited;
 }
 
 /** Roles a control policy calls (mirrors DecisionConfig.llm_roles). */
@@ -285,35 +362,51 @@ export function controllableScenarios(state: BuilderState, manifests: ScenarioMa
 }
 
 export function toExperiment(
-  state: BuilderState, manifests: ScenarioManifest[] = [], profiles: Record<string, ModelPreset> = {},
+  state: BuilderState, manifests: ScenarioManifest[] = [], allProfiles: Record<string, ModelPreset> = {},
 ): ExperimentConfig {
-  if (state.study) return studyExperiment(state, state.study, profiles);
+  if (state.study) return studyExperiment(state, state.study, allProfiles);
   const controllable = controllableScenarios(state, manifests);
+  const usedPresets: Record<string, ModelPreset> = {};
   const experiment: ExperimentConfig = {
     name: state.name.trim(),
     scenarios: [...state.scenarios],
     repeats: state.repeats,
-    configs: state.configs.map((config) => {
+    configs: expandConfigs(state).map(({ bundle, variant, name }) => {
+      const { config, profiles } = withKinds(bundle, allProfiles);
       // What runs is what the page shows: a preset the page does not know (not loaded, removed, not usable in this
       // runtime) is dropped, and with a known preset the hidden default model is, since the preset outranks it.
       const preset = knownPreset(config, profiles);
-      const roles = Object.fromEntries(Object.entries(config.roles).filter(([role, ref]) => ref && !(preset && role === DEFAULT_ROLE)));
+      if (preset) usedPresets[preset] = profiles[preset]!;
+      const roles = Object.fromEntries(Object.entries(config.roles).filter(([role, ref]) => ref && !isOverride(ref) && !(preset && role === DEFAULT_ROLE)));
       const scenarioParams = Object.fromEntries(
         Object.entries(config.scenarioParams).filter(([id, params]) => state.scenarios.includes(id) && Object.keys(params).length),
       );
       // Thinking overrides become the concrete model they stand for: the engine and the recorded setup see what ran.
       const concrete = (id: string, role: string, ref: string) => (isOverride(ref)
         ? stepModel(config, manifests.find((m) => m.id === id) ?? { id, roles: [] }, role, profiles) : ref);
+      const roleOverrides = Object.fromEntries(
+        manifests.filter((m) => state.scenarios.includes(m.id)).map((manifest) => {
+          const roles = Object.fromEntries(manifest.roles
+            .filter((role) => isOverride(config.roles[role.name] || ""))
+            .map((role) => [role.name, stepModel(config, manifest, role.name, profiles)])
+            .filter(([, ref]) => ref));
+          return [manifest.id, roles];
+        }).filter(([, roles]) => Object.keys(roles as object).length),
+      ) as Record<string, Record<string, string>>;
       const scenarioRoles = Object.fromEntries(
         Object.entries(config.scenarioRoles ?? {})
           .filter(([id]) => state.scenarios.includes(id))
           .map(([id, roles]) => [id, Object.fromEntries(Object.entries(roles)
             .map(([role, ref]) => [role, ref && concrete(id, role, ref)]).filter(([, ref]) => ref))])
+          .map(([id, roles]) => [id, { ...(roleOverrides[id] ?? {}), ...(roles as Record<string, string>) }])
           .filter(([, roles]) => Object.keys(roles as object).length),
       ) as Record<string, Record<string, string>>;
+      for (const [id, roles] of Object.entries(roleOverrides)) if (!scenarioRoles[id]) scenarioRoles[id] = roles;
+      const params = Object.fromEntries(Object.entries(variant?.params ?? {}).filter(([, value]) => value !== "" && value != null));
       return {
-        name: config.name.trim(),
+        name,
         roles,
+        ...(Object.keys(params).length ? { params } : {}),
         ...(Object.keys(scenarioParams).length ? { scenario_params: scenarioParams } : {}),
         ...(Object.keys(scenarioRoles).length ? { scenario_roles: scenarioRoles } : {}),
         ...(preset ? { preset } : {}),
@@ -328,9 +421,9 @@ export function toExperiment(
   if (state.maxCostUsd) experiment.max_cost_usd = state.maxCostUsd;
   if (state.maxCostUsd && state.budgetMode === "strict") experiment.budget_mode = "strict";
   if (state.split !== "all") experiment.split = state.split;
-  // Profiles travel with the experiment, so edited ones work in every runtime and the YAML is self-contained.
-  const used = [...new Set(state.configs.map((c) => knownPreset(c, profiles)).filter(Boolean))];
-  if (used.length) experiment.presets = Object.fromEntries(used.map((b) => [b, profiles[b]!]));
+  // Presets travel with the experiment, so edited ones (and bundles' own) work in every runtime and the YAML is
+  // self-contained.
+  if (Object.keys(usedPresets).length) experiment.presets = usedPresets;
   return experiment;
 }
 
@@ -365,4 +458,91 @@ export function validateStudy(state: BuilderState, study: StudyDraft): string[] 
 
 export function toYaml(experiment: ExperimentConfig): string {
   return `# Run with: uv run arena run <this file>\n${stringify(experiment)}`;
+}
+
+/** The step kinds the selected scenarios use, in KINDS order; decision steps only when a control policy calls an
+ *  LLM (otherwise they never run). */
+export function kindsUsed(state: BuilderState, manifests: ScenarioManifest[]): { kind: string; roles: string[]; needs: string[] }[] {
+  const decides = expandConfigs(state).some(({ bundle }) => llmRoles(bundle.decisions).length);
+  const roles = new Map<string, Set<string>>();
+  const needs = new Map<string, Set<string>>();
+  for (const manifest of manifests.filter((m) => state.scenarios.includes(m.id))) {
+    for (const role of manifest.roles) {
+      const kind = role.kind ?? "text";
+      if (kind === "decision" && !decides) continue;
+      roles.set(kind, (roles.get(kind) ?? new Set()).add(role.name));
+      needs.set(kind, new Set([...(needs.get(kind) ?? []), ...(role.needs ?? [])]));
+    }
+  }
+  return KINDS.filter(({ kind }) => roles.has(kind))
+    .map(({ kind }) => ({ kind, roles: [...roles.get(kind)!].sort(), needs: [...needs.get(kind)!].sort() }));
+}
+
+/** Where a bundle's models come from: "Local small preset", "Local small, edited", "one model". */
+export function bundleSource(config: ConfigDraft, profiles: Record<string, ModelPreset>): string {
+  const preset = knownPreset(config, profiles);
+  if (preset) return `${profiles[preset]!.label}${hasKinds(config) ? ", edited" : " preset"}`;
+  return hasKinds(config) ? "models per kind" : "one model";
+}
+
+/** Steps of one kind that do not run on the setup's model for that kind (set per role or per scenario), among the
+ *  selected scenarios: what the kind's cell in the setup table does not show. */
+export function kindExceptions(
+  config: ConfigDraft, manifests: ScenarioManifest[], scenarios: string[], profiles: Record<string, ModelPreset> = {},
+): Record<string, { role: string; scenario: string; model: string }[]> {
+  const models = bundleModels(config, profiles);
+  const out: Record<string, { role: string; scenario: string; model: string }[]> = {};
+  for (const manifest of manifests.filter((m) => scenarios.includes(m.id))) {
+    for (const role of manifest.roles) {
+      const kind = role.kind ?? "text";
+      const model = stepModel(config, manifest, role.name, profiles);
+      if (model && model !== models[kind]) (out[kind] ??= []).push({ role: role.name, scenario: manifest.title, model });
+    }
+  }
+  return out;
+}
+
+/** Capabilities a model lacks of these needs; nothing for a model the catalog does not list (it cannot tell). */
+export function lacking(catalog: CatalogItem[], ref: string, needs: string[]): string[] {
+  const item = catalog.find((o) => o.ref === splitRef(ref).base);
+  return item ? needs.filter((need) => !eligibleModels([item], [need]).length) : [];
+}
+
+/** Steps that would run on a model without a capability they need (vision, json_schema, …). Decision steps count
+ *  only when the control policy calls an LLM, since they never run otherwise. */
+function missingCapabilities(
+  state: BuilderState, manifests: ScenarioManifest[], allProfiles: Record<string, ModelPreset>, catalog: CatalogItem[],
+): string[] {
+  const errors: string[] = [];
+  for (const { bundle, name } of expandConfigs(state)) {
+    const { config, profiles } = withKinds(bundle, allProfiles);
+    const called = llmRoles(bundle.decisions);
+    for (const manifest of manifests.filter((m) => state.scenarios.includes(m.id))) {
+      for (const role of manifest.roles.filter((r) => (r.needs ?? []).length)) {
+        if (role.kind === "decision" && !called.includes(role.name)) continue;
+        const model = stepModel(config, manifest, role.name, profiles);
+        const missing = lacking(catalog, model, role.needs ?? []);
+        if (missing.length) errors.push(`${name}: ${splitRef(model).base} lacks ${missing.join(", ")}, which "${role.name}" in ${manifest.id} needs.`);
+      }
+    }
+  }
+  return errors;
+}
+
+/** How many trials the run plans (mirrors ExperimentRunner.plan). Not exact with a task split (the manifest counts
+ *  every task) or in a study (candidates skip steps whose needs they do not meet). */
+export function plannedTrials(
+  state: BuilderState, manifests: ScenarioManifest[], profiles: Record<string, ModelPreset> = {},
+): { trials: number; exact: boolean } {
+  const selected = new Map(manifests.filter((m) => state.scenarios.includes(m.id)).map((m) => [m.id, m]));
+  const controllable = new Set(controllableScenarios(state, manifests));
+  const runs = state.study
+    ? studyConfigs(state.study, [...selected.values()], profiles[state.study.baseline]).flatMap((c) => c.scenarios)
+    : expandConfigs(state).flatMap(({ bundle }) => [...selected.keys()].filter((id) => !bundle.decisions || controllable.has(id)));
+  const tasks = (id: string) => {
+    const total = selected.get(id)?.tasks ?? 0;
+    return state.limit ? Math.min(state.limit, total) : total;
+  };
+  const trials = runs.reduce((n, id) => n + tasks(id), 0) * Math.max(1, state.repeats || 1);
+  return { trials, exact: state.split === "all" && !state.study };
 }

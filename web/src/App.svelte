@@ -8,7 +8,7 @@
   import { activeRuns, watchRuns } from "./lib/runs.svelte";
   import { serverIsOlder, update, watchUpdates } from "./lib/update.svelte";
   import { WIKI_HOME } from "./lib/wiki";
-  import BuildView from "./views/BuildView.svelte";
+  import ExperimentsView from "./views/ExperimentsView.svelte";
   import HomeView from "./views/HomeView.svelte";
   import LeaderboardView from "./views/LeaderboardView.svelte";
   import ScenarioView from "./views/ScenarioView.svelte";
@@ -106,7 +106,7 @@
   });
   const nav = [
     { href: "#/", label: "Scenarios", match: "home" },
-    { href: "#/build", label: "Build", match: "build" },
+    { href: "#/experiments", label: "Experiments", match: "experiments" },
     { href: "#/models", label: "Models", match: "models" },
     { href: "#/runs", label: "Runs", match: "runs" },
     { href: "#/leaderboard", label: "Leaderboard", match: "leaderboard" },
@@ -173,7 +173,7 @@
   {:else}
     {#if app.error}<p class="note">{app.error}</p>{/if}
     {#if router.route.name === "home"}<HomeView />
-    {:else if router.route.name === "build"}<BuildView />
+    {:else if router.route.name === "experiments"}<ExperimentsView template={router.route.template} />
     {:else if router.route.name === "models"}<ModelsView />
     {:else if router.route.name === "runs"}<RunsView />
     {:else if router.route.name === "leaderboard"}<LeaderboardView scenario={router.route.scenario} entry={router.route.entry} />

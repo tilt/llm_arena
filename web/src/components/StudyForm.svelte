@@ -45,7 +45,7 @@
 
 <div class="study">
   <section class="card">
-    <h3>1 · Baseline</h3>
+    <h3>Baseline</h3>
     <p class="muted">Every configuration starts from this preset; only one step changes at a time.</p>
     <select bind:value={study.baseline} aria-label="Baseline preset">
       {#each Object.entries(app.presets) as [name, p] (name)}<option value={name}>{p.label}</option>{/each}
@@ -54,7 +54,7 @@
   </section>
 
   <section class="card">
-    <h3>2 · Candidate models</h3>
+    <h3>Candidate models</h3>
     <p class="muted">Each candidate replaces the baseline model of one step at a time.</p>
     {#each modelCandidates as { i } (i)}
       <div class="candidate">
@@ -80,7 +80,7 @@
   </section>
 
   <section class="card">
-    <h3>3 · Steps to swap</h3>
+    <h3>Steps to swap</h3>
     {#if !roles.length}<p class="muted">Select scenarios first.</p>{/if}
     <div class="roles">
       {#each roles as role (role.name)}

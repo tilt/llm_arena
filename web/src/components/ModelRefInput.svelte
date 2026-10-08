@@ -8,11 +8,12 @@
   // select offers only what the chosen model accepts. `empty` labels the "" choice (e.g. "Local small: qwen3:4b").
   // With `inheritedValue` (the concrete reference behind that choice) the thinking of the inherited model can change
   // on its own: the value becomes a thinking override ("#reasoning=low") and the model keeps following the preset.
+  // With `thinkingWithModel` the thinking select appears only once there is a model (no idle "thinking" placeholder).
   let {
-    value = $bindable(""), options, label, id, empty = "— choose —", inheritedValue = "", onchange,
+    value = $bindable(""), options, label, id, empty = "— choose —", inheritedValue = "", onchange, thinkingWithModel = false,
   }: {
     value?: string; options: CatalogItem[]; label: string; id: string; empty?: string; inheritedValue?: string;
-    onchange?: (ref: string) => void;
+    onchange?: (ref: string) => void; thinkingWithModel?: boolean;
   } = $props();
 
   const parts = $derived(splitRef(value ?? ""));
@@ -54,7 +55,7 @@
   }
 </script>
 
-<div class="ref">
+<div class="ref" class:solo={thinkingWithModel && !base}>
   <select {id} aria-label={`${label}: model`} value={parts.base} onchange={(e) => setBase(e.currentTarget.value)}>
     <option value="">{empty}</option>
     {#if parts.base && !options.some((o) => o.ref === parts.base)}<option value={parts.base}>{parts.base} (not available right now)</option>{/if}
@@ -66,6 +67,7 @@
       </optgroup>
     {/each}
   </select>
+  {#if !thinkingWithModel || base}
   <select aria-label={`${label}: thinking`} title={why} value={reasoning} class:changed={overriding} class:unsupported
     onchange={(e) => setReasoning(e.currentTarget.value)} disabled={!levels.length}>
     {#if levels.length}
@@ -74,10 +76,12 @@
       <option value="">{base ? "no thinking setting" : "thinking"}</option>
     {/if}
   </select>
+  {/if}
 </div>
 
 <style>
   .ref { display: grid; grid-template-columns: minmax(0, 1fr) 140px; gap: 6px; }
+  .ref.solo { grid-template-columns: minmax(0, 1fr); }
   .ref select { min-width: 0; width: 100%; }
   .ref select.changed { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
   .ref select.unsupported { border-color: var(--critical); }

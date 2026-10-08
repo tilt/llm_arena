@@ -7,10 +7,13 @@
     value = $bindable(), options, empty = "", label, onchange,
   }: { value?: string; options: CatalogItem[]; empty?: string; label: string; onchange?: (ref: string) => void } = $props();
   const groups = $derived([...new Set(options.map((o) => o.source))]);
+  // A value set elsewhere (a suite's judge alias from configs/models.yaml) shows as itself instead of a blank select.
+  const unlisted = $derived(value && !options.some((o) => o.ref === value) ? value : "");
 </script>
 
 <select bind:value aria-label={label} onchange={() => onchange?.(value ?? "")}>
   {#if empty}<option value="">{empty}</option>{/if}
+  {#if unlisted}<option value={unlisted}>{unlisted} · not in the model list</option>{/if}
   {#each groups as group (group)}
     <optgroup label={group}>
       {#each options.filter((o) => o.source === group) as o (o.ref)}

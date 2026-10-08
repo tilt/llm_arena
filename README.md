@@ -103,8 +103,15 @@ Details:
   - *Workflow & models:* the workflow diagram; start from a preset, pick a model per step, set parameters and the
     control policy, estimate and run.
   - *Results:* this scenario's leaderboard; "Use this setup" loads an entry back.
-- **Build:** either compare hand-built configurations across scenarios, or run a *replacement study* (baseline preset +
-  candidate models + which steps to swap, with a live preview of the configurations).
+- **Experiments:** one page, three questions.
+  1. *What to run:* a suite fills in scenarios, method variants and run settings (each suite mirrors a CLI experiment
+     in `configs/experiments/`); change any of it ("modified", with Reset) or clear the suite and pick scenarios
+     yourself. A *variant* changes parameters or the control policy, e.g. no-reflection vs self-reflect.
+  2. *Which models:* setups, a model per kind of step (text, vision, code, agent, decision) shown as a table. Start
+     one from a preset or from one model, and click a cell to change that kind's model; the pickers offer only models
+     with the capabilities those steps need. One setup evaluates it, more compare them; every setup runs every
+     variant. Or run a *replacement study* (baseline preset + candidate models + swapped steps) instead.
+  3. *How much:* the trial count (scenarios × variants × setups × tasks × repeats), run settings, then run.
 - **Runs:** live progress, then the report: heatmaps, confidence intervals, step metrics, decision quality, the effect
   of each replaced step, arena ratings. Each trial opens the *step inspector*: the trial's workflow as a map, and for
   every step its input (new messages first), output, tool calls, code, decisions and files, such as the chart a

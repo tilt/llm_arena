@@ -2,7 +2,7 @@
 export type Route =
   | { name: "home" }
   | { name: "models" }
-  | { name: "build" }
+  | { name: "experiments"; template?: string }
   | { name: "runs" }
   | { name: "leaderboard"; scenario?: string; entry?: string }
   | { name: "presets" }
@@ -13,7 +13,7 @@ export type Route =
 export function parse(hash: string): Route {
   const [, section, id, sub, subId, detail, detailId] = hash.replace(/^#/, "").split("/");
   if (section === "models") return { name: "models" };
-  if (section === "build") return { name: "build" };
+  if (section === "experiments" || section === "build") return { name: "experiments", template: id ? decodeURIComponent(id) : undefined };
   if (section === "runs" && id) {
     const trial = sub === "trial" && subId ? decodeURIComponent(subId) : undefined;
     const step = trial && detail === "step" && detailId ? decodeURIComponent(detailId) : undefined;
@@ -29,9 +29,17 @@ export function parse(hash: string): Route {
   return { name: "home" };
 }
 
-export const router = $state({ route: parse(location.hash) });
-addEventListener("hashchange", () => (router.route = parse(location.hash)));
+const currentHash = () => (typeof location === "undefined" ? "" : location.hash);
+
+export const router = $state({ route: parse(currentHash()) });
+if (typeof addEventListener !== "undefined") addEventListener("hashchange", () => (router.route = parse(currentHash())));
 
 export function go(path: string): void {
   location.hash = path;
+}
+
+/** Change the address without a history entry (replaceState fires no hashchange, so the route is set here). */
+export function replace(path: string): void {
+  history.replaceState(history.state, "", `#${path}`);
+  router.route = parse(currentHash());
 }

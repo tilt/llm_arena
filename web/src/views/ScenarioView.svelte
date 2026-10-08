@@ -88,7 +88,7 @@
   }
   function addToExperiment() {
     addToDraft(id, $state.snapshot(config) as ConfigDraft);
-    go("/build");
+    go("/experiments");
   }
   function runTask(taskId: string) {
     onlyTask = taskId;
@@ -182,7 +182,7 @@
       <div class="actions">
         <button onclick={runEstimate} disabled={busy || errors.length > 0 || blocked}>Estimate cost</button>
         <button class="primary" onclick={start} disabled={busy || errors.length > 0 || blocked}>Run this setup</button>
-        <button onclick={addToExperiment} disabled={errors.length > 0}>Add to experiment builder</button>
+        <button onclick={addToExperiment} disabled={errors.length > 0}>Add to experiment</button>
         {#if estimate}<span>{estimate.trials} trials · ~{estimate.tokens.toLocaleString("en-US")} tokens · ~{usd(estimate.cost_usd)}</span>{/if}
       </div>
       {#if message}<p class="note" role="status">{message}</p>{/if}
