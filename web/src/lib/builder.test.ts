@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
 import type { CatalogItem } from "./backend";
-import { bundleModels, bundleSource, configForModel, configForPreset, defaultRoleNeeds, eligibleModels, emptyConfig, expandConfigs, kindExceptions, kindsUsed, lacking, plannedTrials, roleSlots, stepModel, shortModel, studyConfigs, suggestName, toExperiment, toYaml, validate, type BuilderState, type ConfigDraft } from "./builder";
+import { bundleModels, bundleSource, configForModel, configForPreset, defaultRoleNeeds, eligibleModels, emptyConfig, expandConfigs, kindExceptions, kindsUsed, lacking, plannedTrials, roleSlots, stepModel, shortModel, suggestName, swapSetups, toExperiment, toYaml, validate, type BuilderState, type ConfigDraft } from "./builder";
 import type { ScenarioManifest } from "./contracts";
 
 const manifest = (id: string, roles: ScenarioManifest["roles"], requires: ScenarioManifest["requires"] = []): ScenarioManifest => ({
@@ -88,26 +88,73 @@ describe("control policies", () => {
   });
 });
 
-describe("replacement studies", () => {
+describe("replacement studies as setups", () => {
   const sql = manifest("reflection_sql", [{ name: "generator", description: "", kind: "code" }, { name: "critic", description: "", fallback: "generator", kind: "text" }]);
   const chart = manifest("chart_codegen", [{ name: "generator", description: "", kind: "code" }, { name: "critic", description: "", needs: ["vision"], kind: "vision" }]);
-  const profile = { label: "Weak", models: { text: "weak", code: "weak", vision: "vlm" } };
+  const profiles = { weak: { label: "Weak", models: { text: "weak", code: "weak", vision: "vlm" } } } as never;
+  const catalog = [model("strong", false), model("weak", false), model("vlm", true)];
+  const base = (): ConfigDraft => ({ ...configForPreset("weak"), name: "weak", named: true, id: "weak-id" });
 
-  it("previews the baseline plus one config per role and candidate, like the engine", () => {
-    const study = { baseline: "weak", candidates: ["strong", "weak"], roles: [], decisionControl: "gate" as const };
-    const noVision = (_: string, needs: string[]) => !needs.includes("vision");
-    expect(studyConfigs(study, [sql, chart], profile, noVision)).toEqual([
-      { name: "baseline", scenarios: ["reflection_sql", "chart_codegen"] },
-      { name: "critic→strong", scenarios: ["reflection_sql"] },
-      { name: "generator→strong", scenarios: ["chart_codegen", "reflection_sql"] },
+  it("swap one step per setup, only where the candidate can do it and changes something", () => {
+    const baseline = base();
+    const { setups, skipped } = swapSetups(baseline, ["strong", "weak"], ["critic", "generator"], [sql, chart], profiles, catalog);
+    expect(setups.map((s) => [s.name, s.only, s.swap])).toEqual([
+      ["critic→strong", ["reflection_sql"], { role: "critic", candidate: "strong", from: "weak-id" }],
+      ["generator→strong", ["reflection_sql", "chart_codegen"], { role: "generator", candidate: "strong", from: "weak-id" }],
     ]);
+    expect(setups[0]!.id).not.toBe("weak-id");
+    expect(setups[0]!.scenarioRoles).toEqual({ reflection_sql: { critic: "strong" } });
+    expect(baseline.scenarioRoles).toEqual({}); // the baseline itself is untouched
+    expect(skipped).toContainEqual({ role: "critic", candidate: "strong", scenario: "chart_codegen", why: "lacks vision" });
+    expect(skipped).toContainEqual({ role: "generator", candidate: "weak", scenario: "reflection_sql", why: "the baseline already runs it" });
   });
 
-  it("exports a study experiment", () => {
-    const experiment = toExperiment(state({ scenarios: ["reflection_sql"], study: { baseline: "weak", candidates: ["strong"], roles: ["critic"], decisionControl: "gate" } }), [sql], { weak: profile });
-    expect(experiment.study).toEqual({ baseline: "weak", candidates: ["strong"], roles: ["critic"], decision_control: "gate" });
-    expect(experiment.configs).toBeUndefined();
-    expect(experiment.presets).toEqual({ weak: profile });
+  it("change exactly one step, even where another step falls back to the swapped one", () => {
+    const { setups } = swapSetups({ ...configForModel("weak"), named: true, id: "w" }, ["strong"], ["generator"], [sql], {}, catalog);
+    // Without a preset the critic follows the generator; it stays on the baseline's model.
+    expect(setups[0]!.scenarioRoles).toEqual({ reflection_sql: { generator: "strong", critic: "weak" } });
+    expect(stepModel(setups[0]!, sql, "critic")).toBe("weak");
+  });
+
+  it("compare every setup with the baseline under the same variant, running swaps only where they apply", () => {
+    const { setups } = swapSetups(base(), ["strong"], ["critic"], [sql, chart], profiles, catalog);
+    const configs = [{ ...base(), baseline: true }, ...setups];
+    const plain = toExperiment(state({ scenarios: ["reflection_sql", "chart_codegen"], configs }), [sql, chart], profiles).configs!;
+    expect(plain[0]).not.toHaveProperty("compare_to");
+    expect(plain[0]).not.toHaveProperty("scenarios");
+    expect(plain[1]).toMatchObject({
+      name: "critic→strong", compare_to: "weak", scenarios: ["reflection_sql"],
+      scenario_roles: { reflection_sql: { critic: "strong" } }, study: { kind: "swap", role: "critic", candidate: "strong" },
+    });
+    const variants = [{ name: "a", params: {}, decisions: null }, { name: "b", params: {}, decisions: null }];
+    const both = toExperiment(state({ scenarios: ["reflection_sql", "chart_codegen"], configs, variants }), [sql, chart], profiles).configs!;
+    expect(both.map((c) => [c.name, c.compare_to])).toEqual([["weak/a", undefined], ["weak/b", undefined], ["critic→strong/a", "weak/a"], ["critic→strong/b", "weak/b"]]);
+    expect(plannedTrials(state({ scenarios: ["reflection_sql", "chart_codegen"], configs }), [sql, chart]).trials).toBe(3);
+  });
+
+  it("keep comparing a swap with the setup it was made from, whichever setup is the baseline", () => {
+    const { setups } = swapSetups(base(), ["strong"], ["critic"], [sql], profiles, catalog);
+    const other = { ...configForModel("strong"), name: "other", named: true, id: "other-id" };
+    const compared = (configs: ConfigDraft[]) =>
+      toExperiment(state({ scenarios: ["reflection_sql"], configs }), [sql], profiles).configs!.map((c) => [c.name, c.compare_to]);
+    expect(compared([base(), other, ...setups])).toEqual([["weak", undefined], ["other", undefined], ["critic→strong", "weak"]]);
+    expect(compared([base(), { ...other, baseline: true }, ...setups])).toEqual([["weak", "other"], ["other", undefined], ["critic→strong", "weak"]]);
+  });
+
+  it("refuse a swap whose setup was removed or changed since", () => {
+    const { setups } = swapSetups(base(), ["strong"], ["critic"], [sql], profiles, catalog);
+    const errors = (configs: ConfigDraft[]) => validate(state({ scenarios: ["reflection_sql"], configs }), [sql], true, {}, profiles);
+    expect(errors([base(), ...setups])).toEqual([]);
+    expect(errors(setups)).toContain("critic→strong: the setup it swaps a step of was removed; remove it or add the swaps again.");
+    const edited = { ...base(), kinds: { code: "strong" } };
+    expect(errors([edited, ...setups])).toContain("critic→strong: differs from weak in more than the critic now; remove it or add the swaps again.");
+  });
+
+  it("refuse two baselines and a setup that runs nowhere", () => {
+    const configs = [{ ...base(), baseline: true }, { ...base(), name: "other", baseline: true, only: ["chart_codegen"] }];
+    const errors = validate(state({ scenarios: ["reflection_sql"], configs }), [sql, chart], true, {}, profiles);
+    expect(errors).toContain("Mark only one setup as the baseline.");
+    expect(errors).toContain("other: runs in none of the selected scenarios.");
   });
 });
 

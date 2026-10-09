@@ -66,10 +66,11 @@ the expected changes were made. Scenarios whose ground truth has no meaningful p
 `reflection_sql` (result-set overlap is easy to game), `react_multihop` (one answer; `f1` is a diagnostic), and the
 classic benchmarks except `ifeval`.
 
-## Replacement effects
+## Effects against a baseline
 
-For a replacement study, each configuration that swaps one role is compared with the baseline configuration of the
-same scenario:
+Each configuration with a `compare_to` (every swap of a replacement study, every setup next to a page's baseline) is
+compared with that baseline configuration in each scenario both ran. A swap names the step and the candidate model, so
+the report shows swaps as a step × candidate matrix:
 - **Δ pass rate:** on the tasks both ran (per-task pass shares, averaged).
 - **p:** a paired permutation test on those tasks.
 - **Δ cost and Δ p50 latency:** per trial.

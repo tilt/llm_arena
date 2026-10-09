@@ -11,8 +11,11 @@
   // A setup's details, edited in place: its name, what it starts from (a preset or one model), a model per role, and
   // per-scenario steps and parameters. Models per kind are edited in the setup table itself.
   let {
-    config = $bindable(), index, slots, selected, decides,
-  }: { config: ConfigDraft; index: number; slots: RoleSlot[]; selected: ScenarioManifest[]; decides: boolean } = $props();
+    config = $bindable(), index, slots, selected, decides, onbaseline,
+  }: {
+    config: ConfigDraft; index: number; slots: RoleSlot[]; selected: ScenarioManifest[]; decides: boolean;
+    onbaseline: (on: boolean) => void;
+  } = $props();
 
   const catalog = $derived(app.models?.models ?? []);
   // The setup as it runs: with models of its own per kind, it is a preset of its own.
@@ -70,6 +73,15 @@
       {#each Object.entries(app.presets) as [name, p] (name)}<option value={name}>{p.label} preset</option>{/each}
     </select>
   </div>
+  <div class="row">
+    <span class="label">Baseline</span>
+    <label class="check"><input type="checkbox" checked={!!config.baseline} onchange={(e) => onbaseline(e.currentTarget.checked)} />
+      the report shows every other setup's effect against this one (a swap keeps the setup it was made from)</label>
+  </div>
+  {#if config.only}
+    <p class="small only">Runs only in {config.only.map((id) => selected.find((m) => m.id === id)?.title ?? id).join(", ")}{config.swap ? ", where its swap changes a step" : ""}.
+      {#if !config.swap}<button class="link" onclick={() => (config.only = undefined)}>Run in every scenario</button>{/if}</p>
+  {/if}
   {#if !knownPreset(config, app.presets)}
     <div class="row">
       <span class="label">Model</span>
@@ -118,7 +130,8 @@
   .name input { font-weight: 600; min-width: 0; flex: 1; }
   fieldset { min-width: 0; border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px 10px; margin: 0; display: grid; gap: 6px; }
   legend { font-weight: 600; font-size: 13px; padding: 0 4px; }
-  .policy { margin: 0; }
+  .policy, .only { margin: 0; }
+  .check { display: flex; gap: 8px; align-items: center; font-size: 13px; }
   .per-scenario > summary { cursor: pointer; font-weight: 600; font-size: 13px; }
   .scenario-setup { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
   .scenario-setup summary { cursor: pointer; margin-bottom: 8px; }

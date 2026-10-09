@@ -115,7 +115,7 @@
   {/if}
 
   {#if replacementsFor(section.scenario).length}
-    <h3>Effect of replacing a step</h3>
+    <h3>Effect against the baseline</h3>
     <ReplacementEffects effects={replacementsFor(section.scenario)} />
   {/if}
 

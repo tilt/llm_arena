@@ -60,7 +60,7 @@ describe("scenario suites", () => {
     const draft = state();
     const bundles = draft.configs;
     applySuite(draft, suite("smoke"), MANIFESTS, PRESETS);
-    expect(draft).toMatchObject({ suite: "smoke", scenarios: ["reflection_sql", "email_assistant"], limit: 3, variants: [], study: null });
+    expect(draft).toMatchObject({ suite: "smoke", scenarios: ["reflection_sql", "email_assistant"], limit: 3, variants: [] });
     expect(draft.configs).toBe(bundles);
   });
 
@@ -88,17 +88,18 @@ describe("scenario suites", () => {
     expect(suiteChanges(draft, suite("reflection"), MANIFESTS)).toEqual(["scenarios", "run settings"]);
     const bundles = draft.configs;
     clearSuite(draft);
-    expect(draft).toMatchObject({ suite: "", scenarios: [], variants: [], study: null });
+    expect(draft).toMatchObject({ suite: "", scenarios: [], variants: [] });
     expect(draft.configs).toBe(bundles);
   });
 
-  it("prepare the critic study without hiding the remaining required choices", () => {
+  it("prepare the critic study: the first setup becomes the baseline the swaps are compared with", () => {
     const draft = state();
     applySuite(draft, suite("critic_study"), MANIFESTS, PRESETS);
     expect(draft.name).toBe("critic-study");
     expect(draft.scenarios).toEqual(["reflection_sql", "chart_codegen"]);
     expect(draft.limit).toBe(3);
-    expect(draft.study).toMatchObject({ baseline: "local-small", roles: ["critic"], candidates: [""] });
+    expect(draft.configs.map((c) => c.baseline)).toEqual([true]);
+    expect(suite("critic_study").swaps).toEqual({ roles: ["critic"] });
   });
 });
 
@@ -117,8 +118,8 @@ describe.each(SUITES.map((s) => [s.id, s] as const))("suite %s matches its CLI e
   });
 
   it("has the YAML's setups for each variant", () => {
-    if (s.kind === "study") {
-      expect(yaml.study?.roles ?? []).toEqual(s.study?.roles ?? []);
+    if (yaml.study) {
+      expect(yaml.study.roles ?? []).toEqual(s.swaps?.roles ?? []);
       return;
     }
     for (const variant of s.variants ?? []) {

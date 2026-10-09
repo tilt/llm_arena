@@ -54,6 +54,8 @@ def rename_data(data: RunData, request: RenameRun) -> tuple[RunData, dict[str, s
         config["name"] = name
     for entry in config.get("configs", []):
         entry["name"] = swap(entry.get("name"))
+        if entry.get("compare_to"):  # a renamed baseline keeps its comparisons
+            entry["compare_to"] = swap(entry["compare_to"])
     run = {**data.run, "config_json": json.dumps(config), **({"name": name} if name is not None else {})}
     renamed = RunData(
         run=run,

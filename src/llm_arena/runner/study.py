@@ -79,7 +79,7 @@ def expand(
             if controlled:
                 model = candidate.split(":", 1)[1]
                 decisions = {"policy": service, "control": study.decision_control, f"{service}_model": model}
-                add(f"{DECISIONS}→{model}", {"scenarios": controlled, "decisions": decisions,
+                add(f"{DECISIONS}→{model}", {"scenarios": controlled, "decisions": decisions, "compare_to": "baseline",
                                               "study": {"kind": "swap", "role": DECISIONS, "candidate": candidate}})  # fmt: skip
             continue
         for role in roles:
@@ -92,5 +92,6 @@ def expand(
             }
             if swapped:
                 add(f"{role}→{short(candidate)}", {"scenarios": sorted(swapped), "scenario_roles": swapped,
+                                                    "compare_to": "baseline",
                                                     "study": {"kind": "swap", "role": role, "candidate": candidate}})  # fmt: skip
     return configs

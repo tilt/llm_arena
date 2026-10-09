@@ -36,7 +36,7 @@
           "type": "object"
         },
         "replacements": {
-          "description": "replacement studies: each swapped step against the baseline",
+          "description": "each configuration with a compare_to against that baseline (replacements)",
           "items": {
             "$ref": "#/$defs/ReplacementEffect"
           },
@@ -433,8 +433,13 @@
       "type": "object"
     },
     "ReplacementEffect": {
-      "description": "One swapped step against the baseline, on the tasks both ran (replacement studies).",
+      "description": "One configuration against its baseline (its compare_to), on the tasks both ran. A replacement swaps one step:\nrole and candidate name it; both are empty for a configuration that changes something else.",
       "properties": {
+        "baseline": {
+          "default": "",
+          "title": "Baseline",
+          "type": "string"
+        },
         "baseline_rate": {
           "title": "Baseline Rate",
           "type": "number"

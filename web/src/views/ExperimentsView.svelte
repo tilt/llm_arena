@@ -3,16 +3,16 @@
   import ConfigCard from "../components/ConfigCard.svelte";
   import ModelRefInput from "../components/ModelRefInput.svelte";
   import ModelSelect from "../components/ModelSelect.svelte";
-  import StudyForm from "../components/StudyForm.svelte";
+  import SwapPanel from "../components/SwapPanel.svelte";
   import VariantCard from "../components/VariantCard.svelte";
   import { app } from "../lib/app.svelte";
   import {
     EVALUATION_PAGES, bundleModels, bundleSource, configForModel, configForPreset, eligibleModels, expandConfigs, kindExceptions, kindsUsed,
-    lacking, llmRoles, plannedTrials, roleSlots, suggestName, toExperiment, toYaml, validate, validateStudy, type ConfigDraft, type Service,
+    lacking, llmRoles, configId, plannedTrials, roleSlots, suggestName, swapProblem, toExperiment, toYaml, validate, type ConfigDraft, type Service,
   } from "../lib/builder";
   import type { Estimate } from "../lib/contracts";
   import { usd } from "../lib/format";
-  import { KINDS, activePreset, describeRef, splitRef, usableActive } from "../lib/presets";
+  import { KINDS, describeRef, splitRef } from "../lib/presets";
   import { draft } from "../lib/draft.svelte";
   import { go, replace } from "../lib/router.svelte";
   import { refreshRuns } from "../lib/runs.svelte";
@@ -34,6 +34,8 @@
   let editCell = $state<{ index: number; kind: string } | null>(null);
   let details = $state<number | null>(null);
   let addModel = $state("");
+  // The swap panel, open with the steps it preselects (a suite's), or closed (null).
+  let swapping = $state<string[] | null>(null);
 
   const catalog = $derived(app.models?.models ?? []);
   const sandbox = $derived(app.runtime?.sandbox ?? false);
@@ -42,12 +44,13 @@
   const openEnded = $derived(selected.some((s) => s.open_ended));
   const services = $derived(app.runtime?.decision_services ?? {});
   const serviceStatus = $derived(Object.fromEntries(Object.entries(services).map(([k, v]) => [k, v?.status ?? ""])) as Record<Service, string>);
-  const errors = $derived(draft.study ? validateStudy(draft, draft.study) : validate(draft, app.scenarios, sandbox, serviceStatus, app.presets, catalog));
+  const errors = $derived(validate(draft, app.scenarios, sandbox, serviceStatus, app.presets, catalog));
   const controllable = $derived(selected.some((s) => s.supports_decisions));
   // Scenarios a policy-carrying run leaves out (the trial count already does; the formula above it cannot say so).
-  const skipped = $derived(!draft.study && expandConfigs(draft).some(({ bundle }) => bundle.decisions)
+  const skipped = $derived(expandConfigs(draft).some(({ bundle }) => bundle.decisions)
     ? selected.filter((s) => !s.supports_decisions).map((s) => s.title) : []);
-  const planned = $derived(plannedTrials(draft, app.scenarios, app.presets));
+  const planned = $derived(plannedTrials(draft, app.scenarios));
+  const baseline = $derived(draft.configs.find((c) => c.baseline));
   const suite = $derived(SUITES.find((s) => s.id === draft.suite));
   const changes = $derived(suite ? suiteChanges(draft, suite, app.scenarios) : []);
   const variants = $derived(draft.variants ?? []);
@@ -59,6 +62,9 @@
   });
   // A setup on one model runs every step on it, so the model needs what every step needs.
   const allNeeds = $derived([...new Set(kinds.flatMap((k) => k.needs))].sort());
+  // Steps a swap can change: those of the table's columns (decision steps only when a policy calls an LLM).
+  const swapRoles = $derived([...new Set(kinds.flatMap((k) => k.roles))].sort());
+  const titles = (ids: string[] = []) => ids.map((id) => app.scenarios.find((m) => m.id === id)?.title ?? id).join(", ");
   const kindLabel = (kind: string) => KINDS.find((k) => k.kind === kind)?.label ?? kind;
   const showSuites = $derived(pickSuite || (!suite && !draft.scenarios.length));
   const experiment = () => toExperiment(draft, app.scenarios, app.presets);
@@ -76,6 +82,11 @@
       taken.add(name);
       if (config.name !== name) config.name = name;
     }
+  });
+
+  // Every setup gets a stable id, so swaps keep pointing at the setup they were made from when names change.
+  $effect(() => {
+    for (const config of draft.configs) if (!config.id) config.id = configId();
   });
 
   // An estimate belongs to the draft it was made for; any change makes it stale.
@@ -99,12 +110,14 @@
     pickSuite = false;
     pickScenarios = false;
     editVariant = null;
+    swapping = chosen.swaps ? [...chosen.swaps.roles] : null;
   }
   function removeSuite() {
     clearSuite(draft);
     pickSuite = false;
     pickScenarios = false;
     editVariant = null;
+    swapping = null;
   }
   function toggleScenario(id: string) {
     draft.scenarios = draft.scenarios.includes(id) ? draft.scenarios.filter((s) => s !== id) : [...draft.scenarios, id];
@@ -120,9 +133,20 @@
     draft.variants = variants.filter((_, i) => i !== index);
     editVariant = null;
   }
-  function setStudy(on: boolean) {
-    const baseline = draft.configs.map((c) => c.preset ?? "").find((p) => p && app.presets[p]) || usableActive(app.presets) || activePreset();
-    draft.study = on ? { baseline, candidates: [""], roles: [], decisionControl: "gate" } : null;
+  function setBaseline(index: number, on: boolean) {
+    draft.configs.forEach((c, i) => (c.baseline = on && i === index));
+  }
+  function addSwaps(base: number, setups: ConfigDraft[]) {
+    setBaseline(base, true);
+    const taken = new Set(draft.configs.map((c) => c.name));
+    for (const setup of setups) {
+      let name = setup.name;
+      for (let i = 2; taken.has(name); i++) name = `${setup.name}-${i}`;
+      taken.add(name);
+      setup.name = name;
+    }
+    draft.configs = [...draft.configs, ...setups];
+    swapping = null;
   }
   function addBundle(config: ConfigDraft) {
     draft.configs = [...draft.configs, config];
@@ -206,7 +230,7 @@
         <button class="card suite" class:current={draft.suite === s.id} onclick={() => useSuite(s.id)}>
           <strong>{s.title}</strong>
           <span class="desc">{s.description}</span>
-          <span class="meta">{plural(count, "scenario")}{s.variants ? ` · ${plural(s.variants.length, "variant")}` : ""}{s.kind === "study" ? " · replacement study" : ""}</span>
+          <span class="meta">{plural(count, "scenario")}{s.variants ? ` · ${plural(s.variants.length, "variant")}` : ""}{s.swaps ? " · replacement study" : ""}</span>
         </button>
       {/each}
     </div>
@@ -242,7 +266,7 @@
     {/each}
   {/if}
 
-  {#if draft.scenarios.length && !draft.study}
+  {#if draft.scenarios.length}
     <div class="line">
       <span class="label">Variants</span>
       <span class="value chips">
@@ -266,12 +290,7 @@
 
 <section class="step" aria-labelledby="models-title">
   <h2 id="models-title"><span class="num">2</span> Which models</h2>
-  {#if draft.study}
-    <p class="muted">Replacement study: start from a preset and measure what swapping one step's model changes.
-      <button class="link" onclick={() => setStudy(false)}>Compare setups instead</button></p>
-    <StudyForm bind:study={draft.study} manifests={selected} />
-  {:else}
-    <p class="muted">{draft.configs.length === 1 ? "One setup: the run evaluates it. Add another to compare." : `${draft.configs.length} setups, compared side by side.`}
+    <p class="muted">{draft.configs.length === 1 ? "One setup: the run evaluates it. Add another to compare." : `${draft.configs.length} setups, compared side by side${baseline ? ` and with the baseline ${baseline.name}` : ""}.`}
       A setup has a model per kind of step; click a model to change it.</p>
     <div class="table-wrap">
       <table class="bundles">
@@ -291,7 +310,15 @@
               <th scope="row" class="bundle">
                 <div class="bundle-head">
                   <strong>{config.name}</strong>
+                  {#if config.baseline}<span><span class="badge" title="The report shows every other setup's effect against this one">baseline</span></span>{/if}
                   <span class="muted small">{bundleSource(config, app.presets)}</span>
+                  {#if config.swap}
+                    {@const origin = draft.configs.find((c) => c.id && c.id === config.swap?.from)}
+                    {@const problem = swapProblem(config, draft.configs, selected, app.presets)}
+                    <span class="muted small">swaps {config.swap.role} → {describeRef(config.swap.candidate)}{origin ? ` of ${origin.name}` : ""}</span>
+                    {#if problem}<span class="small bad">{problem}</span>{/if}
+                  {/if}
+                  {#if config.only}<span class="muted small">only in {titles(config.only)}</span>{/if}
                   {#if config.decisions}<span class="muted small" title={variants.length ? "Every variant sets the control policy, so this setup's own policy is not used" : ""}>
                     {variants.length ? "own policy: replaced by the variants" : "own control policy"}</span>{/if}
                 </div>
@@ -332,7 +359,7 @@
             {#if details === index}
               <tr class="sub-row">
                 <td colspan={kinds.length + 2}>
-                  <ConfigCard bind:config={draft.configs[index]!} {index} {slots} {selected} {decides} />
+                  <ConfigCard bind:config={draft.configs[index]!} {index} {slots} {selected} {decides} onbaseline={(on) => setBaseline(index, on)} />
                 </td>
               </tr>
             {/if}
@@ -353,9 +380,12 @@
         <button onclick={() => { addBundle(configForModel(addModel)); addModel = ""; }} disabled={!addModel}>Add</button>
       </span>
     </div>
-    <p class="muted small">Or <button class="link" onclick={() => setStudy(true)}>run a replacement study</button>: start from a preset and
-      measure what swapping one step's model changes.</p>
-  {/if}
+    {#if swapping}
+      <SwapPanel configs={draft.configs} {selected} roles={swapRoles} initialRoles={swapping} onadd={addSwaps} onclose={() => (swapping = null)} />
+    {:else}
+      <p class="muted small">What is one step's model worth? <button class="link" onclick={() => (swapping = [])}>Add swaps</button> of a
+        baseline setup: each new setup changes one step, and the report shows its effect against the baseline.</p>
+    {/if}
 </section>
 
 <section class="step" aria-labelledby="run-title">
@@ -363,12 +393,13 @@
   {#if draft.scenarios.length}
     <p class="plan">
       <span class="muted">{plural(draft.scenarios.length, "scenario")}
-        {#if draft.study}× baseline and its swaps{:else}{variants.length ? `× ${plural(variants.length, "variant")}` : ""} × {plural(draft.configs.length, "setup")}{/if}
-        × {draft.limit ? `${draft.limit} tasks` : "all tasks"} × {plural(draft.repeats || 1, "repeat")}{draft.split !== "all" ? ` (${draft.split} split)` : ""} =</span>
+        {variants.length ? `× ${plural(variants.length, "variant")}` : ""} × {plural(draft.configs.length, "setup")}
+        × {draft.limit ? plural(draft.limit, "task") : "all tasks"} × {plural(draft.repeats || 1, "repeat")}{draft.split !== "all" ? ` (${draft.split} split)` : ""} =</span>
       <strong>{planned.exact ? "" : "up to "}{plural(planned.trials, "trial")}</strong>
       <span class="muted">· spend limit {draft.maxCostUsd ? usd(draft.maxCostUsd) : "none"}</span>
       {#if skipped.length}<span class="muted small skip">A control policy runs only where a scenario supports one, so
         {expandConfigs(draft).some(({ variant }) => variant) ? "variants" : "setups"} with a policy skip {skipped.join(", ")}.</span>{/if}
+      {#if draft.configs.some((c) => c.only)}<span class="muted small skip">Swaps run only in the scenarios where they change a step.</span>{/if}
       {#if estimate}
         <span>· ~{estimate.tokens.toLocaleString("en-US")} tokens · ~{usd(estimate.cost_usd)}
           {#if estimate.unknown_prices?.length}<span class="muted"> (no price for {estimate.unknown_prices.join(", ")})</span>{/if}</span>
@@ -392,12 +423,10 @@
       {/if}
       <label>Spend limit (USD)<input type="number" min="0" step="0.5" bind:value={draft.maxCostUsd} /></label>
       <label>When a price is unknown<select bind:value={draft.budgetMode}><option value="best_effort">run anyway (best effort)</option><option value="strict">refuse (strict)</option></select></label>
-      {#if !draft.study}
-        <label>Judge model
-          <ModelSelect bind:value={draft.judge} options={catalog} empty="no judge" label="Judge model" />
-          <span class="muted small">rubric scores{openEnded ? ", arena" : ""}</span></label>
-        {#if openEnded}<label class="inline"><input type="checkbox" bind:checked={draft.arena} /> Pairwise arena battles (needs a judge)</label>{/if}
-      {/if}
+      <label>Judge model
+        <ModelSelect bind:value={draft.judge} options={catalog} empty="no judge" label="Judge model" />
+        <span class="muted small">rubric scores{openEnded ? ", arena" : ""}</span></label>
+      {#if openEnded}<label class="inline"><input type="checkbox" bind:checked={draft.arena} /> Pairwise arena battles (needs a judge)</label>{/if}
       {#if app.runtime?.live_search}<label class="inline"><input type="checkbox" bind:checked={live} /> Allow live web/arXiv search</label>{/if}
     </div>
   </details>
@@ -460,9 +489,12 @@
   .roles { display: block; font-weight: 400; color: var(--text-muted); font-size: 11px; }
   .bundle { font-weight: 400; white-space: normal; }
   .bundle-head { display: grid; gap: 2px; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px;
+    color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
   .bundle strong { overflow-wrap: anywhere; }
   .cell-note { display: block; margin-top: 3px; font-size: 11px; color: var(--text-muted); cursor: help; }
   .cell-note.bad { color: var(--critical); cursor: default; }
+  .bundle .bad { color: var(--critical); }
   .cell { width: 100%; display: flex; gap: 6px; align-items: center; justify-content: space-between; text-align: left; font: inherit;
     padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-primary);
     cursor: pointer; max-width: 240px; }

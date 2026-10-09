@@ -76,7 +76,7 @@ class RunSummary:
     trials: list[dict[str, Any]]
     scores: dict[str, list[dict[str, Any]]]  # trial_id -> scores
     decisions: list[DecisionSummary] = field(default_factory=list)  # control-policy quality, when configs use one
-    replacements: list[ReplacementEffect] = field(default_factory=list)  # replacement studies: swap vs baseline
+    replacements: list[ReplacementEffect] = field(default_factory=list)  # each config vs its compare_to (baseline)
 
     @property
     def scenarios(self) -> list[str]:
@@ -189,7 +189,8 @@ def _derived(step: dict[str, float]) -> dict[str, float]:
 
 @dataclass
 class ReplacementEffect:
-    """One swapped step against the baseline, on the tasks both ran (replacement studies)."""
+    """One configuration against its baseline (its compare_to), on the tasks both ran. A replacement swaps one step:
+    role and candidate name it; both are empty for a configuration that changes something else."""
 
     scenario: str
     role: str
@@ -204,27 +205,34 @@ class ReplacementEffect:
     delta_latency_s: float  # p50
     step_deltas: dict[str, float] = field(default_factory=dict)  # step metrics: variant - baseline
     errors: int = 0  # errored or timed-out trials in either config: failures that say nothing about the model
+    baseline: str = ""  # the configuration compared with (its compare_to)
 
 
 def _replacements(configs: list[ConfigSummary], config_json: dict[str, Any]) -> list[ReplacementEffect]:
-    tags = {c["name"]: c.get("study") for c in config_json.get("configs", []) if c.get("study")}
+    entries = [c for c in config_json.get("configs", []) if c.get("name")]
+    tags = {c["name"]: c.get("study") or {} for c in entries}
+    # Runs from before compare_to: a study's swaps are compared with the study's baseline.
+    legacy = next((name for name, tag in tags.items() if tag.get("kind") == "baseline"), None)
+    baselines = {
+        c["name"]: c.get("compare_to") or (legacy if tags[c["name"]].get("kind") == "swap" else None) for c in entries
+    }
     by_scenario: dict[str, dict[str, ConfigSummary]] = defaultdict(dict)
     for config in configs:
         by_scenario[config.scenario][config.config] = config
     effects = []
     for scenario, members in sorted(by_scenario.items()):
-        base = next((c for name, c in members.items() if (tags.get(name) or {}).get("kind") == "baseline"), None)
-        if base is None:
-            continue
         for name, variant in sorted(members.items()):
-            tag = tags.get(name) or {}
-            if tag.get("kind") != "swap":
+            base_name = baselines.get(name)
+            base = members.get(base_name) if base_name else None
+            if base is None or base is variant:
                 continue
+            tag = tags.get(name) or {}
             shared = sorted(set(base.per_task_pass) & set(variant.per_task_pass))
             a = [base.per_task_pass[t] for t in shared]
             b = [variant.per_task_pass[t] for t in shared]
             effects.append(ReplacementEffect(
-                scenario=scenario, role=str(tag.get("role")), candidate=str(tag.get("candidate")), config=name,
+                scenario=scenario, role=str(tag.get("role") or ""), candidate=str(tag.get("candidate") or ""), config=name,
+                baseline=str(base_name),
                 tasks=len(shared), baseline_rate=mean(a) if a else float("nan"), variant_rate=mean(b) if b else float("nan"),
                 delta=mean(b) - mean(a) if shared else float("nan"),
                 p_value=paired_permutation_test(b, a) if shared else float("nan"),

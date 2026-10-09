@@ -110,10 +110,12 @@ Details:
   2. *Which models:* setups, a model per kind of step (text, vision, code, agent, decision) shown as a table. Start
      one from a preset or from one model, and click a cell to change that kind's model; the pickers offer only models
      with the capabilities those steps need. One setup evaluates it, more compare them; every setup runs every
-     variant. Or run a *replacement study* (baseline preset + candidate models + swapped steps) instead.
+     variant. Mark one setup as the *baseline* to see every other setup's effect against it. *Add swaps* makes a
+     replacement study out of setups: each new one changes one step of the baseline to a candidate model, runs only
+     where that changes something, and lists the swaps it skipped (e.g. a text-only model as a vision critic).
   3. *How much:* the trial count (scenarios × variants × setups × tasks × repeats), run settings, then run.
 - **Runs:** live progress, then the report: heatmaps, confidence intervals, step metrics, decision quality, the effect
-  of each replaced step, arena ratings. Each trial opens the *step inspector*: the trial's workflow as a map, and for
+  of each setup against its baseline (per replaced step), arena ratings. Each trial opens the *step inspector*: the trial's workflow as a map, and for
   every step its input (new messages first), output, tool calls, code, decisions and files, such as the chart a
   vision critic saw. Deep links: `#/runs/<run>/trial/<trial>/step/<step>`.
 - **Leaderboard:** every run pooled per scenario and setup, filterable by model.
@@ -216,7 +218,8 @@ A config with `preset: local-small` binds every role you don't set explicitly (`
 
 A **replacement study** measures what one step's model is worth. It runs a preset as the baseline, then the same setup with
 exactly one role swapped to each candidate. The report shows the change in pass rate on shared tasks, with a paired
-test, plus the change in cost and latency:
+test, plus the change in cost and latency. On the Experiments page, mark a baseline setup and use *Add swaps*; in YAML,
+either let a study generate the configurations:
 
 ```yaml
 # configs/experiments/replacement-study.yaml
@@ -230,6 +233,18 @@ study:
 
 Candidates replace only steps whose needs they meet: a text-only model never replaces a vision critic. Dedicated
 decision models (`ollaya:winnow:e4b`, `jev:jev-latest`) can be candidates too; they replace control decisions.
+
+or write them yourself: any configuration with `compare_to` is reported against that one, whatever it changes.
+
+```yaml
+configs:
+  - name: local-small
+    preset: local-small
+  - name: strong critic
+    preset: local-small
+    roles: {critic: "openai:gpt-5-mini#reasoning=low"}
+    compare_to: local-small
+```
 
 ## Configuring models and experiments
 

@@ -37,7 +37,18 @@ export interface ConfigDraft {
   named?: boolean;
   /** step kind -> model: this bundle's own model for a kind, over the preset's (or the one model's) */
   kinds?: Record<string, string>;
+  /** the experiment's baseline: the report shows every other bundle's effect against it (per variant) */
+  baseline?: boolean;
+  /** runs only in these scenarios (a swap runs where it changes its step); unset = every selected scenario */
+  only?: string[];
+  /** the one step this bundle changes against the bundle it was made from (swapSetups, `from` = that bundle's id):
+   *  the report compares it with that bundle, whichever is marked as the baseline, and labels the effect by step */
+  swap?: { role: string; candidate: string; from: string };
+  /** stable identity (names change), so swaps can name the bundle they were made from */
+  id?: string;
 }
+
+export const configId = (): string => crypto.randomUUID();
 
 /** One way of running the scenarios (a method variant): parameters and a control policy. Every model bundle runs
  *  every variant; no variants means one plain run per bundle. */
@@ -86,52 +97,84 @@ export interface BuilderState {
   budgetMode: "best_effort" | "strict";
   /** task split for scenarios that define one (dev for tuning thresholds, test for reporting) */
   split: "all" | "dev" | "test";
-  /** replacement study instead of hand-built configurations */
-  study?: StudyDraft | null;
   /** the suite that filled in what to run ("" = the user's own choice) */
   suite?: string;
   /** method variants; every bundle runs each one */
   variants?: VariantDraft[];
 }
 
-export interface StudyDraft {
-  baseline: string;
-  /** model references, or "ollaya:<model>" / "jev:<model>" decision models */
-  candidates: string[];
-  /** roles to swap; empty = every non-decision role of the selected scenarios */
-  roles: string[];
-  decisionControl: "gate" | "policy" | "review";
-}
-
-const SERVICE_PREFIXES = ["ollaya:", "jev:"];
-const shortRef = (ref: string) => {
-  const [base = "", settings = ""] = ref.split("#", 2);
-  const name = base.includes(":") ? base.slice(base.indexOf(":") + 1) : base;
-  const notes = settings.split(",").filter(Boolean).map((s) => (s === "reasoning=none" ? "no thinking" : s.replace("reasoning=", "reasoning ")));
-  return notes.length ? `${name} (${notes.join(", ")})` : name;
-};
-
-/** The configurations a study will run (mirrors runner/study.py expand), for the preview and the estimate. */
-export function studyConfigs(
-  study: StudyDraft, manifests: ScenarioManifest[], profile: ModelPreset | undefined,
-  canDo: (candidate: string, needs: string[]) => boolean = () => true,
-): { name: string; scenarios: string[] }[] {
-  const out = [{ name: "baseline", scenarios: manifests.map((m) => m.id) }];
-  const roles = study.roles.length ? study.roles
-    : [...new Set(manifests.flatMap((m) => m.roles.filter((r) => r.kind !== "decision").map((r) => r.name)))].sort();
-  for (const candidate of study.candidates.filter(Boolean)) {
-    if (SERVICE_PREFIXES.some((p) => candidate.startsWith(p))) {
-      const controlled = manifests.filter((m) => m.supports_decisions).map((m) => m.id);
-      if (controlled.length) out.push({ name: `decisions→${candidate.split(":").slice(1).join(":")}`, scenarios: controlled });
-      continue;
-    }
+/** Bundles that each swap one step of the baseline to a candidate model (a replacement study, as bundles): one per
+ *  (role, candidate), running only in the scenarios where the swap changes something. A swap the candidate cannot do
+ *  (a capability the step needs) or that changes nothing (the baseline already runs it) is skipped, with the reason. */
+export function swapSetups(
+  base: ConfigDraft, candidates: string[], roles: string[], manifests: ScenarioManifest[],
+  profiles: Record<string, ModelPreset> = {}, catalog: CatalogItem[] = [],
+): { setups: ConfigDraft[]; skipped: { role: string; candidate: string; scenario: string; why: string }[] } {
+  const setups: ConfigDraft[] = [];
+  const skipped: { role: string; candidate: string; scenario: string; why: string }[] = [];
+  for (const candidate of candidates.filter(Boolean)) {
     for (const role of roles) {
-      const scenarios = manifests.filter((m) => m.roles.some((r) =>
-        r.name === role && modelFor(profile, r.kind ?? "text") !== candidate && canDo(candidate, r.needs ?? []))).map((m) => m.id);
-      if (scenarios.length) out.push({ name: `${role}→${shortRef(candidate)}`, scenarios: scenarios.sort() });
+      const swapped: string[] = [];
+      for (const manifest of manifests.filter((m) => !base.only || base.only.includes(m.id))) {
+        const requirement = manifest.roles.find((r) => r.name === role);
+        if (!requirement) continue;
+        const skip = (why: string) => skipped.push({ role, candidate, scenario: manifest.title, why });
+        const missing = lacking(catalog, candidate, requirement.needs ?? []);
+        if (stepModel(base, manifest, role, profiles) === candidate) skip("the baseline already runs it");
+        else if (missing.length) skip(`lacks ${missing.join(", ")}`);
+        else swapped.push(manifest.id);
+      }
+      if (!swapped.length) continue;
+      const copy = JSON.parse(JSON.stringify(base)) as ConfigDraft; // a bundle of its own, not sharing the baseline's
+      copy.id = configId();
+      for (const id of swapped) {
+        const manifest = manifests.find((m) => m.id === id)!;
+        const before = Object.fromEntries(manifest.roles.map((r) => [r.name, stepModel(base, manifest, r.name, profiles)]));
+        copy.scenarioRoles[id] = { ...(copy.scenarioRoles[id] ?? {}), [role]: candidate };
+        // Steps that follow the swapped one (a critic falling back to the generator) keep the baseline's model, so
+        // exactly one step changes.
+        for (const other of manifest.roles.filter((r) => r.name !== role)) {
+          if (stepModel(copy, manifest, other.name, profiles) !== before[other.name]) copy.scenarioRoles[id]![other.name] = before[other.name]!;
+        }
+      }
+      setups.push({
+        ...copy, name: `${role}→${shortModel(candidate)}`, named: true, baseline: false, only: swapped,
+        swap: { role, candidate, from: base.id ?? "" },
+      });
     }
   }
-  return out;
+  return { setups, skipped };
+}
+
+/** Why a swap no longer measures its one step against the bundle it was made from: that bundle was removed, or
+ *  it (or the swap) changed since, so they differ in more than the swapped step. "" = still a clean swap. */
+export function swapProblem(
+  bundle: ConfigDraft, configs: ConfigDraft[], manifests: ScenarioManifest[], profiles: Record<string, ModelPreset> = {},
+): string {
+  if (!bundle.swap) return "";
+  const { role, candidate, from } = bundle.swap;
+  const origin = configs.find((c) => c !== bundle && c.id && c.id === from);
+  if (!origin) return "the setup it swaps a step of was removed";
+  const changed = `differs from ${origin.name.trim()} in more than the ${role} now`;
+  const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  if (!same(bundle.decisions, origin.decisions)) return changed;
+  for (const manifest of manifests.filter((m) => !bundle.only || bundle.only.includes(m.id))) {
+    if (!same(bundle.scenarioParams[manifest.id], origin.scenarioParams[manifest.id])) return changed;
+    for (const r of manifest.roles) {
+      const theirs = stepModel(origin, manifest, r.name, profiles);
+      const ours = stepModel(bundle, manifest, r.name, profiles);
+      // The swapped step runs the candidate (or, where the candidate could not do it, still the original model).
+      if (ours !== theirs && !(r.name === role && ours === candidate)) return changed;
+    }
+  }
+  return "";
+}
+
+/** The selected scenarios a bundle runs: those it is limited to (only), and with a control policy only those that
+ *  support one. */
+export function runsIn(bundle: ConfigDraft, state: BuilderState, manifests: ScenarioManifest[]): string[] {
+  const controllable = new Set(controllableScenarios(state, manifests));
+  return state.scenarios.filter((id) => (!bundle.only || bundle.only.includes(id)) && (!bundle.decisions || controllable.has(id)));
 }
 
 export function emptyConfig(index: number): ConfigDraft {
@@ -285,6 +328,16 @@ export function validate(
     if (needSandbox.length) errors.push(`Code execution is unavailable for ${needSandbox.map((m) => m.id).join(", ")}. Start Docker and run make sandbox-image, or restart with --sandbox unsafe-process (not isolated).`);
   }
   errors.push(...missingCapabilities(state, manifests, allProfiles, catalog));
+  for (const { bundle, name } of expandConfigs(state)) {
+    if (state.scenarios.length && !runsIn(bundle, state, manifests).length && (bundle.only || !bundle.decisions)) {
+      errors.push(`${name}: runs in none of the selected scenarios.`);
+    }
+  }
+  if (state.configs.filter((c) => c.baseline).length > 1) errors.push("Mark only one setup as the baseline.");
+  for (const bundle of state.configs) {
+    const problem = swapProblem(bundle, state.configs, selected, allProfiles);
+    if (problem) errors.push(`${bundle.name}: ${problem}; remove it or add the swaps again.`);
+  }
   if (state.arena && !state.judge) errors.push("Arena battles need a judge model.");
   const controllable = controllableScenarios(state, manifests);
   for (const { bundle, name } of expandConfigs(state).filter(({ bundle }) => bundle.decisions)) {
@@ -364,14 +417,18 @@ export function controllableScenarios(state: BuilderState, manifests: ScenarioMa
 export function toExperiment(
   state: BuilderState, manifests: ScenarioManifest[] = [], allProfiles: Record<string, ModelPreset> = {},
 ): ExperimentConfig {
-  if (state.study) return studyExperiment(state, state.study, allProfiles);
-  const controllable = controllableScenarios(state, manifests);
   const usedPresets: Record<string, ModelPreset> = {};
   const experiment: ExperimentConfig = {
     name: state.name.trim(),
     scenarios: [...state.scenarios],
     repeats: state.repeats,
     configs: expandConfigs(state).map(({ bundle, variant, name }) => {
+      // A swap is compared with the bundle it was made from; every other bundle with the baseline. Both under the same
+      // variant.
+      const against = bundle.swap ? state.configs.find((c) => c.id && c.id === bundle.swap!.from)
+        : bundle.baseline ? undefined : state.configs.find((c) => c.baseline);
+      const compareTo = against ? (variant ? `${against.name.trim()}/${variant.name.trim()}` : against.name.trim()) : "";
+      const scenarios = runsIn(bundle, state, manifests);
       const { config, profiles } = withKinds(bundle, allProfiles);
       // What runs is what the page shows: a preset the page does not know (not loaded, removed, not usable in this
       // runtime) is dropped, and with a known preset the hidden default model is, since the preset outranks it.
@@ -410,8 +467,11 @@ export function toExperiment(
         ...(Object.keys(scenarioParams).length ? { scenario_params: scenarioParams } : {}),
         ...(Object.keys(scenarioRoles).length ? { scenario_roles: scenarioRoles } : {}),
         ...(preset ? { preset } : {}),
-        // A control policy applies only where a scenario supports one, so such a config runs only those scenarios.
-        ...(config.decisions ? { decisions: { ...config.decisions }, scenarios: controllable } : {}),
+        ...(config.decisions ? { decisions: { ...config.decisions } } : {}),
+        // A control policy applies only where a scenario supports one, and a swap runs only where it changes a step.
+        ...(scenarios.length < state.scenarios.length ? { scenarios } : {}),
+        ...(compareTo ? { compare_to: compareTo } : {}),
+        ...(bundle.swap ? { study: { kind: "swap" as const, role: bundle.swap.role, candidate: bundle.swap.candidate } } : {}),
       };
     }),
   };
@@ -425,35 +485,6 @@ export function toExperiment(
   // self-contained.
   if (Object.keys(usedPresets).length) experiment.presets = usedPresets;
   return experiment;
-}
-
-function studyExperiment(state: BuilderState, study: StudyDraft, profiles: Record<string, ModelPreset>): ExperimentConfig {
-  const experiment: ExperimentConfig = {
-    name: state.name.trim(),
-    scenarios: [...state.scenarios],
-    repeats: state.repeats,
-    study: {
-      baseline: study.baseline,
-      candidates: study.candidates.filter(Boolean) as [string, ...string[]], // validateStudy requires one
-      ...(study.roles.length ? { roles: [...study.roles] } : {}),
-      decision_control: study.decisionControl,
-    },
-  };
-  if (state.limit) experiment.limit = state.limit;
-  if (state.maxCostUsd) experiment.max_cost_usd = state.maxCostUsd;
-  if (state.maxCostUsd && state.budgetMode === "strict") experiment.budget_mode = "strict";
-  if (state.split !== "all") experiment.split = state.split;
-  if (profiles[study.baseline]) experiment.presets = { [study.baseline]: profiles[study.baseline]! };
-  return experiment;
-}
-
-export function validateStudy(state: BuilderState, study: StudyDraft): string[] {
-  const errors: string[] = [];
-  if (!state.name.trim()) errors.push("Give the study a name.");
-  if (!state.scenarios.length) errors.push("Select at least one scenario.");
-  if (!study.baseline) errors.push("Choose the baseline preset.");
-  if (!study.candidates.some(Boolean)) errors.push("Add at least one candidate model.");
-  return errors;
 }
 
 export function toYaml(experiment: ExperimentConfig): string {
@@ -530,19 +561,14 @@ function missingCapabilities(
 }
 
 /** How many trials the run plans (mirrors ExperimentRunner.plan). Not exact with a task split (the manifest counts
- *  every task) or in a study (candidates skip steps whose needs they do not meet). */
-export function plannedTrials(
-  state: BuilderState, manifests: ScenarioManifest[], profiles: Record<string, ModelPreset> = {},
-): { trials: number; exact: boolean } {
+ *  every task). */
+export function plannedTrials(state: BuilderState, manifests: ScenarioManifest[]): { trials: number; exact: boolean } {
   const selected = new Map(manifests.filter((m) => state.scenarios.includes(m.id)).map((m) => [m.id, m]));
-  const controllable = new Set(controllableScenarios(state, manifests));
-  const runs = state.study
-    ? studyConfigs(state.study, [...selected.values()], profiles[state.study.baseline]).flatMap((c) => c.scenarios)
-    : expandConfigs(state).flatMap(({ bundle }) => [...selected.keys()].filter((id) => !bundle.decisions || controllable.has(id)));
+  const runs = expandConfigs(state).flatMap(({ bundle }) => runsIn(bundle, state, manifests));
   const tasks = (id: string) => {
     const total = selected.get(id)?.tasks ?? 0;
     return state.limit ? Math.min(state.limit, total) : total;
   };
   const trials = runs.reduce((n, id) => n + tasks(id), 0) * Math.max(1, state.repeats || 1);
-  return { trials, exact: state.split === "all" && !state.study };
+  return { trials, exact: state.split === "all" };
 }

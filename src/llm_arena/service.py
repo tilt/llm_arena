@@ -78,7 +78,7 @@ class BundleSummary(BaseModel):
     ratings: dict[str, dict[str, float]] = Field(description="scope ('overall' or scenario) -> config -> rating")
     decisions: list[DecisionSummary] = Field(default_factory=list, description="control-policy decision quality")
     replacements: list[ReplacementEffect] = Field(
-        default_factory=list, description="replacement studies: each swapped step against the baseline"
+        default_factory=list, description="each configuration with a compare_to against that baseline (replacements)"
     )
 
 

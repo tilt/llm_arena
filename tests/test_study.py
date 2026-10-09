@@ -1,6 +1,12 @@
-"""Replacement studies: a baseline plus one swapped step per configuration, reported against the baseline."""
+"""Replacement studies: a baseline plus one swapped step per configuration, reported against the baseline. Any
+configuration can name its baseline (compare_to); a study sets it on its swaps."""
 
 from __future__ import annotations
+
+import json
+from dataclasses import replace
+
+import pytest
 
 from llm_arena.llm.client import LLMClient
 from llm_arena.llm.spec import ModelSpec
@@ -10,6 +16,7 @@ from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.memory_store import MemoryStore
 from llm_arena.runner.ports import Runtime
 from llm_arena.runner.presets import ModelPreset
+from llm_arena.runner.rename import RenameRun, rename_data
 from llm_arena.runner.run import ExperimentRunner
 from llm_arena.runner.study import StudyConfig, expand, short
 from llm_arena.scenarios.base import get_scenario
@@ -34,6 +41,7 @@ def test_expansion_names_roles_and_skips_what_the_baseline_already_uses() -> Non
         "reflection_sql": {"critic": "strong"},
         "reflection_writing": {"critic": "strong"},
     }
+    assert critic["compare_to"] == "baseline"
     assert not any(n.endswith("→weak") for n in names)
     assert "decider→strong" not in names  # decision roles only when asked for
     service = next(c for c in configs if c["name"] == "decisions→winnow:e4b")
@@ -66,8 +74,51 @@ async def test_study_runs_and_reports_the_effect_of_each_swap() -> None:
     assert [c.name for c in runner.experiment.configs] == ["baseline", "critic→strong"]
     await runner.run()
     (effect,) = summarize(store.load_run()).replacements
-    assert (effect.role, effect.candidate, effect.tasks) == ("critic", "strong", 1)
+    assert (effect.role, effect.candidate, effect.tasks, effect.baseline) == ("critic", "strong", 1, "baseline")
     assert effect.baseline_rate == 0.0 and effect.variant_rate == 1.0 and effect.delta == 1.0
+
+    # Runs from before compare_to: the study's tags alone still pair each swap with the baseline.
+    data = store.load_run()
+    config = json.loads(data.run["config_json"])
+    for entry in config["configs"]:
+        entry.pop("compare_to", None)
+    old = replace(data, run={**data.run, "config_json": json.dumps(config)})
+    (legacy,) = summarize(old).replacements
+    assert (legacy.role, legacy.baseline, legacy.delta) == ("critic", "baseline", 1.0)
+
+
+def _compared(**anchor: object) -> ExperimentConfig:
+    return ExperimentConfig.model_validate({
+        "name": "pair", "scenarios": ["reflection_sql"], "task_ids": ["harborview_march_rentals"],
+        "configs": [{"name": "anchor", "roles": {"*": "weak"}},
+                    {"name": "strong critic", "roles": {"*": "weak", "critic": "strong"}, **anchor}],
+    })  # fmt: skip
+
+
+async def test_any_configuration_is_compared_with_the_baseline_it_names() -> None:
+    store = MemoryStore()
+    runner = ExperimentRunner(_compared(compare_to="anchor"), Runtime(client_factory=factory), store=store,
+                              model_specs=SPECS)  # fmt: skip
+    await runner.run()
+    (effect,) = summarize(store.load_run()).replacements
+    assert (effect.config, effect.baseline, effect.role, effect.candidate) == ("strong critic", "anchor", "", "")
+    assert effect.delta == 1.0
+
+    # Renaming the baseline keeps the comparison.
+    renamed, _ = rename_data(store.load_run(), RenameRun(configs={"anchor": "weak everywhere"}))
+    (effect,) = summarize(renamed).replacements
+    assert effect.baseline == "weak everywhere"
+
+    # Without compare_to there is nothing to compare with.
+    plain = MemoryStore()
+    await ExperimentRunner(_compared(), Runtime(client_factory=factory), store=plain, model_specs=SPECS).run()
+    assert summarize(plain.load_run()).replacements == []
+
+
+@pytest.mark.parametrize("target", ["strong critic", "missing"])
+def test_compare_to_must_name_another_configuration(target: str) -> None:
+    with pytest.raises(ValueError, match="compare_to must name another configuration"):
+        _compared(compare_to=target)
 
 
 def test_candidates_only_replace_steps_they_can_do() -> None:

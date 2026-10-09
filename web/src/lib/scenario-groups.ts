@@ -2,10 +2,8 @@
 // configs/experiments (scenario-groups.test.ts keeps them in step); the models are the user's own bundles instead of
 // the YAML's fixed ones.
 import { activePreset, usableActive } from "./presets";
-import { configForPreset, type BuilderState, type StudyDraft, type VariantDraft } from "./builder";
+import { configForPreset, type BuilderState, type VariantDraft } from "./builder";
 import type { DecisionConfig, ModelPreset, ScenarioManifest } from "./contracts";
-
-export type SuiteKind = "compare" | "study";
 
 /** One way of running a suite's scenarios: parameters or a control policy changed (every model bundle runs it). */
 export interface SuiteVariant {
@@ -19,7 +17,6 @@ export interface ScenarioSuite {
   id: string;
   title: string;
   description: string;
-  kind: SuiteKind;
   /** the CLI experiment this suite mirrors, relative to the repository root */
   cli: string;
   scenarioIds?: string[];
@@ -32,7 +29,8 @@ export interface ScenarioSuite {
   maxCostUsd?: number;
   /** method variants to compare; default: one plain run */
   variants?: SuiteVariant[];
-  study?: Partial<StudyDraft>;
+  /** a replacement study: the first setup is the baseline, and the page offers swaps of these steps */
+  swaps?: { roles: string[] };
 }
 
 export const SUITES: ScenarioSuite[] = [
@@ -40,7 +38,6 @@ export const SUITES: ScenarioSuite[] = [
     id: "smoke",
     title: "Smoke check",
     description: "A quick end-to-end run: one reflection scenario and one tool-use scenario, 3 tasks each.",
-    kind: "compare",
     cli: "configs/experiments/smoke.yaml",
     scenarioIds: ["reflection_sql", "email_assistant"],
     limit: 3,
@@ -51,7 +48,6 @@ export const SUITES: ScenarioSuite[] = [
     id: "workflow_agents",
     title: "Workflow agents",
     description: "Every agentic-pattern scenario: tools, planning, ReAct, code execution, reports and charts.",
-    kind: "compare",
     cli: "configs/experiments/agentic.yaml",
     scenarioIds: ["email_assistant", "react_multihop", "research_report", "shop_codeact", "trip_planner", "launch_brief", "chart_codegen"],
     limit: null,
@@ -64,7 +60,6 @@ export const SUITES: ScenarioSuite[] = [
     id: "classic_benchmarks",
     title: "Classic benchmarks",
     description: "GSM8K, MMLU-Pro, IFEval, coding and function-calling subsets, 30 tasks each.",
-    kind: "compare",
     cli: "configs/experiments/benchmarks.yaml",
     scenarioKind: "benchmark",
     limit: 30,
@@ -75,7 +70,6 @@ export const SUITES: ScenarioSuite[] = [
     id: "reflection",
     title: "Reflection",
     description: "SQL and writing tasks, each run without and with a self-reflection round.",
-    kind: "compare",
     cli: "configs/experiments/reflection.yaml",
     scenarioIds: ["reflection_sql", "reflection_writing"],
     limit: null,
@@ -89,7 +83,6 @@ export const SUITES: ScenarioSuite[] = [
     id: "decision_policies",
     title: "Decision policies",
     description: "Who makes the agent's control decisions: the agent itself, a rules gate, an LLM gate or an LLM controller. Dev split.",
-    kind: "compare",
     cli: "configs/experiments/decisions.yaml",
     scenarioIds: ["support_desk", "email_assistant"],
     limit: null,
@@ -106,14 +99,13 @@ export const SUITES: ScenarioSuite[] = [
   {
     id: "critic_study",
     title: "Critic replacement study",
-    description: "Start from a preset and measure what a stronger critic model changes.",
-    kind: "study",
+    description: "Keep a baseline setup and add one that swaps only the critic per candidate model: what is a stronger critic worth?",
     cli: "configs/experiments/replacement-study.yaml",
     scenarioIds: ["reflection_sql", "chart_codegen"],
     limit: 3,
     repeats: 1,
     maxCostUsd: 2,
-    study: { roles: ["critic"] },
+    swaps: { roles: ["critic"] },
   },
 ];
 
@@ -128,7 +120,7 @@ const variantDraft = (variant: SuiteVariant): VariantDraft => ({
 });
 
 /** Fill in what to run from the suite: scenarios, variants and run settings. The model bundles are the user's and
- *  stay; a replacement study takes the first bundle's preset (or the usable one) as its baseline. */
+ *  stay; a replacement study marks the first one as the baseline (unless one is marked). */
 export function applySuite(
   state: BuilderState, suite: ScenarioSuite, manifests: ScenarioManifest[], profiles: Record<string, ModelPreset> = {},
 ): void {
@@ -145,10 +137,7 @@ export function applySuite(
   state.budgetMode = "best_effort";
   state.split = suite.split ?? "all";
   if (!state.configs.length) state.configs = [configForPreset(preset)];
-  const baseline = state.configs.map((c) => c.preset ?? "").find((p) => p && profiles[p]) || preset;
-  state.study = suite.kind === "study"
-    ? { baseline, candidates: [""], roles: suite.study?.roles ?? [], decisionControl: suite.study?.decisionControl ?? "gate" }
-    : null;
+  if (suite.swaps && !state.configs.some((c) => c.baseline)) state.configs[0]!.baseline = true;
 }
 
 /** Clear what a suite filled in; the model bundles stay. */
@@ -164,7 +153,6 @@ export function clearSuite(state: BuilderState): void {
   state.maxCostUsd = 1;
   state.budgetMode = "best_effort";
   state.split = "all";
-  state.study = null;
 }
 
 /** What the draft changed of its suite's "what to run" (scenarios, variants, run settings); empty = as the suite. */
@@ -176,7 +164,6 @@ export function suiteChanges(state: BuilderState, suite: ScenarioSuite, manifest
     !same(state.variants ?? [], (suite.variants ?? []).map(variantDraft)) && "variants",
     (state.limit !== suite.limit || state.repeats !== suite.repeats || state.split !== (suite.split ?? "all")
       || state.judge !== (suite.judge ?? "") || state.arena !== Boolean(suite.arena)) && "run settings",
-    (suite.kind === "study") !== Boolean(state.study) && "mode",
   ];
   return changes.filter((c): c is string => Boolean(c));
 }

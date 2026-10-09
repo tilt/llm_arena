@@ -4,7 +4,7 @@ import { emptyConfig, type BuilderState, type ConfigDraft } from "./builder";
 
 export const draft = $state<BuilderState>({
   name: "my-experiment", scenarios: [], configs: [{ ...emptyConfig(0), preset: activePreset() }], repeats: 1, limit: 3, judge: "", arena: false,
-  maxCostUsd: 1, budgetMode: "best_effort", split: "all", study: null, suite: "", variants: [],
+  maxCostUsd: 1, budgetMode: "best_effort", split: "all", suite: "", variants: [],
 });
 
 /** Whether a bundle is still the starter: nothing the user chose in it (when unsure, it counts as chosen and stays). */

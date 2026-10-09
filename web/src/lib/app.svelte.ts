@@ -33,7 +33,6 @@ export async function refresh(options: { models?: boolean } = {}): Promise<void>
     const usable = usableActive(presets);
     if (usable && usable !== activePreset()) setActivePreset(usable);
     for (const config of draft.configs) if (config.preset && !presets[config.preset]) config.preset = usable;
-    if (draft.study && !presets[draft.study.baseline]) draft.study.baseline = usable;
     app.scenarios = scenarios;
     app.models = models;
     app.error = "";

@@ -4,8 +4,8 @@
   import { KINDS, activePreset, setActivePreset } from "../lib/presets";
   import type { ModelPreset } from "../lib/contracts";
 
-  // Model presets: one model per kind of step. New setups start from the active preset; a replacement study
-  // swaps one step at a time against it.
+  // Model presets: one model per kind of step. New setups start from the active preset; swaps of a baseline setup
+  // (Experiments) change one step at a time against it.
   const SHIPPED = new Set(["local-small", "openai-mini"]);
   let drafts = $state<Record<string, ModelPreset>>({});
   let active = $state(activePreset());
