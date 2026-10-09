@@ -72,8 +72,9 @@
     <div class="bar"><span style:width={`${progress.total ? (progress.done / progress.total) * 100 : 0}%`}></span></div>
     <p><strong>{progress.done} / {progress.total}</strong> trials ·
       <span class="pass">{progress.passed} passed</span> · <span class="fail">{progress.failed} failed</span>
-      {#if progress.errors} · <span class="fail">{progress.errors} errors</span>{/if} · spent {usd(progress.spentUsd)}</p>
-    {#if progress.budgetHit}<p class="note">Spend limit reached: no new trials start.</p>{/if}
+      {#if progress.errors} · <span class="fail">{progress.errors} errors</span>{/if}
+      {#if progress.refused} · <span class="muted">{progress.refused} refused by the spend limit</span>{/if} · spent {usd(progress.spentUsd)}</p>
+    {#if progress.budgetHit}<p class="note">Spend limit reached: paid calls that don't fit are refused.</p>{/if}
     {#each progress.warnings as warning}<p class="note">{warning}</p>{/each}
     {#each progress.running as r (r)}<p class="muted">running: {r}</p>{/each}
     <button onclick={() => app.backend?.cancel(id)}>Stop after running trials</button>

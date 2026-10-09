@@ -15,11 +15,18 @@ class DecisionPolicy(Protocol):
     @property
     def name(self) -> str: ...
 
+    @property
+    def reserve_usd(self) -> float:
+        """Spend held per decision for paid outside services; LLM stages reserve their own calls, free stages 0."""
+        ...
+
     async def decide(self, request: DecisionRequest) -> DecisionResult: ...
 
 
 class RulePolicy:
     """Deterministic rules per question name; a rule may abstain (return None)."""
+
+    reserve_usd = 0.0
 
     def __init__(self, rules: dict[str, Rule], name: str = "rules") -> None:
         self._rules = rules
@@ -90,6 +97,10 @@ class CascadePolicy:
                 answers.update({k: a.model_copy(update={"escalated": True}) for k, a in second.answers.items()})
                 cost, tokens = cost + second.cost_usd, tokens + second.tokens
         return DecisionResult(answers=answers, cost_usd=cost, tokens=tokens, latency_s=time.perf_counter() - started)
+
+    @property
+    def reserve_usd(self) -> float:
+        return self.primary.reserve_usd + (self.fallback.reserve_usd if self.fallback else 0.0)
 
     def _limit(self, question: str) -> float:
         return self.thresholds.get(question, self.threshold)

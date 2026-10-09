@@ -41,16 +41,22 @@ class BudgetGuard:
         self.mode = mode
         self.spent_usd = 0.0
         self.reserved_usd = 0.0
-        self.refused = False  # a call was turned away: the limit is used up even if spend never passed it
+        self.refused = False  # a call was turned away: the runner stops starting paid trials (free ones still run)
         self._changed = asyncio.Condition()
         self._open: set[BudgetReservation] = set()
         self._owned_usd: dict[asyncio.Task[Any] | None, float] = {}
 
     @property
     def exceeded(self) -> bool:
-        # Strictly over, like reserve(): a $0 limit still admits free models. A refused priced call also counts,
-        # since strict spend never passes the limit and a $0 limit with paid models never spends at all.
-        return self.limit_usd is not None and (self.refused or self.spent_usd > self.limit_usd)
+        # Strictly over, like reserve(): a $0 limit still admits free models. Past it no trial starts; after a
+        # refusal alone the runner still starts free trials and records paid ones as refused without running them.
+        return self.limit_usd is not None and self.spent_usd > self.limit_usd
+
+    @property
+    def limit_hit(self) -> bool:
+        # What a run reports as its budget stop: strict spend never passes the limit, and a $0 limit with paid
+        # models never spends at all, so a refused call counts too.
+        return self.refused or self.exceeded
 
     @property
     def available(self) -> float | None:
@@ -110,6 +116,11 @@ class BudgetGuard:
 
     def wrap(self, client: LLMClient) -> LLMClient:
         return BudgetedClient(client, self)
+
+
+def is_free(spec: ModelSpec) -> bool:
+    """Priced at $0 (local, self-hosted or explicitly free); an unknown price may cost money."""
+    return explicit_or_known_price(spec) == (0.0, 0.0)
 
 
 class BudgetedClient:

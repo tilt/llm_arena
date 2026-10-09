@@ -20,6 +20,16 @@ it("folds run events into progress", () => {
   expect(stopReason(state)).toBe("The run stopped early at its spend limit: $0.30 spent of $0.25. Raise the limit to run every trial.");
 });
 
+it("counts trials refused by the spend limit apart from errors", () => {
+  const trial = { trial_id: "t", scenario: "s", config: "c", task_id: "k", repeat: 0, passed: false, duration_s: 0, cost_usd: 0, total: 2 };
+  const events: RunEvent[] = [
+    { type: "trial_finished", ...trial, status: "budget", done: 1 },
+    { type: "trial_finished", ...trial, trial_id: "u", status: "error", done: 2 },
+  ];
+  const state = events.reduce(reduce, initialProgress);
+  expect(state).toMatchObject({ done: 2, failed: 0, errors: 1, refused: 1 });
+});
+
 it("names why a run stopped early", () => {
   const finished = { ...initialProgress, finished: true, stoppedEarly: true };
   expect(stopReason({ ...initialProgress, finished: true })).toBeNull();

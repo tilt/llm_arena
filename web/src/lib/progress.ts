@@ -8,6 +8,7 @@ export interface RunProgress {
   passed: number;
   failed: number;
   errors: number;
+  refused: number; // trials whose paid calls the spend limit turned away (status "budget"), not counted as errors
   spentUsd: number;
   running: string[]; // "scenario / config / task"
   recent: TrialFinished[];
@@ -19,7 +20,7 @@ export interface RunProgress {
 }
 
 export const initialProgress: RunProgress = {
-  total: 0, done: 0, passed: 0, failed: 0, errors: 0, spentUsd: 0, running: [], recent: [],
+  total: 0, done: 0, passed: 0, failed: 0, errors: 0, refused: 0, spentUsd: 0, running: [], recent: [],
   finished: false, stoppedEarly: false, budgetHit: false, limitUsd: null, warnings: [],
 };
 
@@ -38,7 +39,8 @@ export function reduce(state: RunProgress, event: RunEvent): RunProgress {
         done: state.done + 1,
         passed: state.passed + (event.passed ? 1 : 0),
         failed: state.failed + (!event.passed && event.status === "ok" ? 1 : 0),
-        errors: state.errors + (event.status === "ok" ? 0 : 1),
+        errors: state.errors + (event.status === "ok" || event.status === "budget" ? 0 : 1),
+        refused: state.refused + (event.status === "budget" ? 1 : 0),
         spentUsd: state.spentUsd + event.cost_usd,
         running: state.running.filter((r) => r !== label(event)),
         recent: [event, ...state.recent].slice(0, 50),

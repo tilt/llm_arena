@@ -26,14 +26,14 @@ from llm_arena.core.trace import Trace
 from llm_arena.decisions.config import DECIDER_ROLE, ESCALATION_ROLE, DecisionSetup
 from llm_arena.eval.base import EvalContext, Score, Task, TrialOutput, evaluate_all
 from llm_arena.eval.credit import trial_credit, trial_passed
-from llm_arena.eval.judge import judge_pairwise
+from llm_arena.eval.judge import JudgeEvaluator, judge_pairwise
 from llm_arena.llm.cache import cache_salt
 from llm_arena.llm.catalog import Catalog
 from llm_arena.llm.client import LLMClient
 from llm_arena.llm.registry import resolve_base_url, resolve_concurrency, resolve_model
 from llm_arena.llm.spec import ModelSpec
 from llm_arena.patterns.roles import RoleModels, TracedLLM
-from llm_arena.runner.budget import BudgetExceededError, BudgetGuard
+from llm_arena.runner.budget import BudgetExceededError, BudgetGuard, is_free
 from llm_arena.runner.config import ExperimentConfig, PipelineConfig
 from llm_arena.runner.events import (
     BudgetExceeded,
@@ -316,7 +316,7 @@ class ExperimentRunner:
         def report_budget() -> None:
             # Once per run, so parallel trials that all hit the limit don't repeat the stop reason.
             nonlocal budget_reported
-            if self.budget.exceeded and self.budget.limit_usd is not None and not budget_reported:
+            if self.budget.limit_hit and self.budget.limit_usd is not None and not budget_reported:
                 budget_reported = True
                 self.sink(BudgetExceeded(spent_usd=self.budget.spent_usd, limit_usd=self.budget.limit_usd))
 
@@ -335,16 +335,19 @@ class ExperimentRunner:
                             await stack.enter_async_context(slot)
                         if self._cancelled or self.budget.exceeded:
                             continue
-                        self.sink(
-                            TrialStarted(
-                                trial_id=trial.trial_id,
-                                scenario=trial.scenario.name,
-                                config=trial.config.name,
-                                task_id=trial.task.id,
-                                repeat=trial.repeat,
+                        # After a refused call, paid trials are recorded as refused without running, so not "started".
+                        not_started = self.budget.refused and self._may_pay(trial)
+                        if not not_started:
+                            self.sink(
+                                TrialStarted(
+                                    trial_id=trial.trial_id,
+                                    scenario=trial.scenario.name,
+                                    config=trial.config.name,
+                                    task_id=trial.task.id,
+                                    repeat=trial.repeat,
+                                )
                             )
-                        )
-                        record = await self._run_trial(trial, store)
+                        record = await self._run_trial(trial, store, not_started=not_started)
                         finished += 1
                         self.sink(
                             TrialFinished(
@@ -370,11 +373,11 @@ class ExperimentRunner:
         if self.experiment.arena.enabled and not self._cancelled and not self.budget.exceeded:
             await self._run_battles(store, trials)
         report_budget()
-        stopped = self._cancelled or self.budget.exceeded
+        stopped = self._cancelled or self.budget.limit_hit
         self.sink(RunFinished(run_id=self.run_id, spent_usd=self.budget.spent_usd, stopped_early=stopped))
         return self.run_id
 
-    async def _run_trial(self, spec: TrialSpec, store: RunStore) -> TrialRecord:
+    async def _run_trial(self, spec: TrialSpec, store: RunStore, *, not_started: bool = False) -> TrialRecord:
         trace = Trace()
         store.clear_artifacts(spec.trial_id)  # a retried trial starts clean
         trace.store_artifacts_with(lambda name, data, media: store.save_artifact(spec.trial_id, name, data, media))
@@ -387,6 +390,9 @@ class ExperimentRunner:
             sandbox=self.runtime.sandbox, live_search=self.runtime.live_search, decisions=self._decisions(spec, trace),
         )  # fmt: skip
         try:
+            if not_started:
+                # A paid call was already turned away, so this trial's may be too: record why, skip setup and spend.
+                raise BudgetExceededError(f"spend limit of ${self.budget.limit_usd:.2f} reached; trial not started")
             output = await asyncio.wait_for(spec.scenario.run(spec.task, models, ctx), self.experiment.trial_timeout_s)
         except TimeoutError:
             status, error = "timeout", f"trial exceeded {self.experiment.trial_timeout_s}s"
@@ -442,6 +448,16 @@ class ExperimentRunner:
         store.save_trial(self.run_id, record, scores, trace, extra)
         return record
 
+    def _may_pay(self, spec: TrialSpec) -> bool:
+        """Whether a trial can call anything priced: a role model not known to be free, the judge when the scenario
+        grades with one, or a paid decision service (Jev)."""
+        models = list(spec.bindings.values())
+        evaluators = spec.scenario.evaluators(spec.params)
+        if self.judge_spec and any(isinstance(evaluator, JudgeEvaluator) for evaluator in evaluators):
+            models.append(self.judge_spec)
+        decisions = spec.config.decisions
+        return not all(is_free(model) for model in models) or bool(decisions and decisions.paid_services())
+
     def _check_execution_resume(self, existing: Any, current: dict[str, str]) -> None:
         completed_code = [
             trial
@@ -495,7 +511,10 @@ class ExperimentRunner:
         judge_ref = self.experiment.arena.judge or self.experiment.judge
         if judge_ref is None:
             return  # arena enabled without a judge: nothing to battle with
-        judge = self._client(self._spec(judge_ref))
+        judge_spec = self._spec(judge_ref)
+        if self.budget.refused and not is_free(judge_spec):
+            return  # a paid call was already turned away, so every paid battle would be too
+        judge = self._client(judge_spec)
         scenarios = {trial.scenario.name: trial.scenario for trial in trials if trial.scenario.open_ended}
         tasks = {(trial.scenario.name, trial.task.id): trial.task for trial in trials}
         for name, scenario in scenarios.items():

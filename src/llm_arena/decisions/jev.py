@@ -22,6 +22,7 @@ from llm_arena.llm.transport import ChatTransport, TransportError
 JEV_BASE_URL = os.getenv("ARENA_TYPESAFE_BASE_URL", "https://api.typesafe.ai")
 OLLAYA_BASE_URL = os.getenv("ARENA_OLLAYA_BASE_URL", "http://localhost:11435")
 JEV_INPUT_USD_PER_MTOK = 0.042
+PRICED_RESERVE_USD = 0.01  # held per priced decision: ~240k input tokens at Jev's price
 _TRANSIENT = {429, 529, 500, 502, 503}
 
 
@@ -35,6 +36,7 @@ class JevDecisionPolicy:
         self.url = base_url.rstrip("/") + "/v1/systemone"
         self.service = service
         self._usd_per_mtok = usd_per_mtok
+        self.reserve_usd = PRICED_RESERVE_USD if usd_per_mtok else 0.0  # Ollaya is free, so a $0 limit admits it
         self._max_retries = max_retries
         self._timeout_s = timeout_s
         self._backoff_s = backoff_s

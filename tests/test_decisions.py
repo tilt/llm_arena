@@ -142,7 +142,7 @@ async def test_traced_policy_records_span_and_charges_budget() -> None:
         await policy.decide(REQUEST)
 
 
-async def test_traced_llm_policy_refuses_nested_reservation_without_waiting() -> None:
+async def test_traced_cascade_refuses_an_llm_call_nested_in_its_own_reservation_without_waiting() -> None:
     spec = ModelSpec(
         name="paid-decider",
         provider="openai_compatible",
@@ -152,11 +152,27 @@ async def test_traced_llm_policy_refuses_nested_reservation_without_waiting() ->
     )
     llm = ScriptedLLM([llm_reply()], spec=spec)
     budget = BudgetGuard(0.02)
-    policy = TracedPolicy(LLMDecisionPolicy(budget.wrap(llm)), Trace(), budget)
+    # Jev's reservation is held while its uncertain answers escalate; the LLM call must not wait for it.
+    cascade = CascadePolicy(JevDecisionPolicy(FakeTransport([JEV_OK]), "k"), LLMDecisionPolicy(budget.wrap(llm)),
+                            threshold=0.9)  # fmt: skip
+    policy = TracedPolicy(cascade, Trace(), budget)
     with pytest.raises(BudgetExceededError):
         await asyncio.wait_for(policy.decide(REQUEST), timeout=1)
     assert llm.calls == []
     assert budget.reserved_usd == 0.0
+
+
+async def test_a_zero_limit_admits_free_decisions_and_refuses_priced_services() -> None:
+    free_llm = ScriptedLLM([llm_reply(needs_approval={"true": 0.9, "false": 0.1})])
+    ollaya = JevDecisionPolicy(FakeTransport([JEV_OK]), None, service="ollaya", usd_per_mtok=0.0)
+    budget = BudgetGuard(0.0, "strict")
+    for free in (RulePolicy({"needs_approval": approval_rule}), LLMDecisionPolicy(budget.wrap(free_llm)), ollaya):
+        await TracedPolicy(free, Trace(), budget).decide(REQUEST)
+    assert free_llm.calls and budget.spent_usd == 0.0 and not budget.refused
+    jev = FakeTransport([JEV_OK])
+    with pytest.raises(BudgetExceededError, match=r"\$0\.00"):
+        await TracedPolicy(CascadePolicy(RulePolicy({}), JevDecisionPolicy(jev, "k")), Trace(), budget).decide(REQUEST)
+    assert jev.requests == []  # refused before the paid service is called
 
 
 async def test_jev_spend_is_charged_and_counted_in_trace_totals() -> None:

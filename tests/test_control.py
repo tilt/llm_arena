@@ -289,3 +289,30 @@ async def test_ollaya_config_uses_the_runtime_service_factory() -> None:
     await runner.run()
     assert ("ollaya", "winnow:e12b") in calls
     assert {r["policy"] for r in store.load_run().decisions} == {"ollaya:winnow:e12b"}
+
+
+@pytest.mark.parametrize(("policy", "status"), [("rules", "ok"), ("ollaya", "ok"), ("jev", "budget")])
+async def test_a_zero_limit_runs_free_decision_policies_and_refuses_priced_ones(policy: str, status: str) -> None:
+    from llm_arena.decisions.jev import JEV_INPUT_USD_PER_MTOK, JevDecisionPolicy
+    from test_decisions import JEV_OK, FakeTransport
+
+    def services(service: str, model: str) -> JevDecisionPolicy:
+        price = JEV_INPUT_USD_PER_MTOK if service == "jev" else 0.0
+        return JevDecisionPolicy(FakeTransport([JEV_OK] * 20), "k", model=model, service=service, usd_per_mtok=price)
+
+    store = MemoryStore()
+    experiment = _experiment({"policy": policy, "control": "gate"}, max_cost_usd=0.0)
+    runner = ExperimentRunner(experiment, Runtime(client_factory=_factory, decision_services=services),  # type: ignore[arg-type]
+                              store=store, model_specs=SPECS)  # fmt: skip
+    await runner.run()
+    assert {t["config"]: t["status"] for t in store.trials.values()} == {"agent": "ok", "rules": status}
+
+
+def test_paid_decision_services_are_the_ones_whose_policies_reserve(monkeypatch: pytest.MonkeyPatch) -> None:
+    from llm_arena.adapters.server.runtime import decision_service
+    from llm_arena.decisions.config import PAID_SERVICES, SERVICES
+
+    monkeypatch.setenv("TYPESAFE_API_KEY", "k")
+    assert all((decision_service(s, "m").reserve_usd > 0) == (s in PAID_SERVICES) for s in SERVICES)
+    assert DecisionConfig(policy="cascade", primary="ollaya", fallback="jev").paid_services() == {"jev"}
+    assert not DecisionConfig(policy="ollaya").paid_services() and not DecisionConfig(policy="rules").paid_services()

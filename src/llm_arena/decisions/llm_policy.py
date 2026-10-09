@@ -71,6 +71,8 @@ def render_questions(request: DecisionRequest) -> str:
 
 
 class LLMDecisionPolicy:
+    reserve_usd = 0.0  # its calls reserve through the budgeted client
+
     def __init__(self, client: LLMClient, label: str | None = None, *, max_tokens: int = DECISION_MAX_TOKENS) -> None:
         self._client = client
         self._name = label or f"llm:{client.spec.name}"

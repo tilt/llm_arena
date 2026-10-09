@@ -26,7 +26,7 @@ class TracedPolicy:
     async def decide(self, request: DecisionRequest, labels: dict[str, Any] | None = None) -> DecisionResult:
         reservation: BudgetReservation | None = None
         if self.budget is not None:
-            amount_usd = 0.01 if self.budget.limit_usd is not None else 0.0
+            amount_usd = self.policy.reserve_usd if self.budget.limit_usd is not None else 0.0
             reservation = await self.budget.reserve(amount_usd)
             if reservation is None:
                 raise BudgetExceededError(f"spend limit of ${self.budget.limit_usd:.2f} reached")

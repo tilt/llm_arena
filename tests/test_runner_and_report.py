@@ -15,7 +15,7 @@ from llm_arena.llm.testing import ScriptedLLM
 from llm_arena.llm.types import LLMResponse, Usage
 from llm_arena.report.aggregate import summarize
 from llm_arena.runner.config import ExperimentConfig
-from llm_arena.runner.events import BudgetExceeded, RunEvent, RunFinished, TrialFinished
+from llm_arena.runner.events import BudgetExceeded, RunEvent, RunFinished, TrialFinished, TrialStarted
 from llm_arena.runner.memory_store import MemoryStore
 from llm_arena.runner.ports import RunStore, Runtime
 from llm_arena.runner.run import ExperimentRunner
@@ -137,6 +137,51 @@ async def test_budget_limit_stops_the_run() -> None:
     assert 1.0 <= finished.spent_usd < 1.0 + 0.30 * 2  # at most the calls already in flight overshoot
 
 
+async def test_a_strict_limit_records_later_paid_trials_without_running_them() -> None:
+    # Strict spend never passes the limit, so the refusal is what keeps the rest of the paid queue from running.
+    paid = ModelSpec(name="paid", provider="openai_compatible", model="paid", max_tokens=100_000,
+                     input_cost_per_mtok=0.0, output_cost_per_mtok=2.0)  # fmt: skip  # reserves ~$0.20 per call
+
+    class Cheaper(ScriptedLLM):
+        async def complete(self, messages, **kwargs):  # type: ignore[no-untyped-def]
+            reply = await super().complete(messages, **kwargs)
+            return LLMResponse(content=reply.content, raw_message=reply.raw_message, usage=Usage(10, 10, 0.1, 0.15))
+
+    paid_client = Cheaper([_good_reply], spec=paid)
+    events: list[RunEvent] = []
+    store = MemoryStore()
+    configs = [{"name": "paid", "roles": {"*": "paid"}}, {"name": "good", "roles": {"*": "good"}}]
+    experiment = _experiment(configs=configs, repeats=5, max_cost_usd=0.5, budget_mode="strict", max_parallel_trials=1)
+    factory_ = lambda spec: paid_client if spec.name == "paid" else factory(spec)  # noqa: E731
+    await _runner(experiment, store, client_factory=factory_, specs={**SPECS, "paid": paid}, events=events).run()
+    paid_trials = [t for t in store.trials.values() if t["config"] == "paid"]
+    not_started = [t for t in paid_trials if "trial not started" in (t["error"] or "")]
+    assert len(paid_trials) == 10 and all(t["status"] in ("ok", "budget") for t in paid_trials)
+    assert len(not_started) >= 8  # only the trials before the first refusal called the paid model
+    started = [e for e in events if isinstance(e, TrialStarted) and e.config == "paid"]
+    assert len(started) == len(paid_trials) - len(not_started)  # a trial that never ran is never shown as running
+    assert len(paid_client.calls) <= 4 and all(
+        t["status"] == "ok" for t in store.trials.values() if t["config"] == "good"
+    )
+    finished = events[-1]
+    assert isinstance(finished, RunFinished) and finished.stopped_early and finished.spent_usd <= 0.5
+
+
+def test_a_trial_may_pay_through_its_models_or_its_judge() -> None:
+    paid = ModelSpec(name="paid", provider="openai_compatible", model="paid",
+                     input_cost_per_mtok=1.0, output_cost_per_mtok=1.0)  # fmt: skip
+    specs = {**SPECS, "paid": paid}
+    free, paid_agent = [{"name": "c", "roles": {"*": "good"}}], [{"name": "c", "roles": {"*": "paid"}}]
+    writing = {"scenarios": ["reflection_writing"], "task_ids": None}  # grades with a judge; reflection_sql doesn't
+    runners = [
+        _runner(_experiment(configs=free), specs=specs),
+        _runner(_experiment(configs=free, judge="paid"), specs=specs),
+        _runner(_experiment(configs=free, judge="paid", **writing), specs=specs),
+        _runner(_experiment(configs=paid_agent), specs=specs),
+    ]
+    assert [any(r._may_pay(t) for t in r.plan()) for r in runners] == [False, False, True, True]
+
+
 async def test_a_zero_limit_runs_free_models() -> None:
     # A claim whose roles are all unpriced estimates $0, so its default cap is $0; that must not skip every trial.
     events: list[RunEvent] = []
@@ -148,17 +193,20 @@ async def test_a_zero_limit_runs_free_models() -> None:
     assert len(store.trials) == 8 and all(t["status"] != "budget" for t in store.trials.values())
 
 
-async def test_a_zero_limit_refuses_priced_calls_with_a_reason() -> None:
-    priced = ModelSpec(name="good", provider="openai_compatible", model="good", max_tokens=100,
+@pytest.mark.parametrize("order", [["paid", "good"], ["good", "paid"]])
+async def test_a_zero_limit_refuses_priced_calls_with_a_reason_and_still_runs_free_ones(order: list[str]) -> None:
+    priced = ModelSpec(name="paid", provider="openai_compatible", model="paid", max_tokens=100,
                        input_cost_per_mtok=1.0, output_cost_per_mtok=1.0)  # fmt: skip
     events: list[RunEvent] = []
     store = MemoryStore()
-    experiment = _experiment(configs=[{"name": "c", "roles": {"*": "good"}}], max_cost_usd=0.0, max_parallel_trials=1)
-    factory_ = lambda spec: ScriptedLLM([_good_reply], spec=priced)  # noqa: E731
-    await _runner(experiment, store, client_factory=factory_, specs={"good": priced}, events=events).run()
-    # The first refused call stops the run with its reason, as spend past the limit would.
-    [trial] = store.trials.values()
-    assert trial["status"] == "budget" and "$0.00" in trial["error"]
+    configs = [{"name": name, "roles": {"*": name}} for name in order]
+    experiment = _experiment(configs=configs, max_cost_usd=0.0, max_parallel_trials=1)
+    factory_ = lambda spec: ScriptedLLM([_good_reply], spec=priced) if spec.name == "paid" else factory(spec)  # noqa: E731
+    await _runner(experiment, store, client_factory=factory_, specs={**SPECS, "paid": priced}, events=events).run()
+    # A refused call names the budget as the stop reason, but never skips a free trial queued after it.
+    statuses = {name: [t["status"] for t in store.trials.values() if t["config"] == name] for name in order}
+    assert statuses == {"good": ["ok"] * 4, "paid": ["budget"] * 4}
+    assert all("$0.00" in t["error"] for t in store.trials.values() if t["status"] == "budget")
     assert [e for e in events if isinstance(e, BudgetExceeded)] == [BudgetExceeded(spent_usd=0.0, limit_usd=0.0)]
     finished = events[-1]
     assert isinstance(finished, RunFinished) and finished.stopped_early

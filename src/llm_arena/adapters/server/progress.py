@@ -16,6 +16,7 @@ class RichProgressSink:
             TextColumn("{task.description}"), BarColumn(), MofNCompleteColumn(), TimeElapsedColumn(), console=console
         )
         self._task: TaskID | None = None
+        self._refused = 0  # trials the spend limit turned away (status "budget")
 
     def __call__(self, event: RunEvent) -> None:
         if isinstance(event, RunStarted):
@@ -25,14 +26,14 @@ class RichProgressSink:
             self._task = self._progress.add_task("trials", total=event.pending)
         elif isinstance(event, TrialFinished) and self._task is not None:
             self._progress.advance(self._task)
+            self._refused += event.status == "budget"
         elif isinstance(event, BudgetExceeded):
             if event.limit_usd == 0:
-                self.console.print(
-                    "[yellow]a paid model was called, but a $0.00 spend limit runs free models only; stopping[/]"
-                )
+                self.console.print("[yellow]a $0.00 spend limit runs free models only; paid calls are refused[/]")
             else:
                 self.console.print(
-                    f"[yellow]spend limit reached: ${event.spent_usd:.2f} of ${event.limit_usd:.2f}; stopping[/]"
+                    f"[yellow]spend limit reached: ${event.spent_usd:.2f} of ${event.limit_usd:.2f}; "
+                    "paid calls that don't fit are refused[/]"
                 )
         elif isinstance(event, RunWarning):
             self.console.print(f"[yellow]warning: {event.message}[/]")
@@ -40,3 +41,6 @@ class RichProgressSink:
             self._progress.stop()
             if event.spent_usd:
                 self.console.print(f"model spend: ${event.spent_usd:.4f}")
+            if self._refused:
+                trials = "trial" if self._refused == 1 else "trials"
+                self.console.print(f"[yellow]{self._refused} {trials} refused by the spend limit[/]")

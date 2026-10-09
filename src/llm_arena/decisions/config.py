@@ -22,6 +22,7 @@ Stage = Literal["llm", "jev", "ollaya"]
 # such as winnow served locally by Ollaya.
 Service = Literal["jev", "ollaya"]
 SERVICES: tuple[Service, ...] = ("jev", "ollaya")
+PAID_SERVICES: frozenset[Service] = frozenset({"jev"})  # TypeSafe bills Jev per input token; Ollaya runs locally, free
 ServiceFactory = Callable[[Service, str], DecisionPolicy]  # (service, model) -> policy; supplied by the runtime
 
 DECIDER_ROLE = "decider"  # the LLM answering control questions (defaults to the agent's model)
@@ -51,6 +52,10 @@ class DecisionConfig(BaseModel):
         """Decision services this config calls (to check availability before a run)."""
         stages = {self.primary, self.fallback} if self.policy == "cascade" else {self.policy}
         return {stage for stage in SERVICES if stage in stages}
+
+    def paid_services(self) -> set[Service]:
+        """Decision services this config calls that cost money (checked before starting a trial after a refusal)."""
+        return self.services() & PAID_SERVICES
 
     def llm_roles(self) -> set[str]:
         """Roles whose models this policy calls (the others are bound only by fallback and stay unused)."""
