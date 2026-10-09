@@ -6,7 +6,7 @@
   import { app } from "../lib/app.svelte";
   import type { RunBundle } from "../lib/contracts";
   import { num, usd } from "../lib/format";
-  import { initialProgress, reduce, type RunProgress } from "../lib/progress";
+  import { initialProgress, reduce, stopReason, type RunProgress } from "../lib/progress";
   import { refreshRuns } from "../lib/runs.svelte";
 
   let { id, trial, step }: { id: string; trial?: string; step?: string } = $props();
@@ -85,7 +85,7 @@
     </div>
   </section>
 {/if}
-{#if progress.finished && progress.stoppedEarly}<p class="note">The run stopped early (cancelled or spend limit).</p>{/if}
+{#if stopReason(progress)}<p class="note">{stopReason(progress)}</p>{/if}
 {#if error}<p class="note">{error}</p>{/if}
 {#if bundle}
   {@const execution = (() => { try { return JSON.parse(String(bundle.run.execution_json || "{}")); } catch { return {}; } })()}

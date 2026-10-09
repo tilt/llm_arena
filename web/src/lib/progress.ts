@@ -1,5 +1,6 @@
 // Fold run events into the state the run monitor shows.
 import type { RunEvent, TrialFinished } from "./contracts";
+import { usd } from "./format";
 
 export interface RunProgress {
   total: number;
@@ -13,12 +14,13 @@ export interface RunProgress {
   finished: boolean;
   stoppedEarly: boolean;
   budgetHit: boolean;
+  limitUsd: number | null; // the spend limit that stopped the run, from budget_exceeded
   warnings: string[];
 }
 
 export const initialProgress: RunProgress = {
   total: 0, done: 0, passed: 0, failed: 0, errors: 0, spentUsd: 0, running: [], recent: [],
-  finished: false, stoppedEarly: false, budgetHit: false, warnings: [],
+  finished: false, stoppedEarly: false, budgetHit: false, limitUsd: null, warnings: [],
 };
 
 const label = (e: { scenario: string; config: string; task_id: string; repeat: number }) =>
@@ -42,7 +44,7 @@ export function reduce(state: RunProgress, event: RunEvent): RunProgress {
         recent: [event, ...state.recent].slice(0, 50),
       };
     case "budget_exceeded":
-      return { ...state, budgetHit: true };
+      return { ...state, budgetHit: true, limitUsd: event.limit_usd };
     case "run_warning":
       return { ...state, warnings: [...state.warnings, event.message] };
     case "run_finished":
@@ -50,4 +52,14 @@ export function reduce(state: RunProgress, event: RunEvent): RunProgress {
     default:
       return state; // unknown event types from a newer engine are ignored
   }
+}
+
+/** Why a finished run stopped before all its trials ran, or null when it ran to the end. */
+export function stopReason(state: RunProgress): string | null {
+  if (!state.finished || !state.stoppedEarly) return null;
+  if (!state.budgetHit || state.limitUsd === null) return "The run stopped early: it was cancelled.";
+  if (state.limitUsd === 0) {
+    return "The run stopped early: a paid model was called, but the spend limit is $0.00, which runs free models only. Raise the limit to run paid models.";
+  }
+  return `The run stopped early at its spend limit: ${usd(state.spentUsd)} spent of ${usd(state.limitUsd)}. Raise the limit to run every trial.`;
 }

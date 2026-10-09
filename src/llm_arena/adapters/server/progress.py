@@ -26,9 +26,14 @@ class RichProgressSink:
         elif isinstance(event, TrialFinished) and self._task is not None:
             self._progress.advance(self._task)
         elif isinstance(event, BudgetExceeded):
-            self.console.print(
-                f"[yellow]spend limit reached: ${event.spent_usd:.2f} of ${event.limit_usd:.2f}; stopping[/]"
-            )
+            if event.limit_usd == 0:
+                self.console.print(
+                    "[yellow]a paid model was called, but a $0.00 spend limit runs free models only; stopping[/]"
+                )
+            else:
+                self.console.print(
+                    f"[yellow]spend limit reached: ${event.spent_usd:.2f} of ${event.limit_usd:.2f}; stopping[/]"
+                )
         elif isinstance(event, RunWarning):
             self.console.print(f"[yellow]warning: {event.message}[/]")
         elif isinstance(event, RunFinished):

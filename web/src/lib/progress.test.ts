@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 
 import type { RunEvent } from "./contracts";
-import { initialProgress, reduce } from "./progress";
+import { initialProgress, reduce, stopReason } from "./progress";
 
 it("folds run events into progress", () => {
   const trial = { trial_id: "t", scenario: "s", config: "c", task_id: "k", repeat: 0 };
@@ -17,4 +17,13 @@ it("folds run events into progress", () => {
   const state = events.reduce(reduce, initialProgress);
   expect(state).toMatchObject({ total: 2, done: 2, passed: 1, failed: 0, errors: 1, finished: true, stoppedEarly: true, budgetHit: true, running: [] });
   expect(state.spentUsd).toBeCloseTo(0.3);
+  expect(stopReason(state)).toBe("The run stopped early at its spend limit: $0.30 spent of $0.25. Raise the limit to run every trial.");
+});
+
+it("names why a run stopped early", () => {
+  const finished = { ...initialProgress, finished: true, stoppedEarly: true };
+  expect(stopReason({ ...initialProgress, finished: true })).toBeNull();
+  expect(stopReason(finished)).toBe("The run stopped early: it was cancelled.");
+  const zero = reduce(finished, { type: "budget_exceeded", spent_usd: 0, limit_usd: 0 });
+  expect(stopReason(zero)).toContain("spend limit is $0.00, which runs free models only");
 });

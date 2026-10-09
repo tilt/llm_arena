@@ -137,6 +137,33 @@ async def test_budget_limit_stops_the_run() -> None:
     assert 1.0 <= finished.spent_usd < 1.0 + 0.30 * 2  # at most the calls already in flight overshoot
 
 
+async def test_a_zero_limit_runs_free_models() -> None:
+    # A claim whose roles are all unpriced estimates $0, so its default cap is $0; that must not skip every trial.
+    events: list[RunEvent] = []
+    store = MemoryStore()
+    experiment = _experiment(max_cost_usd=0.0, budget_mode="strict")
+    await _runner(experiment, store, events=events).run()
+    finished = events[-1]
+    assert isinstance(finished, RunFinished) and not finished.stopped_early
+    assert len(store.trials) == 8 and all(t["status"] != "budget" for t in store.trials.values())
+
+
+async def test_a_zero_limit_refuses_priced_calls_with_a_reason() -> None:
+    priced = ModelSpec(name="good", provider="openai_compatible", model="good", max_tokens=100,
+                       input_cost_per_mtok=1.0, output_cost_per_mtok=1.0)  # fmt: skip
+    events: list[RunEvent] = []
+    store = MemoryStore()
+    experiment = _experiment(configs=[{"name": "c", "roles": {"*": "good"}}], max_cost_usd=0.0, max_parallel_trials=1)
+    factory_ = lambda spec: ScriptedLLM([_good_reply], spec=priced)  # noqa: E731
+    await _runner(experiment, store, client_factory=factory_, specs={"good": priced}, events=events).run()
+    # The first refused call stops the run with its reason, as spend past the limit would.
+    [trial] = store.trials.values()
+    assert trial["status"] == "budget" and "$0.00" in trial["error"]
+    assert [e for e in events if isinstance(e, BudgetExceeded)] == [BudgetExceeded(spent_usd=0.0, limit_usd=0.0)]
+    finished = events[-1]
+    assert isinstance(finished, RunFinished) and finished.stopped_early
+
+
 def test_capability_check_fails_fast() -> None:
     experiment = _experiment(
         scenarios=["chart_codegen"], task_ids=None, configs=[{"name": "c", "roles": {"*": "blind"}}]

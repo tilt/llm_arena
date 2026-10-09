@@ -35,6 +35,17 @@ async def test_a_call_that_can_never_fit_is_refused_at_once() -> None:
     assert not await asyncio.wait_for(guard.reserve(0.5), timeout=1)  # nothing in flight to wait for
 
 
+async def test_reaching_the_limit_exactly_stops_only_once_a_call_is_refused() -> None:
+    guard = BudgetGuard(1.0, "strict")
+    for _ in range(2):
+        reservation = await guard.reserve(0.5)
+        assert reservation is not None
+        await guard.settle(reservation, 0.5)
+    assert guard.spent_usd == 1.0 and not guard.exceeded  # free calls may still run
+    assert await guard.reserve(0.1) is None
+    assert guard.exceeded  # strict spend never passes the limit, so the refusal is what stops the run
+
+
 async def test_a_waiting_call_is_refused_when_settled_spend_leaves_no_room() -> None:
     guard = BudgetGuard(1.0)
     reservation = await guard.reserve(0.6)

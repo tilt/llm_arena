@@ -311,6 +311,14 @@ class ExperimentRunner:
         queue: asyncio.Queue[TrialSpec] = asyncio.Queue()
         for trial in pending:
             queue.put_nowait(trial)
+        budget_reported = False
+
+        def report_budget() -> None:
+            # Once per run, so parallel trials that all hit the limit don't repeat the stop reason.
+            nonlocal budget_reported
+            if self.budget.exceeded and self.budget.limit_usd is not None and not budget_reported:
+                budget_reported = True
+                self.sink(BudgetExceeded(spent_usd=self.budget.spent_usd, limit_usd=self.budget.limit_usd))
 
         async def worker() -> None:
             nonlocal finished
@@ -353,8 +361,7 @@ class ExperimentRunner:
                                 total=len(pending),
                             )
                         )
-                        if self.budget.exceeded and self.budget.limit_usd is not None:
-                            self.sink(BudgetExceeded(spent_usd=self.budget.spent_usd, limit_usd=self.budget.limit_usd))
+                        report_budget()
                 finally:
                     queue.task_done()
 
@@ -362,6 +369,7 @@ class ExperimentRunner:
         await asyncio.gather(*workers)
         if self.experiment.arena.enabled and not self._cancelled and not self.budget.exceeded:
             await self._run_battles(store, trials)
+        report_budget()
         stopped = self._cancelled or self.budget.exceeded
         self.sink(RunFinished(run_id=self.run_id, spent_usd=self.budget.spent_usd, stopped_early=stopped))
         return self.run_id
