@@ -1,16 +1,16 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import ScenarioSetup from "../components/ScenarioSetup.svelte";
   import Tabs from "../components/Tabs.svelte";
   import TaskList from "../components/TaskList.svelte";
   import WorkflowDiagram from "../components/WorkflowDiagram.svelte";
-  import { app } from "../lib/app.svelte";
-  import { EVALUATION_PAGES, emptyConfig, suggestName, toExperiment, validate, type BuilderState, type ConfigDraft } from "../lib/builder";
+  import { app, startHere } from "../lib/app.svelte";
+  import { EVALUATION_PAGES, starterConfig, suggestName, toExperiment, validate, type BuilderState, type ConfigDraft } from "../lib/builder";
   import type { Estimate, LeaderboardEntry } from "../lib/contracts";
-  import { addToDraft, handoff } from "../lib/draft.svelte";
+  import { addToDraft, adoptStartPreset, handoff } from "../lib/draft.svelte";
   import { num, pct, usd } from "../lib/format";
   import { go } from "../lib/router.svelte";
   import { refreshRuns } from "../lib/runs.svelte";
-  import { activePreset } from "../lib/presets";
   import { configFromSetup } from "../lib/setups";
   import { CONTROL_PARAM, REVIEW_PARAM, resolve } from "../lib/workflow";
 
@@ -26,7 +26,14 @@
   ]);
   const show = (key: string) => go(`/scenarios/${encodeURIComponent(id)}/${key}`);
 
-  let config = $state<ConfigDraft>({ ...emptyConfig(0), name: "my-setup", preset: activePreset() });
+  let config = $state<ConfigDraft>(starterConfig(app.models ? startHere() : app.activePreset, "my-setup"));
+  // Opened before the models were known, the starter guessed the stored preset: once they are (and whenever they
+  // change), an untouched starter starts from one that runs here, or from none. A setup sent here, loaded or edited
+  // is the user's and stays as it is.
+  $effect(() => {
+    const start = startHere();
+    if (app.models) untrack(() => adoptStartPreset([config], start));
+  });
   let limit = $state<number | null>(3);
   let repeats = $state(1);
   let split = $state<"all" | "dev" | "test">("all");

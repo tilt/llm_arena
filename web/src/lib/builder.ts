@@ -46,6 +46,9 @@ export interface ConfigDraft {
   swap?: { role: string; candidate: string; from: string };
   /** stable identity (names change), so swaps can name the bundle they were made from */
   id?: string;
+  /** the preset the app gave this bundle on its own (starterConfig): while it still has it and nothing else was chosen,
+   *  the bundle is an untouched starter the app may replace or re-point; unset = the user's own bundle */
+  autoPreset?: string;
 }
 
 export const configId = (): string => crypto.randomUUID();
@@ -138,7 +141,7 @@ export function swapSetups(
         }
       }
       setups.push({
-        ...copy, name: `${role}→${shortModel(candidate)}`, named: true, baseline: false, only: swapped,
+        ...copy, name: `${role}→${shortModel(candidate)}`, named: true, baseline: false, only: swapped, autoPreset: undefined,
         swap: { role, candidate, from: base.id ?? "" },
       });
     }
@@ -184,6 +187,12 @@ export function emptyConfig(index: number): ConfigDraft {
 /** A setup that runs every step on one model (named after it until the user types a name). */
 export function configForModel(ref: string): ConfigDraft {
   return { ...emptyConfig(0), name: shortModel(ref), roles: { [DEFAULT_ROLE]: ref }, preset: "" };
+}
+
+/** The setup the app makes on its own, from the preset it picked ("" = none): an untouched starter until the user
+ *  chooses anything in it. */
+export function starterConfig(preset: string, name?: string): ConfigDraft {
+  return { ...emptyConfig(0), ...(name ? { name } : {}), preset, autoPreset: preset };
 }
 
 /** A setup that gives each step its preset's model for the step's kind. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { applyOverride, describeRef, isOverride, joinRef, modelFor, overrideReasoning, splitRef, thinkingOverride, usablePresets } from "./presets";
+import { applyOverride, describeRef, isOverride, joinRef, modelFor, overrideReasoning, presetRuns, splitRef, startPreset, thinkingOverride, usablePresets } from "./presets";
 import { boundModel, emptyConfig, inheritedModel, stepModel, suggestName, toExperiment, validate, type BuilderState } from "./builder";
 import type { CatalogItem } from "./backend";
 import type { ModelPreset, ScenarioManifest } from "./contracts";
@@ -168,5 +168,30 @@ describe("thinking settings per model", () => {
     }, {});
     expect(config.scenarioRoles.chart).toEqual({ critic: "ollama:qwen3:4b#reasoning=none", generator: "openai:gpt-5-mini" });
     expect(exact).toBe(true);
+  });
+});
+
+describe("the preset new setups start from", () => {
+  const item = (ref: string, provider: string) => ({ ref, source: provider, spec: { name: ref, provider, model: ref } }) as unknown as CatalogItem;
+  const PRESETS: Record<string, ModelPreset> = {
+    "local-small": PROFILE,
+    "openai-mini": { label: "OpenAI mini", models: { text: "openai:gpt-5-mini#reasoning=low", vision: "openai:gpt-5-mini" } },
+    judged: { label: "Judged", models: { text: "judge-mini" } },
+  };
+  const catalog = (...items: CatalogItem[]) => ({ models: items, aliases: { "judge-mini": { name: "judge-mini", provider: "openai", model: "gpt-4.1-mini" } } as never });
+
+  it("is one whose every model runs here: listed in the catalog, or an alias of a listed provider", () => {
+    const openai = catalog(item("openai:gpt-5-mini", "openai"));
+    expect(presetRuns(PRESETS["openai-mini"]!, openai)).toBe(true);
+    expect(presetRuns(PRESETS["local-small"]!, openai)).toBe(false);
+    expect(presetRuns(PRESETS.judged!, openai)).toBe(true);
+    expect(startPreset(PRESETS, openai, "local-small")).toBe("openai-mini"); // the chosen one does not run here
+    expect(startPreset(PRESETS, openai, "judged")).toBe("judged"); // the chosen one, when it runs
+  });
+
+  it("is none with only an Anthropic key or a custom endpoint", () => {
+    expect(startPreset(PRESETS, catalog(item("anthropic:claude-haiku-4-5", "anthropic")))).toBe("");
+    expect(startPreset(PRESETS, catalog(item("my-endpoint:llama-3.3-70b", "openai_compatible")))).toBe("");
+    expect(startPreset(PRESETS, catalog())).toBe("");
   });
 });

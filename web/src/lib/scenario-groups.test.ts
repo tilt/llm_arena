@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
 import { emptyConfig, type BuilderState } from "./builder";
-import type { ExperimentConfig, ModelPreset, ScenarioManifest } from "./contracts";
+import type { ExperimentConfig, ScenarioManifest } from "./contracts";
 import { SUITES, applySuite, clearSuite, suiteChanges, suiteScenarios } from "./scenario-groups";
 
 const manifest = (id: string, kind: ScenarioManifest["kind"] = "pattern", params: string[] = []): ScenarioManifest => ({
@@ -27,7 +27,6 @@ const MANIFESTS = [
   manifest("gsm8k", "benchmark"),
   manifest("mmlu_pro", "benchmark"),
 ];
-const PRESETS = { "local-small": { label: "Local small", models: { text: "ollama:qwen3:4b" } } } as unknown as Record<string, ModelPreset>;
 
 // The scenarios this build ships (contracts/scenarios/<id>/manifest.json).
 const SHIPPED = readdirSync(new URL("../../../contracts/scenarios/", import.meta.url))
@@ -59,20 +58,23 @@ describe("scenario suites", () => {
   it("fill in what to run and leave the model bundles alone", () => {
     const draft = state();
     const bundles = draft.configs;
-    applySuite(draft, suite("smoke"), MANIFESTS, PRESETS);
+    applySuite(draft, suite("smoke"), MANIFESTS, "local-small");
     expect(draft).toMatchObject({ suite: "smoke", scenarios: ["reflection_sql", "email_assistant"], limit: 3, variants: [] });
     expect(draft.configs).toBe(bundles);
   });
 
-  it("start with a preset bundle when there is none", () => {
+  it("start with a setup from the preset that runs here, or from none, when there is none", () => {
     const draft = { ...state(), configs: [] };
-    applySuite(draft, suite("smoke"), MANIFESTS, PRESETS);
+    applySuite(draft, suite("smoke"), MANIFESTS, "local-small");
     expect(draft.configs).toMatchObject([{ preset: "local-small" }]);
+    const none = { ...state(), configs: [] };
+    applySuite(none, suite("smoke"), MANIFESTS);
+    expect(none.configs).toMatchObject([{ preset: "", roles: { "*": "" } }]);
   });
 
   it("bring their method variants; parameters apply to every scenario that has them", () => {
     const draft = state();
-    applySuite(draft, suite("reflection"), MANIFESTS, PRESETS);
+    applySuite(draft, suite("reflection"), MANIFESTS, "local-small");
     expect(draft.variants).toEqual([
       { name: "no-reflection", params: { reflection_rounds: 0 }, decisions: null },
       { name: "self-reflect", params: {}, decisions: null },
@@ -81,7 +83,7 @@ describe("scenario suites", () => {
 
   it("say what was changed of them, and clear without touching the bundles", () => {
     const draft = state();
-    applySuite(draft, suite("reflection"), MANIFESTS, PRESETS);
+    applySuite(draft, suite("reflection"), MANIFESTS, "local-small");
     expect(suiteChanges(draft, suite("reflection"), MANIFESTS)).toEqual([]);
     draft.scenarios = ["reflection_sql"];
     draft.repeats = 1;
@@ -94,7 +96,7 @@ describe("scenario suites", () => {
 
   it("prepare the critic study: the first setup becomes the baseline the swaps are compared with", () => {
     const draft = state();
-    applySuite(draft, suite("critic_study"), MANIFESTS, PRESETS);
+    applySuite(draft, suite("critic_study"), MANIFESTS, "local-small");
     expect(draft.name).toBe("critic-study");
     expect(draft.scenarios).toEqual(["reflection_sql", "chart_codegen"]);
     expect(draft.limit).toBe(3);

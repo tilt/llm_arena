@@ -1,5 +1,5 @@
 // Model presets in the UI: step kinds, model references with call settings, and the preset new setups start from.
-import type { CatalogItem } from "./backend";
+import type { CatalogItem, ModelsResponse } from "./backend";
 import type { ModelPreset } from "./contracts";
 
 export type Kind = "text" | "vision" | "code" | "agent" | "decision";
@@ -123,8 +123,24 @@ export function usablePresets(presets: Record<string, ModelPreset>, browser: boo
     .map(([name, p]) => [name, { ...p, decision_service: null }]));
 }
 
-/** The active preset if it is usable here, else the first usable one ("" when none is). */
-export function usableActive(presets: Record<string, ModelPreset>): string {
-  const active = activePreset();
-  return presets[active] ? active : Object.keys(presets)[0] ?? "";
+/** Whether every model of a preset runs here. The catalog lists only what this runtime can call (providers with a
+ *  key, reachable local servers, configured endpoints); an alias counts when its provider is listed. */
+export function presetRuns(preset: ModelPreset, models: Pick<ModelsResponse, "models" | "aliases">): boolean {
+  const listed = new Set(models.models.map((m) => m.ref));
+  const providers = new Set(models.models.map((m) => m.spec.provider));
+  return Object.values(preset.models as Record<string, string | undefined>).every((ref) => {
+    if (!ref) return true;
+    const base = splitRef(ref).base;
+    const alias = models.aliases?.[base];
+    return listed.has(base) || Boolean(alias && providers.has(alias.provider));
+  });
+}
+
+/** The preset new setups start from: the active one if it runs here, else the first that does, else none ("": the
+ *  user picks the models, e.g. with only an Anthropic key or a custom endpoint, where no shipped preset runs). */
+export function startPreset(
+  presets: Record<string, ModelPreset>, models: Pick<ModelsResponse, "models" | "aliases">, active = activePreset(),
+): string {
+  const runs = Object.keys(presets).filter((name) => presetRuns(presets[name]!, models));
+  return runs.includes(active) ? active : runs[0] ?? "";
 }

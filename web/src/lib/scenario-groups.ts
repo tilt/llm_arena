@@ -1,9 +1,8 @@
 // Curated suites: what to run (scenarios, method variants, run settings). Each one mirrors a CLI experiment in
 // configs/experiments (scenario-groups.test.ts keeps them in step); the models are the user's own bundles instead of
 // the YAML's fixed ones.
-import { activePreset, usableActive } from "./presets";
-import { configForPreset, type BuilderState, type VariantDraft } from "./builder";
-import type { DecisionConfig, ModelPreset, ScenarioManifest } from "./contracts";
+import { starterConfig, type BuilderState, type VariantDraft } from "./builder";
+import type { DecisionConfig, ScenarioManifest } from "./contracts";
 
 /** One way of running a suite's scenarios: parameters or a control policy changed (every model bundle runs it). */
 export interface SuiteVariant {
@@ -120,11 +119,9 @@ const variantDraft = (variant: SuiteVariant): VariantDraft => ({
 });
 
 /** Fill in what to run from the suite: scenarios, variants and run settings. The model bundles are the user's and
- *  stay; a replacement study marks the first one as the baseline (unless one is marked). */
-export function applySuite(
-  state: BuilderState, suite: ScenarioSuite, manifests: ScenarioManifest[], profiles: Record<string, ModelPreset> = {},
-): void {
-  const preset = usableActive(profiles) || activePreset();
+ *  stay (without any, one starts from `start`, the preset that runs here, or from no preset); a replacement study
+ *  marks the first one as the baseline (unless one is marked). */
+export function applySuite(state: BuilderState, suite: ScenarioSuite, manifests: ScenarioManifest[], start = ""): void {
   state.suite = suite.id;
   state.name = suite.id.replace(/_/g, "-");
   state.scenarios = suiteScenarios(suite, manifests);
@@ -136,7 +133,7 @@ export function applySuite(
   state.maxCostUsd = suite.maxCostUsd ?? 1;
   state.budgetMode = "best_effort";
   state.split = suite.split ?? "all";
-  if (!state.configs.length) state.configs = [configForPreset(preset)];
+  if (!state.configs.length) state.configs = [starterConfig(start)];
   if (suite.swaps && !state.configs.some((c) => c.baseline)) state.configs[0]!.baseline = true;
 }
 

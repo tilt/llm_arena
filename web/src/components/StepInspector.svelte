@@ -31,11 +31,12 @@
   const spans = $derived((trace?.spans ?? []) as Span[]);
   const stats = $derived(stepStats(spans));
   const order = $derived((flow?.steps ?? []).map((s) => s.id).filter((id) => id !== "start"));
-  const current = $derived(step || order.find((id) => (stats[id]?.runs ?? 0) > 0) || "");
+  // The start step shows the task the trial was given: a walk through the trial begins there (arrow keys go on).
+  const hasTask = $derived(flow?.steps.some((s) => s.id === "start") ?? false);
+  const current = $derived(step || (hasTask ? "start" : order.find((id) => (stats[id]?.runs ?? 0) > 0)) || "");
   const currentStep = $derived(flow?.steps.find((s) => s.id === current));
-  // The start step shows the task the trial was given; arrow keys reach it too.
   const taskSelected = $derived(current === "start");
-  const keyOrder = $derived(flow?.steps.some((s) => s.id === "start") ? ["start", ...order] : order);
+  const keyOrder = $derived(hasTask ? ["start", ...order] : order);
   // Tasks load from the scenario as it is now; a trial recorded on another version may have seen a different one.
   const ranVersion = $derived(String(trial?.scenario_version ?? ""));
   const versionNote = $derived(!manifest?.version || ranVersion === manifest.version ? ""

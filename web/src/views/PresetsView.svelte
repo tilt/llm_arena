@@ -1,14 +1,16 @@
 <script lang="ts">
   import ModelRefInput from "../components/ModelRefInput.svelte";
-  import { app } from "../lib/app.svelte";
-  import { KINDS, activePreset, setActivePreset } from "../lib/presets";
+  import { app, chooseActivePreset, startHere } from "../lib/app.svelte";
+  import { KINDS } from "../lib/presets";
   import type { ModelPreset } from "../lib/contracts";
 
   // Model presets: one model per kind of step. New setups start from the active preset; swaps of a baseline setup
   // (Experiments) change one step at a time against it.
   const SHIPPED = new Set(["local-small", "openai-mini"]);
   let drafts = $state<Record<string, ModelPreset>>({});
-  let active = $state(activePreset());
+  // The chosen preset; when its models do not all run here, new setups start from another one (or none) and it says so.
+  const active = $derived(app.activePreset);
+  const start = $derived(startHere());
   let saving = $state("");
   let message = $state("");
   let newName = $state("");
@@ -40,11 +42,10 @@
     if (!app.backend) return;
     app.presets = await app.backend.savePreset(name, null);
     message = SHIPPED.has(name) ? "Restored the shipped preset." : "Preset removed.";
-    if (active === name && !app.presets[name]) choose("local-small");
+    if (active === name && !app.presets[name]) choose(startHere());
   }
   function choose(name: string) {
-    active = name;
-    setActivePreset(name);
+    chooseActivePreset(name);
   }
   function addProfile() {
     const name = newName.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
@@ -73,6 +74,8 @@
           <textarea rows="3" bind:value={profile.description} aria-label="Description" placeholder="What this preset is for"></textarea>
         </div>
         <label class="use"><input type="radio" name="active" checked={active === name} onchange={() => choose(name)} /> New setups start here</label>
+        {#if app.models && active === name && start !== name}<p class="muted small not-here">Its models don't all run here right now, so new
+          setups start from {start ? app.presets[start]?.label ?? start : "no preset (you choose the models)"}.</p>{/if}
       </header>
       <div class="kinds">
         {#each KINDS as k (k.kind)}
@@ -119,6 +122,7 @@
   .title { font-size: 17px; font-weight: 600; width: 100%; }
   textarea { width: 100%; resize: vertical; font: inherit; font-size: 13px; }
   .use { display: flex; gap: 6px; align-items: center; font-size: 13px; white-space: nowrap; }
+  .not-here { margin: 0; flex-basis: 100%; }
   .kinds { display: grid; gap: 10px; }
   .kind { display: grid; gap: 4px; }
   .kind label { font-size: 13px; }

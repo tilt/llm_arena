@@ -5,7 +5,7 @@
   import ModelSelect from "../components/ModelSelect.svelte";
   import SwapPanel from "../components/SwapPanel.svelte";
   import VariantCard from "../components/VariantCard.svelte";
-  import { app } from "../lib/app.svelte";
+  import { app, startHere } from "../lib/app.svelte";
   import {
     EVALUATION_PAGES, bundleModels, bundleSource, configForModel, configForPreset, eligibleModels, expandConfigs, kindExceptions, kindsUsed,
     lacking, llmRoles, configId, plannedTrials, roleSlots, suggestName, swapProblem, toExperiment, toYaml, validate, type ConfigDraft, type Service,
@@ -106,7 +106,7 @@
   function useSuite(id: string) {
     const chosen = SUITES.find((s) => s.id === id);
     if (!chosen) return;
-    applySuite(draft, chosen, app.scenarios, app.presets);
+    applySuite(draft, chosen, app.scenarios, startHere());
     pickSuite = false;
     pickScenarios = false;
     editVariant = null;
@@ -522,7 +522,9 @@
   }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .add { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
-  .add-model { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; flex: 1 1 360px; max-width: 520px; align-items: start; }
+  .add-model { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; flex: 1 1 360px; max-width: 520px; align-items: center; }
+  /* One height for the row's controls: native selects (macOS) ignore the padding a button gets, so they would differ. */
+  .add :global(select), .add button { height: 34px; box-sizing: border-box; }
   .exp-name { flex: 0 1 280px; min-width: 0; }
   .plan { margin: 0 0 8px; }
   .skip { display: block; margin-top: 2px; }
