@@ -28,6 +28,58 @@
       "title": "ArenaConfig",
       "type": "object"
     },
+    "ClaimRef": {
+      "additionalProperties": false,
+      "description": "Marks a run as a reproduction of a shared claim (see `llm_arena.claims`), so the run view can still post it\nafter a reload. Metadata only: fingerprints and resume keys never read it.",
+      "properties": {
+        "claim_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Claim Hash",
+          "type": "string"
+        },
+        "declared_names": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "local self-hosted model ('<endpoint or provider>:<model>') -> the name it is compared as, frozen when the run started",
+          "maxProperties": 32,
+          "title": "Declared Names",
+          "type": "object"
+        },
+        "gist_id": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{20,32}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "None for a hash-link claim",
+          "title": "Gist Id"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{40}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revision"
+        }
+      },
+      "required": [
+        "claim_hash"
+      ],
+      "title": "ClaimRef",
+      "type": "object"
+    },
     "DecisionConfig": {
       "description": "Control policy of a pipeline config. Without it the agent decides everything inside its own loop.",
       "properties": {
@@ -139,6 +191,18 @@
           ],
           "title": "Budget Mode",
           "type": "string"
+        },
+        "claim_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClaimRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "set on a run that reproduces a shared claim"
         },
         "configs": {
           "items": {

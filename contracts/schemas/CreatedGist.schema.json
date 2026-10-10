@@ -1,0 +1,28 @@
+{
+  "properties": {
+    "gist_id": {
+      "title": "Gist Id",
+      "type": "string"
+    },
+    "html_url": {
+      "title": "Html Url",
+      "type": "string"
+    },
+    "owner": {
+      "title": "Owner",
+      "type": "string"
+    },
+    "revision": {
+      "title": "Revision",
+      "type": "string"
+    }
+  },
+  "required": [
+    "gist_id",
+    "revision",
+    "html_url",
+    "owner"
+  ],
+  "title": "CreatedGist",
+  "type": "object"
+}

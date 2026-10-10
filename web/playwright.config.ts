@@ -6,11 +6,14 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   reporter: "line",
-  webServer: {
-    command: "node tests/browser/server.mjs",
-    url: "http://127.0.0.1:4174/",
-    reuseExistingServer: false,
-  },
+  webServer: [
+    { command: "node tests/browser/server.mjs", url: "http://127.0.0.1:4174/", reuseExistingServer: false },
+    // The built site (run `make web` first) for the claim end-to-end test only: without a build it never gets ready,
+    // which would stall the isolation job.
+    ...(process.env.CLAIM_E2E
+      ? [{ command: "node tests/browser/dist-server.mjs", url: "http://127.0.0.1:4175/", reuseExistingServer: false }]
+      : []),
+  ],
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
     { name: "firefox", use: { ...devices["Desktop Firefox"] } },

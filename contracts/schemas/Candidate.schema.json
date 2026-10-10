@@ -1,0 +1,26 @@
+{
+  "properties": {
+    "problem": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "why it can't be this role's candidate (None: it can)",
+      "title": "Problem"
+    },
+    "ref": {
+      "title": "Ref",
+      "type": "string"
+    }
+  },
+  "required": [
+    "ref"
+  ],
+  "title": "Candidate",
+  "type": "object"
+}

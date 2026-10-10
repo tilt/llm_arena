@@ -1,0 +1,47 @@
+{
+  "additionalProperties": false,
+  "description": "The visitor's one change: a role's model, or (local app) the control policy's decision service.",
+  "properties": {
+    "candidate": {
+      "anyOf": [
+        {
+          "maxLength": 300,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "a model reference",
+      "title": "Candidate"
+    },
+    "decisions": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Decisions"
+    },
+    "role": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Role"
+    }
+  },
+  "title": "Swap",
+  "type": "object"
+}

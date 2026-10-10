@@ -50,6 +50,7 @@ class ConfigSummary:
     e2e_means: dict[str, float] = field(default_factory=dict)
     derived: dict[str, float] = field(default_factory=dict)  # reviewer precision/recall …
     per_task_pass: dict[str, float] = field(default_factory=dict)
+    unpriced: bool = False  # a role ran on a model without a price: its cost is unknown, not zero
 
 
 @dataclass
@@ -173,6 +174,7 @@ def _summarize_group(
         e2e_means=e2e,
         derived=_derived(step),
         per_task_pass={task: mean([float(p) for p in v]) for task, v in by_task.items()},
+        unpriced=any(json.loads(trial.get("unpriced_json") or "[]") for trial in trials),
     )
 
 
@@ -206,6 +208,7 @@ class ReplacementEffect:
     step_deltas: dict[str, float] = field(default_factory=dict)  # step metrics: variant - baseline
     errors: int = 0  # errored or timed-out trials in either config: failures that say nothing about the model
     baseline: str = ""  # the configuration compared with (its compare_to)
+    unpriced: bool = False  # either side ran a model without a price, so the cost delta means nothing
 
 
 def _replacements(configs: list[ConfigSummary], config_json: dict[str, Any]) -> list[ReplacementEffect]:
@@ -232,7 +235,7 @@ def _replacements(configs: list[ConfigSummary], config_json: dict[str, Any]) -> 
             b = [variant.per_task_pass[t] for t in shared]
             effects.append(ReplacementEffect(
                 scenario=scenario, role=str(tag.get("role") or ""), candidate=str(tag.get("candidate") or ""), config=name,
-                baseline=str(base_name),
+                baseline=str(base_name), unpriced=base.unpriced or variant.unpriced,
                 tasks=len(shared), baseline_rate=mean(a) if a else float("nan"), variant_rate=mean(b) if b else float("nan"),
                 delta=mean(b) - mean(a) if shared else float("nan"),
                 p_value=paired_permutation_test(b, a) if shared else float("nan"),

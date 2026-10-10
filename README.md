@@ -206,6 +206,21 @@ The report compares task success, cost and latency across configs, and adds per-
 `split: test`. See `configs/experiments/decisions.yaml`. Jev (TypeSafe) needs `TYPESAFE_API_KEY` and works in the
 local app and CLI; its API does not allow browser calls.
 
+## Shareable claims
+
+Turn a finished run into a **claim** others can check: *setup S passes scenario X vN at p% for $c per task*.
+"Share as claim" on the run page publishes it as a public GitHub gist (or, without a token, as a link that carries
+the claim). Anyone who opens the link sees the claim and how often others reproduced it, and can **Beat this**: re-run
+the claimed setup with their own keys next to a copy that swaps one step's model, under a strict spend limit, then post
+the result to the gist's comments. The claimed half counts as a reproduction; the page tallies reproductions from
+people other than the author with a 95% interval.
+
+- Works on GitHub Pages (OpenAI, Anthropic, CORS-enabled endpoints) and in the local app (plus Ollama and LM Studio).
+- Self-hosted models travel under a "compare as" name you declare (e.g. `qwen3-14b`); endpoint names and URLs are
+  never shared.
+- Claims pin the judge for judge-graded scenarios and refuse live-only params, so every claim is reproducible.
+- Design and decisions: [docs/designs/shareable-claims.md](docs/designs/shareable-claims.md).
+
 ## Model presets and replacement studies
 
 A **model preset** gives every step a model by the kind of work it does: text, vision, code, agent or decision.
