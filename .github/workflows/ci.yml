@@ -75,7 +75,7 @@ jobs:
       - name: Install Chromium
         run: cd web && npx playwright install --with-deps chromium
       - name: Claim link → Beat this → post → counted
-        run: cd web && npx playwright test claim.spec.ts --project=chromium
+        run: cd web && npm run test:claim
 
   secrets:
     runs-on: ubuntu-latest

@@ -31,6 +31,7 @@ async function mockGitHub(page: Page, thread: { id: number; user: { login: strin
     if (url.pathname === `/gists/${GIST}/comments` && route.request().method() === "POST") {
       const body = (route.request().postDataJSON() as { body: string }).body;
       posted.push({ body, auth: route.request().headers()["authorization"] ?? null });
+      thread.push({ id: 99, user: { login: "bob" }, created_at: "2026-10-10T12:00:00Z", updated_at: "2026-10-10T12:00:00Z", body });
       return json({ id: 99, user: { login: "bob" }, created_at: "2026-10-10T12:00:00Z", updated_at: "2026-10-10T12:00:00Z", body,
         html_url: "https://gist.github.com/x#c99" }, 201);
     }
@@ -54,6 +55,7 @@ async function mockOpenAI(page: Page) {
 }
 
 test.skip(({ browserName }) => browserName !== "chromium", "one browser is enough for the app flow");
+test.skip(!process.env.CLAIM_E2E, "needs the built site: make web, then npm run test:claim");
 test.setTimeout(240_000);
 
 test("a claim link is reproduced, posted and counted", async ({ page }) => {
@@ -95,9 +97,10 @@ test("a claim link is reproduced, posted and counted", async ({ page }) => {
   expect(posted).toHaveLength(1);
   expect(posted[0]!.body.startsWith("```arena-repro\n")).toBe(true);
   expect(posted[0]!.auth).toBe("Bearer ghp_test");
+  // The thread re-reads after the post, so bob's reproduction counts without a reload (2.4).
+  await expect(page.getByText(/reproduced by 1 person/)).toBeVisible({ timeout: 30_000 });
 
-  // Reload: the thread now holds bob's reproduction, and the claim page counts it.
-  thread.push({ id: 99, user: { login: "bob" }, created_at: "2026-10-10T12:00:00Z", updated_at: "2026-10-10T12:00:00Z", body: posted[0]!.body });
+  // Reload: the thread still holds bob's reproduction, and the claim page counts it.
   await page.reload();
   await expect(page.getByText(/reproduced by 1 person/)).toBeVisible({ timeout: 180_000 });
   await expect(page.locator(".repro .pill").first()).toHaveText("counted");

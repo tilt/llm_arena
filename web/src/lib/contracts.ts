@@ -400,6 +400,10 @@ export interface EndpointView {
  */
 export interface Estimate {
   cost_usd: number;
+  /**
+   * something may cost money (a priced model or a paid decision service, which the estimate doesn't cost): a strict budget needs a limit
+   */
+  needs_cap?: boolean;
   note?: string;
   per_scenario: {
     [k: string]: number | undefined;

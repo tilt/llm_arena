@@ -125,11 +125,20 @@ export function failureText(failure: GitHubFailure): string {
   }
 }
 
+/** Ids reach a URL that may carry the visitor's token, so they are checked here and not only by the router: a
+ * hostile imported run file could otherwise point a post at another api.github.com path. */
+function checkIds(id: string, revision?: string): void {
+  if (!GIST_ID.test(id) || (revision !== undefined && !REVISION.test(revision))) {
+    throw new GitHubFailure("invalid", "not a gist id or revision");
+  }
+}
+
 /** Where GitHub calls go: straight to api.github.com on Pages, through the local server otherwise. */
 export class GitHub {
   constructor(private readonly mode: Mode, private readonly token: () => string | null = () => null) {}
 
   async claim(id: string, revision: string): Promise<GistClaim> {
+    checkIds(id, revision);
     if (this.mode === "local") return this.local(`/api/claims/gists/${id}/${revision}`);
     const pinned = await this.direct(`${API}/${id}/${revision}`) as { files?: Record<string, { content?: string; truncated?: boolean }>; owner?: { login?: string } };
     const head = await this.direct(`${API}/${id}`) as { history?: { version?: string }[]; comments?: number; html_url?: string };
@@ -143,6 +152,8 @@ export class GitHub {
   }
 
   async comments(id: string, page: number): Promise<GistComment[]> {
+    checkIds(id);
+    if (!Number.isInteger(page) || page < 1 || page > MAX_PAGES) throw new GitHubFailure("invalid", "no such comment page");
     if (this.mode === "local") return this.local(`/api/claims/gists/${id}/comments?page=${page}`);
     const rows = await this.direct(`${API}/${id}/comments?per_page=${PER_PAGE}&page=${page}`);
     return Array.isArray(rows) ? rows.map(commentOf) : [];
@@ -150,7 +161,7 @@ export class GitHub {
 
   /** The thread's first `MAX_PAGES` pages (at most 300 comments); `total` says whether more exist. */
   async thread(id: string, total: number): Promise<GistComment[]> {
-    const pages = Math.min(MAX_PAGES, Math.max(1, Math.ceil(total / PER_PAGE)));
+    const pages = Math.min(MAX_PAGES, Math.ceil(total / PER_PAGE));  // 0 comments: no request at all
     const all: GistComment[] = [];
     for (let page = 1; page <= pages; page++) all.push(...await this.comments(id, page));
     return all;
@@ -158,6 +169,8 @@ export class GitHub {
 
   /** One comment, or null when GitHub says it is gone (design 13.5). */
   async comment(id: string, commentId: number): Promise<GistComment | null> {
+    checkIds(id);
+    if (!Number.isSafeInteger(commentId) || commentId < 1) throw new GitHubFailure("invalid", "not a comment id");
     try {
       return this.mode === "local"
         ? await this.local<GistComment>(`/api/claims/gists/${id}/comments/${commentId}`)
@@ -178,6 +191,7 @@ export class GitHub {
   }
 
   async post(id: string, body: string): Promise<GistComment> {
+    checkIds(id);
     if (this.mode === "local") return this.local(`/api/claims/gists/${id}/comments`, { body });
     return commentOf(await this.direct(`${API}/${id}/comments`, { body }));
   }

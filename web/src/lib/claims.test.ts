@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  GitHubFailure, declaredAs, failureOf, failureText, fromBase64Url, inlineLink, nameProblem, parseClaimHash, postedNote, prefillName,
+  GitHub, GitHubFailure, declaredAs, failureOf, failureText, fromBase64Url, inlineLink, nameProblem, parseClaimHash, postedNote, prefillName,
   previewOf, savePostedNote, seenIds, suggestName, toBase64Url,
 } from "./claims";
 import type { CatalogItem } from "./backend";
@@ -134,5 +134,36 @@ describe("shared helpers the claim page reuses", () => {
   it("gives an imported run a free id instead of overwriting one", () => {
     expect(importId("r1", new Set())).toBe("r1");
     expect(importId("r1", new Set(["r1", "r1-imported-1"]))).toBe("r1-imported-2");
+  });
+});
+
+describe("GitHub plumbing", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const id = "a".repeat(32), rev = "b".repeat(40);
+
+  it("maps the local server's failure detail and reads at most three pages, none for an empty thread", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      calls.push(url);
+      if (url.includes("comments?page=")) return new Response("[]", { status: 200 });
+      return new Response(JSON.stringify({ detail: { kind: "rate_limited", message: "m", retry_after_s: 120 } }), { status: 429 });
+    }));
+    const gh = new GitHub("local");
+    await expect(gh.claim(id, rev)).rejects.toMatchObject({ kind: "rate_limited", retryAfterS: 120 });
+    await gh.thread(id, 1000);
+    expect(calls.filter((u) => u.includes("comments?page="))).toHaveLength(3);
+    expect(await gh.thread(id, 0)).toEqual([]);
+    expect(calls.filter((u) => u.includes("comments?page="))).toHaveLength(3);
+  });
+
+  it("checks ids and the token before any request", async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    await expect(new GitHub("browser").post(id, "x")).rejects.toMatchObject({ kind: "unauthorized" });
+    const withToken = new GitHub("browser", () => "tok");
+    await expect(withToken.post("../repos/o/r/issues/1", "x")).rejects.toMatchObject({ kind: "invalid" });
+    await expect(withToken.claim(id, `../../gists/${id}/${rev}`)).rejects.toMatchObject({ kind: "invalid" });
+    await expect(withToken.comment(id, Number.NaN)).rejects.toMatchObject({ kind: "invalid" });
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

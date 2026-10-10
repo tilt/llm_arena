@@ -4,6 +4,12 @@
       "title": "Cost Usd",
       "type": "number"
     },
+    "needs_cap": {
+      "default": false,
+      "description": "something may cost money (a priced model or a paid decision service, which the estimate doesn't cost): a strict budget needs a limit",
+      "title": "Needs Cap",
+      "type": "boolean"
+    },
     "note": {
       "default": "Rough estimate from typical tokens per trial; actual spend depends on model verbosity.",
       "title": "Note",

@@ -179,7 +179,7 @@ def test_a_trial_may_pay_through_its_models_or_its_judge() -> None:
         _runner(_experiment(configs=free, judge="paid", **writing), specs=specs),
         _runner(_experiment(configs=paid_agent), specs=specs),
     ]
-    assert [any(r._may_pay(t) for t in r.plan()) for r in runners] == [False, False, True, True]
+    assert [any(r.may_pay(t) for t in r.plan()) for r in runners] == [False, False, True, True]
 
 
 async def test_a_zero_limit_runs_free_models() -> None:
