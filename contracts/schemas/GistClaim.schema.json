@@ -1,0 +1,36 @@
+{
+  "description": "A claim file at a pinned gist revision, with what the claim page shows around it.",
+  "properties": {
+    "claim": {
+      "title": "Claim",
+      "type": "string"
+    },
+    "comments": {
+      "description": "how many comments the gist has (more than 300: the thread loads partially)",
+      "title": "Comments",
+      "type": "integer"
+    },
+    "head_revision": {
+      "description": "the gist's newest revision (differs: edited since the link was shared)",
+      "title": "Head Revision",
+      "type": "string"
+    },
+    "html_url": {
+      "default": "",
+      "title": "Html Url",
+      "type": "string"
+    },
+    "owner": {
+      "title": "Owner",
+      "type": "string"
+    }
+  },
+  "required": [
+    "claim",
+    "owner",
+    "head_revision",
+    "comments"
+  ],
+  "title": "GistClaim",
+  "type": "object"
+}

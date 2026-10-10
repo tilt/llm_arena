@@ -1,0 +1,106 @@
+{
+  "expected": {
+    "claim_hash": "76765aa9aee49e8dbba7e02d0bc4c7269ac7a9acad4f989b3e768f442f7d687a",
+    "state": "ok",
+    "stats": {
+      "above_interval": false,
+      "hidden": 0,
+      "high": 0.9032285897864654,
+      "loaded": 3,
+      "low": 0.29999331299474324,
+      "partial": true,
+      "passed": 4,
+      "people": 3,
+      "rate": 0.6666666666666666,
+      "removed": 0,
+      "rows": [
+        {
+          "baseline_cost_usd_per_task": 0.0013,
+          "baseline_passed": 2,
+          "baseline_trials": 2,
+          "comment_id": 10,
+          "created_at": "2026-10-10T10:10:00Z",
+          "engine": "pages",
+          "reason": "",
+          "status": "counted",
+          "user": "user0",
+          "variant_cost_usd_per_task": null,
+          "variant_model": null,
+          "variant_passed": null,
+          "variant_role": null
+        },
+        {
+          "baseline_cost_usd_per_task": 0.0013,
+          "baseline_passed": 1,
+          "baseline_trials": 2,
+          "comment_id": 11,
+          "created_at": "2026-10-10T10:11:00Z",
+          "engine": "pages",
+          "reason": "",
+          "status": "counted",
+          "user": "user1",
+          "variant_cost_usd_per_task": null,
+          "variant_model": null,
+          "variant_passed": null,
+          "variant_role": null
+        },
+        {
+          "baseline_cost_usd_per_task": 0.0013,
+          "baseline_passed": 1,
+          "baseline_trials": 2,
+          "comment_id": 12,
+          "created_at": "2026-10-10T10:12:00Z",
+          "engine": "pages",
+          "reason": "",
+          "status": "counted",
+          "user": "user2",
+          "variant_cost_usd_per_task": null,
+          "variant_model": null,
+          "variant_passed": null,
+          "variant_role": null
+        }
+      ],
+      "total": 400,
+      "trials": 6
+    },
+    "swappable_roles": [
+      "critic",
+      "generator"
+    ]
+  },
+  "input": {
+    "author": "alice",
+    "claim": "{\"arena_claim\":1,\"arena_version\":\"0.1.0\",\"judge\":null,\"made_at\":\"2026-10-10T10:00:00+00:00\",\"parent_claim_hash\":null,\"repeats\":1,\"result\":{\"cost_usd_per_task\":0.0012,\"engine\":\"local\",\"partial\":1.0,\"pass_rate\":1.0,\"passed\":2,\"trials\":2,\"unpriced_roles\":[]},\"scenario\":\"reflection_sql\",\"scenario_version\":\"1\",\"seed\":0,\"setup\":{\"decisions\":null,\"params\":{\"feedback\":\"execution\",\"reflection_rounds\":1},\"roles\":{\"critic\":{\"backend\":\"auto\",\"max_tokens\":512,\"model\":\"gpt-4.1-nano\",\"provider\":\"openai\",\"reasoning_effort\":null,\"temperature\":0.2,\"tool_mode\":\"native\"},\"generator\":{\"backend\":\"auto\",\"max_tokens\":1024,\"model\":\"gpt-4.1-mini\",\"provider\":\"openai\",\"reasoning_effort\":null,\"temperature\":0.2,\"tool_mode\":\"native\"}}},\"setup_fp\":\"d3632631d19f\",\"task_fps_hash\":\"e4fa0fd0010f\",\"tasks\":[{\"fp\":\"09577a44\",\"id\":\"harborview_march_rentals\"},{\"fp\":\"e8205947\",\"id\":\"ebike_avg_minutes\"}]}",
+    "comments": [
+      {
+        "body": "```arena-repro\n{\"arena_repro\":1,\"arena_version\":\"0.1.0\",\"baseline\":{\"budget_stopped\":0,\"cost_usd_per_task\":0.0013,\"errors\":0,\"passed\":2,\"setup_fp\":\"d3632631d19f\",\"timeouts\":0,\"trials\":2},\"claim_hash\":\"76765aa9aee49e8dbba7e02d0bc4c7269ac7a9acad4f989b3e768f442f7d687a\",\"engine\":\"pages\",\"judge\":null,\"per_task\":[{\"b\":1,\"v\":null},{\"b\":1,\"v\":null}],\"scenario_version\":\"1\",\"seen\":[],\"task_fps_hash\":\"e4fa0fd0010f\",\"variant\":null}\n```",
+        "created_at": "2026-10-10T10:10:00Z",
+        "id": 10,
+        "updated_at": "2026-10-10T10:10:00Z",
+        "user": {
+          "login": "user0"
+        }
+      },
+      {
+        "body": "```arena-repro\n{\"arena_repro\":1,\"arena_version\":\"0.1.0\",\"baseline\":{\"budget_stopped\":0,\"cost_usd_per_task\":0.0013,\"errors\":0,\"passed\":1,\"setup_fp\":\"d3632631d19f\",\"timeouts\":0,\"trials\":2},\"claim_hash\":\"76765aa9aee49e8dbba7e02d0bc4c7269ac7a9acad4f989b3e768f442f7d687a\",\"engine\":\"pages\",\"judge\":null,\"per_task\":[{\"b\":1,\"v\":null},{\"b\":0,\"v\":null}],\"scenario_version\":\"1\",\"seen\":[],\"task_fps_hash\":\"e4fa0fd0010f\",\"variant\":null}\n```",
+        "created_at": "2026-10-10T10:11:00Z",
+        "id": 11,
+        "updated_at": "2026-10-10T10:11:00Z",
+        "user": {
+          "login": "user1"
+        }
+      },
+      {
+        "body": "```arena-repro\n{\"arena_repro\":1,\"arena_version\":\"0.1.0\",\"baseline\":{\"budget_stopped\":0,\"cost_usd_per_task\":0.0013,\"errors\":0,\"passed\":1,\"setup_fp\":\"d3632631d19f\",\"timeouts\":0,\"trials\":2},\"claim_hash\":\"76765aa9aee49e8dbba7e02d0bc4c7269ac7a9acad4f989b3e768f442f7d687a\",\"engine\":\"pages\",\"judge\":null,\"per_task\":[{\"b\":0,\"v\":null},{\"b\":1,\"v\":null}],\"scenario_version\":\"1\",\"seen\":[],\"task_fps_hash\":\"e4fa0fd0010f\",\"variant\":null}\n```",
+        "created_at": "2026-10-10T10:12:00Z",
+        "id": 12,
+        "updated_at": "2026-10-10T10:12:00Z",
+        "user": {
+          "login": "user2"
+        }
+      }
+    ],
+    "total": 400
+  },
+  "kind": "claim"
+}

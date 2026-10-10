@@ -7,6 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from llm_arena.claims import Swap
 from llm_arena.llm.spec import Capabilities, Endpoint
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import RunProgress
@@ -75,6 +76,103 @@ class EndpointView(Endpoint):
 class RuntimeResponse(RuntimeInfo):
     keys: dict[str, KeySource]
     ui_build: str = Field(default="", description="build id of the web UI when the server started ('' if none)")
+
+
+class ClaimDraftRequest(BaseModel):
+    """Share as claim: the "compare as" names for the run's self-hosted models; `config` picks one setup of a
+    Beat-this run (Share my variant)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    names: dict[str, str] = Field(default_factory=dict, max_length=32)
+    config: str | None = Field(default=None, max_length=200)
+
+
+class ReproDraftRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    claim: str = Field(max_length=256 * 1024, description="the claim JSON")
+    seen: list[int] = Field(default_factory=list, max_length=300, description="comment ids counted at post time")
+
+
+class ClaimExperimentRequest(BaseModel):
+    """What Beat this runs: the claim, the visitor's own models for its self-hosted roles, an optional swap."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    claim: str = Field(max_length=256 * 1024)
+    local: dict[str, str] = Field(default_factory=dict, max_length=16, description="role -> your model reference")
+    judge_local: str | None = Field(default=None, max_length=300)
+    swap: Swap | None = None
+    cap_usd: float | None = Field(default=None, ge=0, le=10_000)
+    gist_id: str | None = Field(default=None, pattern=r"^[0-9a-f]{20,32}$")
+    revision: str | None = Field(default=None, pattern=r"^[0-9a-f]{40}$")
+    declared_names: dict[str, str] = Field(default_factory=dict, max_length=32)
+
+
+class CandidatesRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    claim: str = Field(max_length=256 * 1024)
+    role: str = Field(max_length=64)
+    names: dict[str, str] = Field(default_factory=dict, max_length=64)
+
+
+class Candidate(BaseModel):
+    ref: str
+    problem: str | None = Field(default=None, description="why it can't be this role's candidate (None: it can)")
+
+
+class ThreadRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    claim: str = Field(max_length=256 * 1024)
+    comments: list[dict[str, Any]] = Field(default_factory=list, max_length=300)
+    author: str = Field(max_length=100)
+    total: int | None = Field(default=None, ge=0)
+    engine: Literal["pages", "local"] | None = None
+
+
+class GistUser(BaseModel):
+    login: str
+
+
+class GistComment(BaseModel):
+    id: int
+    user: GistUser
+    created_at: str
+    updated_at: str
+    body: str
+    html_url: str = ""
+
+
+class GistClaim(BaseModel):
+    """A claim file at a pinned gist revision, with what the claim page shows around it."""
+
+    claim: str
+    owner: str
+    head_revision: str = Field(description="the gist's newest revision (differs: edited since the link was shared)")
+    comments: int = Field(description="how many comments the gist has (more than 300: the thread loads partially)")
+    html_url: str = ""
+
+
+class CreateClaimGist(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    claim: str = Field(max_length=256 * 1024)
+
+
+class CreatedGist(BaseModel):
+    gist_id: str
+    revision: str
+    html_url: str
+    owner: str
+
+
+class PostComment(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    body: str = Field(max_length=65_536)
 
 
 def run_listing(run_id: str, run: dict[str, Any], trials: list[dict[str, Any]]) -> RunListing:

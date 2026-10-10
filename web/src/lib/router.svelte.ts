@@ -1,4 +1,6 @@
 // Minimal hash router: works on GitHub Pages (no server rewrites) and in the local app alike.
+import { parseClaimHash, type ClaimLink } from "./claims";
+
 export type Route =
   | { name: "home" }
   | { name: "models" }
@@ -8,10 +10,14 @@ export type Route =
   | { name: "presets" }
   | { name: "scenario"; id: string; tab?: string }
   | { name: "selftest" }
-  | { name: "run"; id: string; trial?: string; step?: string };
+  | { name: "run"; id: string; trial?: string; step?: string }
+  | { name: "claim"; link: ClaimLink | null };
 
 export function parse(hash: string): Route {
-  const [, section, id, sub, subId, detail, detailId] = hash.replace(/^#/, "").split("/");
+  const path = hash.replace(/^#/, "");
+  // A claim link's rest is opaque (gist/<id>@<revision>, or base64url of the claim), so it is not split on "/".
+  if (path.startsWith("/claim/")) return { name: "claim", link: parseClaimHash(path.slice("/claim/".length)) };
+  const [, section, id, sub, subId, detail, detailId] = path.split("/");
   if (section === "models") return { name: "models" };
   if (section === "experiments" || section === "build") return { name: "experiments", template: id ? decodeURIComponent(id) : undefined };
   if (section === "runs" && id) {

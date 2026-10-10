@@ -175,8 +175,25 @@ class EndpointStore:
 
 
 # Call settings a reference may carry after '#', e.g. "ollama:qwen3:4b#reasoning=none" (thinking off) or
-# "openai:gpt-5-mini#reasoning=low,temperature=0": portable across runtimes, no alias file needed.
-_SETTINGS = {"reasoning": "reasoning_effort", "tools": "tool_mode", "temperature": "temperature"}
+# "openai:gpt-5-mini#reasoning=low,temperature=0,max_tokens=4096": portable across runtimes, no alias file needed.
+# `temperature=none` sends no temperature (models that reject one); max_tokens makes a strict budget possible.
+_SETTINGS = {
+    "reasoning": "reasoning_effort",
+    "tools": "tool_mode",
+    "temperature": "temperature",
+    "max_tokens": "max_tokens",
+}
+
+
+def _setting_value(key: str, value: str) -> object:
+    if key == "temperature":
+        return None if value == "none" else float(value)
+    if key == "max_tokens":
+        tokens = int(value)
+        if tokens < 1:
+            raise ValueError("max_tokens must be at least 1")
+        return tokens
+    return value
 
 
 def resolve_model(ref: str, specs: dict[str, ModelSpec], discovered: dict[str, ModelSpec] | None = None) -> ModelSpec:
@@ -194,7 +211,10 @@ def resolve_model(ref: str, specs: dict[str, ModelSpec], discovered: dict[str, M
             key, _, value = item.partition("=")
             if key not in _SETTINGS or not value:
                 raise KeyError(f"{ref!r}: unknown setting {key!r}; use {', '.join(_SETTINGS)} (e.g. #reasoning=none)")
-            update[_SETTINGS[key]] = float(value) if key == "temperature" else value
+            try:
+                update[_SETTINGS[key]] = _setting_value(key, value)
+            except ValueError as exc:
+                raise KeyError(f"{ref!r}: invalid {key} {value!r}: {exc}") from exc
         return ModelSpec.model_validate({**spec.model_dump(), **update})
     if ref in specs:
         return specs[ref]

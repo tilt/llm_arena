@@ -13,8 +13,28 @@ from typing import Any
 
 from pydantic import TypeAdapter
 
-from llm_arena.api import EndpointView, RunListing, RunStartedResponse, RuntimeResponse, SaveEndpoint, SetKey, StartRun
-from llm_arena.conformance import CASES, needs_sandbox, record
+from llm_arena.api import (
+    Candidate,
+    CandidatesRequest,
+    ClaimDraftRequest,
+    ClaimExperimentRequest,
+    CreateClaimGist,
+    CreatedGist,
+    EndpointView,
+    GistClaim,
+    GistComment,
+    PostComment,
+    ReproDraftRequest,
+    RunListing,
+    RunStartedResponse,
+    RuntimeResponse,
+    SaveEndpoint,
+    SetKey,
+    StartRun,
+    ThreadRequest,
+)
+from llm_arena.claims import Claim, ClaimCheck, ClaimDraft, Repro, ReproDraft, Swap, TrustStats
+from llm_arena.conformance import CASES, claim_vectors, needs_sandbox, record
 from llm_arena.core.task import Task
 from llm_arena.core.trace import Trace
 from llm_arena.eval.base import Score
@@ -52,6 +72,24 @@ SCHEMA_TYPES: dict[str, Any] = {
     "SetKey": SetKey,
     "SaveEndpoint": SaveEndpoint,
     "EndpointView": EndpointView,
+    "Claim": Claim,
+    "Repro": Repro,
+    "ClaimCheck": ClaimCheck,
+    "ClaimDraft": ClaimDraft,
+    "ReproDraft": ReproDraft,
+    "TrustStats": TrustStats,
+    "Swap": Swap,
+    "ClaimDraftRequest": ClaimDraftRequest,
+    "ReproDraftRequest": ReproDraftRequest,
+    "ClaimExperimentRequest": ClaimExperimentRequest,
+    "CandidatesRequest": CandidatesRequest,
+    "Candidate": Candidate,
+    "ThreadRequest": ThreadRequest,
+    "GistClaim": GistClaim,
+    "GistComment": GistComment,
+    "CreateClaimGist": CreateClaimGist,
+    "CreatedGist": CreatedGist,
+    "PostComment": PostComment,
 }
 
 
@@ -81,6 +119,8 @@ async def build(sandbox: Sandbox | None) -> dict[str, str]:
         if needs_sandbox(case) and sandbox is None:
             continue
         files[f"conformance/{case.id}.json"] = _dump(await record(case, sandbox))
+    for name, vector in claim_vectors().items():
+        files[f"conformance/{name}.json"] = _dump(vector)
     return files
 
 

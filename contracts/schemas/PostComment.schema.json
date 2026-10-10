@@ -1,0 +1,15 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "body": {
+      "maxLength": 65536,
+      "title": "Body",
+      "type": "string"
+    }
+  },
+  "required": [
+    "body"
+  ],
+  "title": "PostComment",
+  "type": "object"
+}

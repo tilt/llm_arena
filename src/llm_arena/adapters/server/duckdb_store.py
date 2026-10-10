@@ -33,7 +33,7 @@ _TRIAL_COLUMNS = (
     "duration_s", "llm_calls", "tool_calls", "prompt_tokens", "completion_tokens", "cost_usd", "llm_latency_s",
     "judge_cost_usd", "roles_json", "params_json", "fingerprint", "scenario_version", "task_fp", "setup_json",
     "resume_key",
-    "execution_json", "credit", "criteria_json",
+    "execution_json", "credit", "criteria_json", "unpriced_json",
 )  # fmt: skip
 
 _SCHEMA = """
@@ -57,6 +57,7 @@ ALTER TABLE runs ADD COLUMN IF NOT EXISTS execution_json TEXT;
 ALTER TABLE trials ADD COLUMN IF NOT EXISTS execution_json TEXT;
 ALTER TABLE trials ADD COLUMN IF NOT EXISTS credit DOUBLE;
 ALTER TABLE trials ADD COLUMN IF NOT EXISTS criteria_json TEXT;
+ALTER TABLE trials ADD COLUMN IF NOT EXISTS unpriced_json TEXT;
 CREATE TABLE IF NOT EXISTS scores (
     trial_id TEXT, name TEXT, level TEXT, value DOUBLE, passed BOOLEAN, rationale TEXT
 );

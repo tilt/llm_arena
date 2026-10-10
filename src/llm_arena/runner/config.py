@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from typing import Any, Literal, cast
 from urllib.parse import urlsplit
 
 import yaml
-from pydantic import AliasChoices, BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 from llm_arena.core.errors import ConfigError
 from llm_arena.decisions.config import DecisionConfig
@@ -16,6 +17,9 @@ from llm_arena.runner.presets import ModelPreset
 from llm_arena.runner.study import StudyConfig, StudyTag
 
 SandboxConfigMode = Literal["auto", "docker", "unsafe-process", "subprocess"]
+# A self-hosted model's "compare as" name in shared claims: lowercase letters, digits, '.' and '-', up to 64.
+COMPARE_NAME = re.compile(r"^[a-z0-9][a-z0-9.-]{0,63}$")
+_LOCAL_MODEL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}:[^\s#]{1,200}$")
 
 
 def configured_sandbox_mode(explicit: str | None = None) -> SandboxConfigMode:
@@ -101,6 +105,32 @@ class PipelineConfig(BaseModel):
         return {**shared, **self.scenario_params.get(scenario, {})}
 
 
+class ClaimRef(BaseModel):
+    """Marks a run as a reproduction of a shared claim (see `llm_arena.claims`), so the run view can still post it
+    after a reload. Metadata only: fingerprints and resume keys never read it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    gist_id: str | None = Field(default=None, pattern=r"^[0-9a-f]{20,32}$", description="None for a hash-link claim")
+    revision: str | None = Field(default=None, pattern=r"^[0-9a-f]{40}$")
+    claim_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    declared_names: dict[str, str] = Field(
+        default_factory=dict,
+        max_length=32,
+        description="local self-hosted model ('<endpoint or provider>:<model>') -> the name it is compared as, frozen "
+        "when the run started",
+    )
+
+    @model_validator(mode="after")
+    def _names(self) -> ClaimRef:
+        for local, name in self.declared_names.items():
+            if not _LOCAL_MODEL.fullmatch(local) or not COMPARE_NAME.fullmatch(name):
+                raise ValueError(f"invalid declared name {local!r} -> {name!r}")
+        if (self.gist_id is None) != (self.revision is None):
+            raise ValueError("a gist claim needs both gist_id and revision")
+        return self
+
+
 class ArenaConfig(BaseModel):
     enabled: bool = False
     judge: str | None = None  # defaults to the experiment judge
@@ -135,6 +165,7 @@ class ExperimentConfig(BaseModel):
     )
     trial_timeout_s: float = Field(default=900.0, gt=0, le=3600)
     seed: int = 0
+    claim_ref: ClaimRef | None = Field(default=None, description="set on a run that reproduces a shared claim")
 
     @model_validator(mode="before")
     @classmethod

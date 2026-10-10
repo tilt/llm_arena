@@ -1,0 +1,146 @@
+{
+  "$defs": {
+    "Swap": {
+      "additionalProperties": false,
+      "description": "The visitor's one change: a role's model, or (local app) the control policy's decision service.",
+      "properties": {
+        "candidate": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "a model reference",
+          "title": "Candidate"
+        },
+        "decisions": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Decisions"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role"
+        }
+      },
+      "title": "Swap",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "What Beat this runs: the claim, the visitor's own models for its self-hosted roles, an optional swap.",
+  "properties": {
+    "cap_usd": {
+      "anyOf": [
+        {
+          "maximum": 10000,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cap Usd"
+    },
+    "claim": {
+      "maxLength": 262144,
+      "title": "Claim",
+      "type": "string"
+    },
+    "declared_names": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "maxProperties": 32,
+      "title": "Declared Names",
+      "type": "object"
+    },
+    "gist_id": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{20,32}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gist Id"
+    },
+    "judge_local": {
+      "anyOf": [
+        {
+          "maxLength": 300,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Judge Local"
+    },
+    "local": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "role -> your model reference",
+      "maxProperties": 16,
+      "title": "Local",
+      "type": "object"
+    },
+    "revision": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Revision"
+    },
+    "swap": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Swap"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "claim"
+  ],
+  "title": "ClaimExperimentRequest",
+  "type": "object"
+}

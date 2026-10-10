@@ -156,6 +156,8 @@ def test_failed_pass_criteria_report_a_share_below_one() -> None:
     assert vectors
     for path in vectors:
         vector = json.loads(path.read_text(encoding="utf-8"))
+        if vector.get("kind") == "claim":  # claim vectors (verdicts and tallies), not scenario replays
+            continue
         criteria = get_scenario(vector["case"]["scenario"]).pass_criteria
         for name, score in vector["scores"].items():
             if name in criteria and score["passed"] is False:

@@ -54,6 +54,8 @@ class TrialRecord:
     # Partial credit (see eval/credit.py): share of the graded work done, and each pass criterion's credit/verdict.
     credit: float = 0.0
     criteria: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # Roles whose model has no price (self-hosted, or explicitly free): their cost is unknown, not zero.
+    unpriced: list[str] = field(default_factory=list)
 
 
 @dataclass

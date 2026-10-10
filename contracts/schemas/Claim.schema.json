@@ -1,0 +1,322 @@
+{
+  "$defs": {
+    "ClaimResult": {
+      "additionalProperties": false,
+      "properties": {
+        "cost_usd_per_task": {
+          "description": "priced roles only",
+          "minimum": 0,
+          "title": "Cost Usd Per Task",
+          "type": "number"
+        },
+        "engine": {
+          "enum": [
+            "pages",
+            "local"
+          ],
+          "title": "Engine",
+          "type": "string"
+        },
+        "partial": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Partial",
+          "type": "number"
+        },
+        "pass_rate": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Pass Rate",
+          "type": "number"
+        },
+        "passed": {
+          "minimum": 0,
+          "title": "Passed",
+          "type": "integer"
+        },
+        "trials": {
+          "minimum": 1,
+          "title": "Trials",
+          "type": "integer"
+        },
+        "unpriced_roles": {
+          "description": "roles whose cost is unknown",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Unpriced Roles",
+          "type": "array"
+        }
+      },
+      "required": [
+        "passed",
+        "trials",
+        "pass_rate",
+        "partial",
+        "cost_usd_per_task",
+        "engine"
+      ],
+      "title": "ClaimResult",
+      "type": "object"
+    },
+    "ClaimRole": {
+      "additionalProperties": false,
+      "description": "A role's model as it travels: the call settings of `runner.fingerprint.SPEC_FIELDS`, no endpoint fields.",
+      "properties": {
+        "backend": {
+          "const": "auto",
+          "default": "auto",
+          "title": "Backend",
+          "type": "string"
+        },
+        "max_tokens": {
+          "anyOf": [
+            {
+              "maximum": 1000000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Tokens"
+        },
+        "model": {
+          "description": "the provider's model id, or a self-hosted model's declared 'compare as' name",
+          "title": "Model",
+          "type": "string"
+        },
+        "provider": {
+          "enum": [
+            "openai",
+            "anthropic",
+            "self_hosted"
+          ],
+          "title": "Provider",
+          "type": "string"
+        },
+        "reasoning_effort": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "minimal",
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reasoning Effort"
+        },
+        "temperature": {
+          "anyOf": [
+            {
+              "maximum": 2,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.2,
+          "title": "Temperature"
+        },
+        "tool_mode": {
+          "default": "native",
+          "enum": [
+            "native",
+            "json"
+          ],
+          "title": "Tool Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "model"
+      ],
+      "title": "ClaimRole",
+      "type": "object"
+    },
+    "ClaimSetup": {
+      "additionalProperties": false,
+      "properties": {
+        "decisions": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Decisions"
+        },
+        "params": {
+          "additionalProperties": true,
+          "maxProperties": 32,
+          "title": "Params",
+          "type": "object"
+        },
+        "roles": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ClaimRole"
+          },
+          "maxProperties": 16,
+          "minProperties": 1,
+          "title": "Roles",
+          "type": "object"
+        }
+      },
+      "required": [
+        "roles"
+      ],
+      "title": "ClaimSetup",
+      "type": "object"
+    },
+    "ClaimTask": {
+      "additionalProperties": false,
+      "properties": {
+        "fp": {
+          "pattern": "^[0-9a-f]{8}$",
+          "title": "Fp",
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "fp"
+      ],
+      "title": "ClaimTask",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "arena_claim": {
+      "const": 1,
+      "title": "Arena Claim",
+      "type": "integer"
+    },
+    "arena_version": {
+      "maxLength": 40,
+      "title": "Arena Version",
+      "type": "string"
+    },
+    "judge": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ClaimRole"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "the LLM judge that graded it; None: code checks only"
+    },
+    "made_at": {
+      "maxLength": 40,
+      "title": "Made At",
+      "type": "string"
+    },
+    "parent_claim_hash": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parent Claim Hash"
+    },
+    "repeats": {
+      "maximum": 20,
+      "minimum": 1,
+      "title": "Repeats",
+      "type": "integer"
+    },
+    "result": {
+      "$ref": "#/$defs/ClaimResult"
+    },
+    "scenario": {
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Scenario",
+      "type": "string"
+    },
+    "scenario_version": {
+      "maxLength": 16,
+      "minLength": 1,
+      "title": "Scenario Version",
+      "type": "string"
+    },
+    "seed": {
+      "maximum": 2147483648,
+      "minimum": 0,
+      "title": "Seed",
+      "type": "integer"
+    },
+    "setup": {
+      "$ref": "#/$defs/ClaimSetup"
+    },
+    "setup_fp": {
+      "pattern": "^[0-9a-f]{12}$",
+      "title": "Setup Fp",
+      "type": "string"
+    },
+    "task_fps_hash": {
+      "pattern": "^[0-9a-f]{12}$",
+      "title": "Task Fps Hash",
+      "type": "string"
+    },
+    "tasks": {
+      "items": {
+        "$ref": "#/$defs/ClaimTask"
+      },
+      "maxItems": 500,
+      "minItems": 1,
+      "title": "Tasks",
+      "type": "array"
+    }
+  },
+  "required": [
+    "arena_claim",
+    "scenario",
+    "scenario_version",
+    "tasks",
+    "task_fps_hash",
+    "seed",
+    "repeats",
+    "setup",
+    "setup_fp",
+    "result",
+    "made_at",
+    "arena_version"
+  ],
+  "title": "Claim",
+  "type": "object"
+}

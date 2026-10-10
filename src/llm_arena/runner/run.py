@@ -439,6 +439,7 @@ class ExperimentRunner:
             execution=self.runtime.execution_environment(),
             credit=credit,
             criteria=criteria_detail,
+            unpriced=sorted(role for role, model in spec.bindings.items() if role in setup["roles"] and is_free(model)),
         )
         extra = {
             "env_state": output.env_state,

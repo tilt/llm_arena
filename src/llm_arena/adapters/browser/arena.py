@@ -18,10 +18,24 @@ from typing import Any
 
 from pydantic import TypeAdapter
 
-from llm_arena.api import EndpointView, KeySource, RunListing, RuntimeResponse, SaveEndpoint, StartRun, run_listing
+from llm_arena.api import (
+    Candidate,
+    CandidatesRequest,
+    ClaimDraftRequest,
+    ClaimExperimentRequest,
+    EndpointView,
+    KeySource,
+    ReproDraftRequest,
+    RunListing,
+    RuntimeResponse,
+    SaveEndpoint,
+    StartRun,
+    ThreadRequest,
+    run_listing,
+)
 from llm_arena.benchmarks.base import Benchmark
 from llm_arena.benchmarks.hf import HFSource, configure_loader, hub_url
-from llm_arena.conformance import CASES, record
+from llm_arena.conformance import CASES, record, replay_claim
 from llm_arena.core.errors import ConfigError
 from llm_arena.llm.catalog import Catalog, anthropic_entries, compatible_entries, openai_entries
 from llm_arena.llm.client import LLMClient
@@ -34,14 +48,14 @@ from llm_arena.report.leaderboard import Leaderboard, build_leaderboards
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import RunEvent, RunFinished, progress
 from llm_arena.runner.memory_store import MemoryStore
-from llm_arena.runner.ports import Runtime
+from llm_arena.runner.ports import RunData, Runtime
 from llm_arena.runner.presets import ModelPreset
 from llm_arena.runner.rename import RenameRun
-from llm_arena.runner.run import new_run_id
+from llm_arena.runner.run import new_run_id, valid_run_id
 from llm_arena.sandbox.base import Sandbox
 from llm_arena.scenarios.base import get_scenario, work_dir
 from llm_arena.scenarios.brief import TaskView
-from llm_arena.service import ArenaService, RunBundle, rename_bundle
+from llm_arena.service import ArenaService, BundledArtifact, RunBundle, bundle_summary, rename_bundle
 
 HttpGet = Callable[[str, dict[str, str]], Awaitable[HttpResponse]]
 GetBytes = Callable[[str], Awaitable[bytes]]
@@ -205,6 +219,54 @@ class BrowserArena:
             self.service.rename_run(run_id, request)
         return rename_bundle(RunBundle.model_validate_json(bundle_json), request).model_dump_json()
 
+    # ---- shareable claims (GitHub is fetched by the page; the engine validates and tallies) ------------------------
+    def check_bundle(self, bundle_json: str) -> str:
+        """An imported run file, validated by the engine before it is stored (never trusted as-is): the rows must
+        have the stored shape, and the summary is recomputed from them rather than taken from the file."""
+        raw = json.loads(bundle_json)
+        data = _run_data(bundle_json)
+        if not isinstance(data.run.get("run_id"), str) or not valid_run_id(str(data.run["run_id"])):
+            raise ConfigError("this file has no valid run id")
+        required = ("trial_id", "scenario", "config", "task_id", "status", "passed")
+        if not all(isinstance(row, dict) and all(key in row for key in required) for row in data.trials):
+            raise ConfigError("this file's trials are not run rows")
+        bundle = RunBundle(
+            run=data.run, summary=bundle_summary(data), trials=data.trials, scores=data.scores, battles=data.battles,
+            decisions=data.decisions, traces=dict(raw.get("traces") or {}),
+            artifacts={key: BundledArtifact.model_validate(value) for key, value in dict(raw.get("artifacts") or {}).items()},
+        )  # fmt: skip
+        return bundle.model_dump_json()
+
+    def claim_check(self, claim: str) -> str:
+        return self.service.check_claim(claim).model_dump_json()
+
+    def claim_draft(self, bundle_json: str, request_json: str) -> str:
+        request = ClaimDraftRequest.model_validate_json(request_json)
+        return self.service.claim_draft(_run_data(bundle_json), request.names, config=request.config).model_dump_json()
+
+    def repro_draft(self, bundle_json: str, request_json: str) -> str:
+        request = ReproDraftRequest.model_validate_json(request_json)
+        return self.service.repro_draft(_run_data(bundle_json), request.claim, request.seen).model_dump_json()
+
+    def claim_experiment(self, request_json: str) -> str:
+        body = ClaimExperimentRequest.model_validate_json(request_json)
+        return self.service.claim_experiment(
+            body.claim, local=body.local, swap=body.swap, cap_usd=body.cap_usd,
+            gist=(body.gist_id, body.revision) if body.gist_id and body.revision else None,
+            declared_names=body.declared_names, judge_local=body.judge_local,
+        ).model_dump_json()  # fmt: skip
+
+    async def claim_candidates(self, request_json: str) -> str:
+        body = CandidatesRequest.model_validate_json(request_json)
+        rows = await self.service.claim_candidates(body.claim, body.role, body.names)
+        return json.dumps([Candidate(ref=ref, problem=problem).model_dump() for ref, problem in rows])
+
+    def claim_thread(self, request_json: str) -> str:
+        body = ThreadRequest.model_validate_json(request_json)
+        return self.service.claim_thread(
+            body.claim, body.comments, author=body.author, total=body.total, engine=body.engine
+        ).model_dump_json()
+
     def bundle(self, run_id: str) -> str:
         # Browser runs live only in this tab: the bundle carries traces and files into IndexedDB / exports.
         return self.service.run_bundle(run_id, artifacts=True).model_dump_json()
@@ -224,6 +286,13 @@ class BrowserArena:
             actual = await record(case, sandbox)
             mismatches = [key for key in ("requests", "final", "scores") if actual[key] != vector[key]]
             results.append({"case": case.id, "status": "fail" if mismatches else "pass", "mismatches": mismatches})
+        # Claim vectors: verdicts, trust statistics and hashes must match the CPython engine exactly.
+        for name, vector in sorted(expected.items()):
+            if not isinstance(vector, dict) or vector.get("kind") != "claim":
+                continue
+            replayed = replay_claim(vector["input"])
+            mismatches = [key for key in vector["expected"] if replayed.get(key) != vector["expected"][key]]
+            results.append({"case": name, "status": "fail" if mismatches else "pass", "mismatches": mismatches})
         return json.dumps(results)
 
     # ---- runtime plumbing -----------------------------------------------------------------
@@ -298,6 +367,17 @@ class BrowserArena:
                 if not path.exists():
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_bytes(await self._get_bytes(hub_url(source)))
+
+
+def _run_data(bundle_json: str) -> RunData:
+    """The rows of a stored bundle. Its summary is not read: summaries hold NaN, which JSON stores as null."""
+    raw = json.loads(bundle_json)
+    if not isinstance(raw, dict) or not isinstance(raw.get("run"), dict):
+        raise ConfigError("this is not a run bundle")
+    rows = {key: raw.get(key) or [] for key in ("trials", "scores", "battles", "decisions")}
+    if not all(isinstance(value, list) for value in rows.values()):
+        raise ConfigError("this run bundle's rows are malformed")
+    return RunData(run=raw["run"], **rows)
 
 
 def _endpoint_key(endpoint_id: str) -> str:

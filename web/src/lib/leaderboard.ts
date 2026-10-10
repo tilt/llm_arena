@@ -5,7 +5,12 @@ type RoleSpec = { model?: string; provider?: string; reasoning_effort?: string |
 
 /** "critic: qwen3:14b (no thinking)" per role, as recorded in the entry's setup. */
 export function roleLines(entry: LeaderboardEntry): { role: string; model: string }[] {
-  const roles = (entry.setup.roles ?? {}) as Record<string, RoleSpec | string>;
+  return roleLinesOf(entry.setup);
+}
+
+/** A setup's roles as the leaderboard words them; any `setup_of`-shaped object (a claim's setup too). */
+export function roleLinesOf(setup: { roles?: unknown }): { role: string; model: string }[] {
+  const roles = (setup.roles ?? {}) as Record<string, RoleSpec | string>;
   return Object.entries(roles).map(([role, spec]) => {
     if (typeof spec === "string") return { role, model: spec };
     const notes = [spec.reasoning_effort === "none" ? "no thinking" : spec.reasoning_effort ? `${spec.reasoning_effort} reasoning` : "",
@@ -15,7 +20,12 @@ export function roleLines(entry: LeaderboardEntry): { role: string; model: strin
 }
 
 export function setupPolicy(entry: LeaderboardEntry): string {
-  const d = entry.setup.decisions as { policy?: string; control?: string; ollaya_model?: string; jev_model?: string } | null | undefined;
+  return policyOf(entry.setup);
+}
+
+/** A setup's control policy in words. */
+export function policyOf(setup: { decisions?: unknown }): string {
+  const d = setup.decisions as { policy?: string; control?: string; ollaya_model?: string; jev_model?: string } | null | undefined;
   if (!d) return "the agent decides";
   const who = d.policy === "ollaya" ? `ollaya ${d.ollaya_model ?? ""}` : d.policy === "jev" ? `jev ${d.jev_model ?? ""}` : d.policy;
   return `${who} · ${d.control ?? "policy"}`;

@@ -1,0 +1,11 @@
+{
+  "expected": {
+    "error": "setup.roles.critic.provider: Input should be 'openai', 'anthropic' or 'self_hosted'"
+  },
+  "input": {
+    "author": "alice",
+    "claim": "{\"arena_claim\":1,\"arena_version\":\"0.1.0\",\"judge\":null,\"made_at\":\"2026-10-10T10:00:00+00:00\",\"parent_claim_hash\":null,\"repeats\":1,\"result\":{\"cost_usd_per_task\":0.0012,\"engine\":\"local\",\"partial\":1.0,\"pass_rate\":1.0,\"passed\":2,\"trials\":2,\"unpriced_roles\":[]},\"scenario\":\"reflection_sql\",\"scenario_version\":\"1\",\"seed\":0,\"setup\":{\"decisions\":null,\"params\":{\"feedback\":\"execution\",\"reflection_rounds\":1},\"roles\":{\"critic\":{\"backend\":\"auto\",\"max_tokens\":512,\"model\":\"gpt-4.1-nano\",\"provider\":\"openai_compatible\",\"reasoning_effort\":null,\"temperature\":0.2,\"tool_mode\":\"native\"},\"generator\":{\"backend\":\"auto\",\"max_tokens\":1024,\"model\":\"gpt-4.1-mini\",\"provider\":\"openai\",\"reasoning_effort\":null,\"temperature\":0.2,\"tool_mode\":\"native\"}}},\"setup_fp\":\"d3632631d19f\",\"task_fps_hash\":\"e4fa0fd0010f\",\"tasks\":[{\"fp\":\"09577a44\",\"id\":\"harborview_march_rentals\"},{\"fp\":\"e8205947\",\"id\":\"ebike_avg_minutes\"}]}",
+    "comments": []
+  },
+  "kind": "claim"
+}

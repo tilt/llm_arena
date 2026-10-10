@@ -186,3 +186,113 @@ async def record(case: Case, sandbox: Sandbox | None = None) -> dict[str, Any]:
 
 def needs_sandbox(case: Case) -> bool:
     return "sandbox" in get_scenario(case.scenario).requires
+
+
+# ---- claim vectors: the same claim and thread must give the same verdicts, statistics and hashes everywhere ---------
+def _claim_fixture(**overrides: Any) -> dict[str, Any]:
+    """A deterministic claim on reflection_sql (two tasks), as `claims.claim_from_run` would build it."""
+    from llm_arena.claims import ClaimSetup, ClaimTask, setup_fingerprint, task_fps_hash  # noqa: PLC0415 (no cycle)
+    from llm_arena.runner.fingerprint import task_fingerprint  # noqa: PLC0415
+
+    scenario = get_scenario("reflection_sql")
+    tasks = [ClaimTask(id=t.id, fp=task_fingerprint(t)) for t in scenario.load_tasks()[1:3]]
+    roles = overrides.pop("roles", None) or {
+        "critic": {"provider": "openai", "model": "gpt-4.1-nano", "max_tokens": 512},
+        "generator": {"provider": "openai", "model": "gpt-4.1-mini", "max_tokens": 1024},
+    }
+    setup = ClaimSetup.model_validate({"roles": roles, "params": scenario.params(), "decisions": None})
+    claim = {
+        "arena_claim": 1, "scenario": scenario.name, "scenario_version": scenario.version,
+        "tasks": [t.model_dump() for t in tasks], "task_fps_hash": task_fps_hash(tasks), "seed": 0, "repeats": 1,
+        "setup": setup.model_dump(mode="json"), "setup_fp": setup_fingerprint(setup), "judge": None,
+        "result": {"passed": 2, "trials": 2, "pass_rate": 1.0, "partial": 1.0, "cost_usd_per_task": 0.0012,
+                   "unpriced_roles": [], "engine": "local"},
+        "made_at": "2026-10-10T10:00:00+00:00", "arena_version": "0.1.0", "parent_claim_hash": None,
+    }  # fmt: skip
+    return {**claim, **overrides}
+
+
+def _repro_body(claim: dict[str, Any], chash: str, passed: list[int], **overrides: Any) -> str:
+    from llm_arena.claims import Repro, repro_comment  # noqa: PLC0415
+
+    side = {"setup_fp": claim["setup_fp"], "passed": sum(passed), "trials": len(passed), "errors": 0, "timeouts": 0,
+            "budget_stopped": 0, "cost_usd_per_task": 0.0013}  # fmt: skip
+    repro = {"arena_repro": 1, "claim_hash": chash, "scenario_version": claim["scenario_version"],
+             "task_fps_hash": claim["task_fps_hash"], "judge": None, "baseline": side, "variant": None,
+             "per_task": [{"b": b, "v": None} for b in passed], "seen": [], "engine": "pages", "arena_version": "0.1.0",
+             **overrides}  # fmt: skip
+    return repro_comment(Repro.model_validate(repro))
+
+
+def _comment(cid: int, user: str, body: str, *, edited: bool = False) -> dict[str, Any]:
+    created = f"2026-10-10T10:{cid:02d}:00Z"
+    return {"id": cid, "user": {"login": user}, "created_at": created,
+            "updated_at": "2026-10-11T00:00:00Z" if edited else created, "body": body}  # fmt: skip
+
+
+def claim_vector_inputs() -> dict[str, dict[str, Any]]:
+    from llm_arena.claims import canonical, check_claim  # noqa: PLC0415
+
+    claim = _claim_fixture()
+    text = canonical(claim)
+    chash = check_claim(text).claim_hash
+
+    def body(passed: list[int], **overrides: Any) -> str:
+        return _repro_body(claim, chash, passed, **overrides)
+
+    judge = {"provider": "openai", "model": "gpt-4.1-mini", "backend": "auto", "tool_mode": "native",
+             "temperature": 0.2, "reasoning_effort": None, "max_tokens": 512}  # fmt: skip
+    mixed = [
+        _comment(1, "alice", body([1, 1])),  # the author
+        _comment(2, "bob", body([0, 1])),
+        _comment(3, "bob", body([1, 1])),  # supersedes bob's first
+        _comment(4, "carol", body([1, 0])),
+        _comment(5, "dave", body([1, 1]), edited=True),
+        _comment(6, "erin", body([1, 1], claim_hash="e" * 64)),
+        _comment(7, "frank", "nice!"),
+        _comment(8, "gina", body([1, 1], judge=judge)),
+    ]
+    three = [_comment(10 + i, f"user{i}", body(p)) for i, p in enumerate([[1, 1], [1, 0], [0, 1]])]
+    self_hosted = _claim_fixture(roles={
+        "critic": {"provider": "self_hosted", "model": "qwen3-14b"},
+        "generator": {"provider": "self_hosted", "model": "qwen3-14b", "max_tokens": 512},
+    })  # fmt: skip
+    from llm_arena.claims import ClaimSetup, setup_fingerprint  # noqa: PLC0415
+
+    self_hosted["setup_fp"] = setup_fingerprint(ClaimSetup.model_validate(self_hosted["setup"]))
+    return {
+        "claim-mixed-thread": {"claim": text, "comments": mixed, "author": "alice"},
+        "claim-above-interval": {"claim": text, "comments": three, "author": "alice"},
+        "claim-partial-thread": {"claim": text, "comments": three, "author": "alice", "total": 400},
+        "claim-removed-referenced": {"claim": text, "author": "alice", "comments": [
+            _comment(30, "bob", body([1, 1], seen=[21, 22])), _comment(21, "carol", body([1, 1]))]},
+        "claim-intact-thread": {"claim": text, "author": "alice", "comments": [
+            _comment(22, "dave", body([1, 1])), _comment(30, "bob", body([1, 1], seen=[21, 22])),
+            _comment(21, "carol", body([1, 1]))]},
+        "claim-self-hosted": {"claim": canonical(self_hosted), "comments": [], "author": "alice"},
+        "claim-hostile-extra-field": {"claim": canonical({**claim, "base_url": "http://evil"}), "comments": [],
+                                      "author": "alice"},
+        "claim-hostile-provider": {"claim": canonical({**claim, "setup": {**claim["setup"], "roles": {
+            **claim["setup"]["roles"], "critic": {**claim["setup"]["roles"]["critic"], "provider": "openai_compatible"}}}}),
+            "comments": [], "author": "alice"},
+    }  # fmt: skip
+
+
+def replay_claim(vector: dict[str, Any]) -> dict[str, Any]:
+    """What this engine says about a claim vector's claim and thread (or the error it refuses it with)."""
+    from llm_arena.claims import ClaimError, check_claim, trust_stats  # noqa: PLC0415
+
+    try:
+        check = check_claim(str(vector["claim"]))
+    except ClaimError as exc:
+        return {"error": str(exc)}
+    stats = trust_stats(check, vector.get("comments", []), author=str(vector["author"]), total=vector.get("total"))
+    return {
+        "claim_hash": check.claim_hash, "state": check.state, "swappable_roles": check.swappable_roles,
+        "stats": json.loads(stats.model_dump_json()),
+    }  # fmt: skip
+
+
+def claim_vectors() -> dict[str, dict[str, Any]]:
+    return {name: {"kind": "claim", "input": vector, "expected": replay_claim(vector)}
+            for name, vector in claim_vector_inputs().items()}  # fmt: skip

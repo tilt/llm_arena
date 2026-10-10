@@ -91,6 +91,21 @@ Everything a model writes is treated as data:
   - The local app calls whatever endpoint URL its authenticated user enters, including LAN addresses; that is the
     point of the feature, and the session cookie and origin checks keep other sites from adding one.
 - **Ollaya and Ollama run on your machine;** calls to them do not leave it.
+- **Shared claims are untrusted input** (`llm_arena/claims.py`). A claim or reproduction is checked against closed
+  schemas: unknown fields, endpoint fields, `base_url`, providers other than OpenAI, Anthropic or a declared
+  self-hosted name, params outside a scenario's choices, live-only params and benchmark scenarios are all refused
+  before anything runs. Pages renders a narrow, type-checked preview as plain text until the engine has validated the
+  claim. Claims carry setups and results only: no prompts, traces or endpoint names, identities or URLs.
+- **GitHub tokens** (posting claims and reproductions as gists):
+  - Pages keeps a pasted token in the tab's memory only and sends it only to `api.github.com`. GitHub reads go out
+    without a token unless one is set, and never through the HTTP cache.
+  - The local app reads `GITHUB_TOKEN` through its key store (the `github` entry, shown as "GitHub (claims)"), and
+    `adapters/server/gists.py` calls only the fixed GitHub API base. It checks gist ids, revisions, pages and comment
+    ids before building a URL, follows no redirects, caps responses at 2 MB and comments at 65,536 characters, and
+    times out after 10 s. The page stays on `connect-src 'self'`.
+  - The local app posts only a reproduction block exactly as the engine writes it, and creates only public gists with
+    a `claim.json` that validates, so the token can't be used for anything else through the app.
+  - The token can read, edit and delete all your gists; both front ends say so where it is entered.
 
 ## Residual risks
 

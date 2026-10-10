@@ -17,6 +17,8 @@ KEY_ENV = {
     "anthropic": "ANTHROPIC_API_KEY",
     "typesafe": "TYPESAFE_API_KEY",  # Jev decision model
     "tavily": "TAVILY_API_KEY",
+    # Not a model key: posts shareable claims and reproductions as gists (needs the Gists permission).
+    "github": "GITHUB_TOKEN",
 }
 
 
@@ -49,6 +51,10 @@ class KeyStore:
             os.environ[KEY_ENV[provider]] = original
         else:
             os.environ.pop(KEY_ENV[provider], None)
+
+    def secret(self, provider: str) -> str | None:
+        """The key itself, for server-side callers that need it (the gist client); never sent to the page."""
+        return os.environ.get(KEY_ENV[provider]) or None
 
     def endpoint_key(self, endpoint_id: str) -> str | None:
         return self._endpoint_keys.get(endpoint_id)

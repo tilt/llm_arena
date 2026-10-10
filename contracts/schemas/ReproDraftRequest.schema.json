@@ -1,0 +1,25 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "claim": {
+      "description": "the claim JSON",
+      "maxLength": 262144,
+      "title": "Claim",
+      "type": "string"
+    },
+    "seen": {
+      "description": "comment ids counted at post time",
+      "items": {
+        "type": "integer"
+      },
+      "maxItems": 300,
+      "title": "Seen",
+      "type": "array"
+    }
+  },
+  "required": [
+    "claim"
+  ],
+  "title": "ReproDraftRequest",
+  "type": "object"
+}

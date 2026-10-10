@@ -1,0 +1,59 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "author": {
+      "maxLength": 100,
+      "title": "Author",
+      "type": "string"
+    },
+    "claim": {
+      "maxLength": 262144,
+      "title": "Claim",
+      "type": "string"
+    },
+    "comments": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "maxItems": 300,
+      "title": "Comments",
+      "type": "array"
+    },
+    "engine": {
+      "anyOf": [
+        {
+          "enum": [
+            "pages",
+            "local"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Engine"
+    },
+    "total": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Total"
+    }
+  },
+  "required": [
+    "claim",
+    "author"
+  ],
+  "title": "ThreadRequest",
+  "type": "object"
+}

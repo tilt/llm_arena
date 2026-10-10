@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ReplacementEffect } from "../lib/contracts";
-  import { num, pct, usd } from "../lib/format";
+  import { NOT_PRICED, num, pct, usd } from "../lib/format";
 
   // Effects against the baseline for one scenario, per baseline (with variants, each variant has its own). Swaps
   // (one step to one candidate) form a matrix: rows the swapped steps, columns the candidate models. Setups that change
@@ -32,7 +32,7 @@
     </div>
     <div class="muted small">p={num(e.p_value, 2)} · {e.tasks} tasks</div>
     {#if e.errors}<div class="fail small">{e.errors} errored trials count as fails</div>{/if}
-    <div class="muted small">{e.delta_cost_usd >= 0 ? "+" : ""}{usd(e.delta_cost_usd)} · {e.delta_latency_s >= 0 ? "+" : ""}{num(e.delta_latency_s, 1)} s</div>
+    <div class="muted small">{#if e.unpriced}cost: {NOT_PRICED}{:else}{e.delta_cost_usd >= 0 ? "+" : ""}{usd(e.delta_cost_usd)}{/if} · {e.delta_latency_s >= 0 ? "+" : ""}{num(e.delta_latency_s, 1)} s</div>
   {/if}
 {/snippet}
 

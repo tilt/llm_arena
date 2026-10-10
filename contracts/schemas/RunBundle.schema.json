@@ -221,6 +221,11 @@
         "trials": {
           "title": "Trials",
           "type": "integer"
+        },
+        "unpriced": {
+          "default": false,
+          "title": "Unpriced",
+          "type": "boolean"
         }
       },
       "required": [
@@ -491,6 +496,11 @@
         "tasks": {
           "title": "Tasks",
           "type": "integer"
+        },
+        "unpriced": {
+          "default": false,
+          "title": "Unpriced",
+          "type": "boolean"
         },
         "variant_rate": {
           "title": "Variant Rate",

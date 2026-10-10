@@ -90,7 +90,7 @@ source_modules = [
     "llm_arena.core", "llm_arena.llm", "llm_arena.tools", "llm_arena.mocks", "llm_arena.sandbox",
     "llm_arena.patterns", "llm_arena.scenarios", "llm_arena.benchmarks", "llm_arena.eval",
     "llm_arena.runner", "llm_arena.report", "llm_arena.service", "llm_arena.conformance", "llm_arena.contracts",
-    "llm_arena.api", "llm_arena.decisions",
+    "llm_arena.api", "llm_arena.decisions", "llm_arena.claims",
 ]
 forbidden_modules = [
     "llm_arena.adapters", "llm_arena.cli", "llm_arena.server",

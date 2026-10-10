@@ -16,6 +16,22 @@
   import ModelsView from "./views/ModelsView.svelte";
   import RunsView from "./views/RunsView.svelte";
   import RunView from "./views/RunView.svelte";
+  import ClaimView from "./views/ClaimView.svelte";
+
+  // A claim link opened while the local app is locked survives the unlock (design §10): kept 10 minutes.
+  const PENDING_CLAIM = "arena.pendingClaim";
+  function keepPendingClaim() {
+    try {
+      if (location.hash.startsWith("#/claim/")) localStorage.setItem(PENDING_CLAIM, JSON.stringify({ hash: location.hash, at: Date.now() }));
+    } catch { /* storage blocked: the visitor reopens the link */ }
+  }
+  function restorePendingClaim() {
+    try {
+      const pending = JSON.parse(localStorage.getItem(PENDING_CLAIM) ?? "null") as { hash?: string; at?: number } | null;
+      localStorage.removeItem(PENDING_CLAIM);
+      if (pending?.hash?.startsWith("#/claim/") && Date.now() - (pending.at ?? 0) < 10 * 60_000) location.hash = pending.hash;
+    } catch { /* nothing to restore */ }
+  }
 
   let unlockValue = $state("");
   let unlockError = $state("");
@@ -32,12 +48,14 @@
       const backend = await detectLocalBackend();
       if (backend) {
         if (backend.locked) {
+          keepPendingClaim();
           app.backend = null;
           app.mode = "locked";
           return;
         }
         app.backend = backend;
         app.mode = "local";
+        restorePendingClaim();
         await refresh();
         return;
       }
@@ -162,6 +180,11 @@
       </form>
       {#if unlockError}<p class="note" role="alert">{unlockError}</p>{/if}
     </section>
+  {:else if router.route.name === "claim"}
+    <!-- Outside the engine gate: a shared link shows its claim while the in-browser engine still loads (design 2.1). -->
+    {#if app.error}<p class="note">{app.error}</p>{/if}
+    {#if app.mode === "browser" && !app.backend}<p class="muted small" role="status">{app.status || "Starting the in-browser engine…"}</p>{/if}
+    <ClaimView link={router.route.link} />
   {:else if app.mode === "browser" && !app.backend}
     <h1>LLM Arena</h1>
     {#if app.error}

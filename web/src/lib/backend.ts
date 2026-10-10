@@ -1,6 +1,16 @@
 // The one seam between the UI and an arena engine. Views only ever use ArenaBackend, so the local
 // app (HttpBackend) and the in-browser engine (WorkerBackend, Pyodide) are interchangeable.
 import type {
+  Candidate,
+  CandidatesRequest,
+  ClaimCheck,
+  ClaimDraft,
+  ClaimDraftRequest,
+  ClaimExperimentRequest,
+  ReproDraft,
+  ReproDraftRequest,
+  ThreadRequest,
+  TrustStats,
   ModelPreset,
   CatalogEntry,
   EndpointView,
@@ -77,6 +87,17 @@ export interface ArenaBackend {
   leaderboard(): Promise<Leaderboard[]>;
   /** Static HTML report, where the backend can render one (local app only). */
   reportUrl(runId: string): string | null;
+  // ---- shareable claims: the engine validates, builds and tallies; GitHub I/O lives in lib/claims.ts ----
+  claimCheck(claim: string): Promise<ClaimCheck>;
+  /** What Share as claim would publish for a finished run, or every reason it can't (nothing is published). */
+  claimDraft(runId: string, request: ClaimDraftRequest): Promise<ClaimDraft>;
+  /** The reproduction block a finished Beat-this run would post, or why it can't. */
+  reproDraft(runId: string, request: ReproDraftRequest): Promise<ReproDraft>;
+  /** The Beat-this run (claimed setup plus an optional variant); refused candidates never reach a run. */
+  claimExperiment(request: ClaimExperimentRequest): Promise<ExperimentConfig>;
+  /** Every discovered model with why it can't be the role's candidate (null: it can). */
+  claimCandidates(request: CandidatesRequest): Promise<Candidate[]>;
+  claimThread(request: ThreadRequest): Promise<TrustStats>;
 }
 
 export class BackendError extends Error {
@@ -207,6 +228,30 @@ export class HttpBackend implements ArenaBackend {
 
   reportUrl(runId: string): string {
     return `${this.base}/api/runs/${encodeURIComponent(runId)}/report`;
+  }
+
+  claimCheck(claim: string): Promise<ClaimCheck> {
+    return this.request("POST", "/api/claims/check", { claim });
+  }
+
+  claimDraft(runId: string, request: ClaimDraftRequest): Promise<ClaimDraft> {
+    return this.request("POST", `/api/runs/${encodeURIComponent(runId)}/claim-draft`, request);
+  }
+
+  reproDraft(runId: string, request: ReproDraftRequest): Promise<ReproDraft> {
+    return this.request("POST", `/api/runs/${encodeURIComponent(runId)}/repro-draft`, request);
+  }
+
+  claimExperiment(request: ClaimExperimentRequest): Promise<ExperimentConfig> {
+    return this.request("POST", "/api/claims/experiment", request);
+  }
+
+  claimCandidates(request: CandidatesRequest): Promise<Candidate[]> {
+    return this.request("POST", "/api/claims/candidates", request);
+  }
+
+  claimThread(request: ThreadRequest): Promise<TrustStats> {
+    return this.request("POST", "/api/claims/thread", request);
   }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {

@@ -91,6 +91,10 @@ class ResearchReport(Scenario):
     open_ended = True
     pairwise_criteria = "Accuracy of facts, use of authoritative sources, citations, clarity."
 
+    def needs_live(self, params: dict[str, Any]) -> bool:
+        # Only the seeded corpus works without --live; tavily and arxiv search the web.
+        return bool(params.get("backend", "corpus") != "corpus")
+
     def load_tasks(self) -> list[Task]:
         documents = corpus_documents()
         return [
