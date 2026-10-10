@@ -504,7 +504,9 @@ def create_app(
             raise HTTPException(status_code=failure.status, detail=failure.detail()) from failure
 
     def _claim_error(exc: Exception) -> HTTPException:
-        return HTTPException(status_code=400, detail=str(exc))
+        return HTTPException(
+            status_code=400, detail=_first_error(exc) if isinstance(exc, ValidationError) else str(exc)
+        )
 
     @app.get("/api/claims/gists/{gist_id}/comments", response_model=list[GistComment])
     async def claim_comments(gist_id: str, page: int = 1) -> list[GistComment]:
@@ -576,7 +578,10 @@ def create_app(
     @app.post("/api/runs/{run_id}/claim-draft", response_model=ClaimDraft)
     def claim_draft(run_id: str, body: ClaimDraftRequest) -> ClaimDraft:
         _require_run(runs_dir, run_id)
-        return service.claim_draft(service.store_factory(run_id).load_run(), body.names, config=body.config)
+        try:
+            return service.claim_draft(service.store_factory(run_id).load_run(), body.names, config=body.config)
+        except (ClaimError, ArenaError, ValidationError) as exc:
+            raise _claim_error(exc) from exc
 
     @app.post("/api/runs/{run_id}/repro-draft", response_model=ReproDraft)
     def repro_draft(run_id: str, body: ReproDraftRequest) -> ReproDraft:

@@ -336,7 +336,7 @@ class ExperimentRunner:
                         if self._cancelled or self.budget.exceeded:
                             continue
                         # After a refused call, paid trials are recorded as refused without running, so not "started".
-                        not_started = self.budget.refused and self._may_pay(trial)
+                        not_started = self.budget.refused and self.may_pay(trial)
                         if not not_started:
                             self.sink(
                                 TrialStarted(
@@ -449,7 +449,7 @@ class ExperimentRunner:
         store.save_trial(self.run_id, record, scores, trace, extra)
         return record
 
-    def _may_pay(self, spec: TrialSpec) -> bool:
+    def may_pay(self, spec: TrialSpec) -> bool:
         """Whether a trial can call anything priced: a role model not known to be free, the judge when the scenario
         grades with one, or a paid decision service (Jev)."""
         models = list(spec.bindings.values())

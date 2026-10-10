@@ -49,7 +49,7 @@ _HEX64 = r"^[0-9a-f]{64}$"
 _ROLE = r"^[a-z_][a-z0-9_]{0,40}$"
 _MODEL_ID = re.compile(r"^[^\s#]{1,200}$")
 REPRO_FENCE = "arena-repro"
-_REPRO_BLOCK = re.compile(r"```" + REPRO_FENCE + r"[ \t]*\n(.*?)\n```", re.DOTALL)
+_REPRO_OPEN = re.compile(r"```" + REPRO_FENCE + r"[ \t]*\n")
 
 
 # ---- formats ---------------------------------------------------------------------------------------------------
@@ -345,6 +345,15 @@ def check_claim(text: str) -> ClaimCheck:
     known_roles = {role.name for role in scenario.roles}
     if extra := set(claim.setup.roles) - known_roles:
         raise ClaimError(f"{scenario.name} has no roles {sorted(extra)}")
+    bound = set(claim.setup.roles)
+    for requirement in scenario.roles:  # optional roles fall back like Scenario.check_roles does
+        if requirement.name not in bound and requirement.fallback in bound:
+            bound.add(requirement.name)
+    if missing := called_roles(scenario, decisions) - bound:
+        raise ClaimError(f"the setup has no model for {', '.join(sorted(missing))}")
+    judged = uses_judge(scenario, scenario.params(dict(claim.setup.params)))
+    if judged and claim.judge is None:
+        raise ClaimError(f"{scenario.name} is graded by an LLM judge, so a claim on it must pin that judge")
     if setup_fingerprint(claim.setup) != claim.setup_fp:
         raise ClaimError("setup_fp does not match the setup")
     if task_fps_hash(claim.tasks) != claim.task_fps_hash:
@@ -354,12 +363,13 @@ def check_claim(text: str) -> ClaimCheck:
     result = claim.result
     if result.trials != len(claim.tasks) * claim.repeats or result.passed > result.trials:
         raise ClaimError("the result does not match the tasks and repeats")
+    if abs(result.pass_rate - result.passed / result.trials) > 1e-6:
+        raise ClaimError("pass_rate does not match passed / trials")
     for name, role in claim.setup.roles.items():
         if problem := _price_problem(role, name):
             raise ClaimError(problem)
     if claim.judge is not None and (problem := _price_problem(claim.judge, "judge")):
         raise ClaimError(problem)
-    judged = uses_judge(scenario, scenario.params(dict(claim.setup.params)))
     if claim.judge is not None and not judged:
         raise ClaimError(f"{scenario.name} has no judge-graded criteria, so a claim on it pins no judge")
     state, message = _drift(scenario, claim)
@@ -476,7 +486,9 @@ def claim_from_run(
         if problem := _price_problem(role, name):
             reasons.append(problem)
     judge_role: ClaimRole | None = None
-    if uses_judge(scenario, setup.params) and judge is not None:
+    if uses_judge(scenario, setup.params) and judge is None:
+        reasons.append(f"{scenario.name} is graded by an LLM judge; set a judge and re-run to make this claimable")
+    elif uses_judge(scenario, setup.params) and judge is not None:
         try:
             judge_role = portable_spec(judge, names)
         except ClaimError as exc:
@@ -567,8 +579,8 @@ def claim_experiment(
                 study=StudyTag(kind="swap", role=swap.role, candidate=candidate),
             ))  # fmt: skip
         else:
-            variant = DecisionConfig.model_validate(swap.decisions)
-            if not _policy_swap(decisions, variant):
+            variant = check_decisions(_scenario(claim.scenario), swap.decisions)
+            if variant is None or not _policy_swap(decisions, variant):
                 raise ClaimError("a control-policy swap must switch to one decision service and change nothing else")
             configs.append(PipelineConfig(
                 name=f"{VARIANT_CONFIG_PREFIX}-decisions", roles=roles, params=dict(claim.setup.params),
@@ -764,8 +776,12 @@ def shape_problem(claim: Claim, repro: Repro) -> str | None:
     if len(changed) == 1 and variant.setup.decisions == base.decisions:
         return None
     if not changed and variant.setup.decisions is not None and variant.setup.decisions != base.decisions:
+        try:
+            swapped = check_decisions(_scenario(claim.scenario), variant.setup.decisions)
+        except ClaimError as exc:
+            return f"the variant's control policy: {exc}"
         claimed = DecisionConfig.model_validate(base.decisions) if base.decisions else None
-        if _policy_swap(claimed, DecisionConfig.model_validate(variant.setup.decisions)):
+        if swapped is not None and _policy_swap(claimed, swapped):
             return None
     return "the variant must change exactly one role's model, or only the decision service"
 
@@ -870,11 +886,14 @@ def wilson(passed: int, trials: int, z: float = 1.959964) -> tuple[float, float]
 
 def parse_repro(body: str) -> Repro | None | str:
     """The comment's reproduction: a Repro, None without a block, or why the block is invalid (rule 1)."""
-    match = _REPRO_BLOCK.search(body)
-    if match is None:
+    # Linear on hostile comments: the first opener's closer is the first "\n```" after it (a regex with a lazy
+    # DOTALL group rescans the rest of the body from every opener).
+    opener = _REPRO_OPEN.search(body)
+    end = body.find("\n```", opener.end()) if opener else -1
+    if opener is None or end < 0:
         return None
     try:
-        return Repro.model_validate_json(match.group(1))
+        return Repro.model_validate_json(body[opener.end() : end])
     except ValidationError as exc:
         return f"not a valid reproduction block ({_first_error(exc)})"
 

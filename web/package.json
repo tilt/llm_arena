@@ -9,7 +9,8 @@
     "build": "npm run contracts && npm run verify:assets && vite build",
     "check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
     "test": "vitest run",
-    "test:isolation": "playwright test",
+    "test:isolation": "playwright test isolation.spec.ts",
+    "test:claim": "CLAIM_E2E=1 playwright test claim.spec.ts --project=chromium",
     "verify:assets": "node scripts/verify-pyodide-assets.mjs"
   },
   "dependencies": {

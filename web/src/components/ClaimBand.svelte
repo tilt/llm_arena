@@ -11,7 +11,8 @@
   import type { Claim, ClaimDraft, CreatedGist, ReproDraft, RunBundle } from "../lib/contracts";
   import KeyPanel from "./KeyPanel.svelte";
 
-  let { runId, bundle }: { runId: string; bundle: RunBundle } = $props();
+  // onposted: the claim page re-reads its thread so the new reproduction shows (2.4).
+  let { runId, bundle, onposted }: { runId: string; bundle: RunBundle; onposted?: () => void } = $props();
 
   interface ClaimRef { gist_id?: string | null; revision?: string | null; claim_hash: string }
   const config = $derived((() => { try { return JSON.parse(String(bundle.run.config_json ?? "{}")) as { claim_ref?: ClaimRef }; } catch { return {}; } })());
@@ -129,6 +130,7 @@
         html_url: comment.html_url };
       savePostedNote(runId, posted);
       postedState = "found";
+      onposted?.();
     } catch (e) {
       error = e instanceof GitHubFailure ? failureText(e) : e instanceof Error ? e.message : String(e);
     } finally {

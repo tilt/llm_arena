@@ -57,7 +57,11 @@
   $effect(() => {
     void link;
     if (app.mode === "detecting" || app.mode === "locked") return;
-    untrack(() => { gist = null; claimText = null; check = null; stats = null; comments = null; void fetchClaim(); });
+    untrack(() => {
+      gist = null; claimText = null; check = null; stats = null; comments = null; threadFailure = null; threadError = "";
+      estimate = null; cap = null; capTouched = false;  // a limit typed for another claim doesn't carry over
+      void fetchClaim();
+    });
   });
 
   $effect(() => {
@@ -77,20 +81,46 @@
   let threadFailure = $state<GitHubFailure | null>(null);
   let stats = $state<TrustStats | null>(null);
 
+  let threadError = $state("");
+
+  // GitHub allows 60 unauthenticated requests an hour: the thread is fetched once per gist load (and after a post);
+  // the engine filter only re-tallies the comments already here.
   async function loadThread() {
-    if (link?.kind !== "gist" || !gist || !check || !app.backend) return;
+    if (link?.kind !== "gist" || !gist) return;
+    const asked = link, from = gist;
     threadFailure = null;
     try {
-      comments = await github.thread(link.id, gist.comments);
-      stats = await app.backend.claimThread({ claim: claimText!, comments: comments as unknown as Record<string, unknown>[],
-        author: gist.owner, total: gist.comments, engine: engineFilter || null });
+      const rows = await github.thread(asked.id, from.comments);
+      if (link === asked && gist === from) comments = rows;  // dropped if the visitor moved on meanwhile
     } catch (e) {
-      if (e instanceof GitHubFailure) threadFailure = e; else invalid = String(e);
+      threadFailure = e instanceof GitHubFailure ? e : new GitHubFailure("unreachable", String(e));
+    }
+  }
+  $effect(() => { if (gist) untrack(() => void loadThread()); });
+
+  async function reloadThread() {
+    if (link?.kind !== "gist") return;
+    const asked = link;
+    try {
+      const fresh = await github.claim(asked.id, asked.revision);  // a fresh comment count; the effect re-reads the thread
+      if (link === asked) gist = fresh;
+    } catch (e) {
+      threadFailure = e instanceof GitHubFailure ? e : new GitHubFailure("unreachable", String(e));
     }
   }
 
   let engineFilter = $state<"" | "pages" | "local">("");
-  $effect(() => { void check; void engineFilter; untrack(() => void loadThread()); });
+  $effect(() => {
+    const backend = app.backend, rows = comments, filter = engineFilter;
+    if (!backend || !rows || !check || !gist || !claimText) return;
+    const g = gist, text = claimText;
+    untrack(() => {
+      threadError = "";
+      backend.claimThread({ claim: text, comments: rows as unknown as Record<string, unknown>[], author: g.owner, total: g.comments,
+        engine: filter || null }).then((value) => { stats = value; })
+        .catch((e) => { threadError = e instanceof Error ? e.message : String(e); });
+    });
+  });
 
   const selfHostedClaim = $derived(Boolean(claim && Object.values(claim.setup.roles).some((r) => r?.provider === "self_hosted")));
   const trustBars = $derived.by(() => {
@@ -113,7 +143,10 @@
   let matches = $state<Record<string, string>>({});
   let declareRole = $state<Record<string, string>>({});
   let cap = $state<number | null>(null);
+  let capTouched = $state(false);  // a limit the visitor typed survives re-estimates
   let estimate = $state<Estimate | null>(null);
+  const priced = $derived(Boolean(estimate && (estimate.needs_cap || estimate.cost_usd > 0)));  // needs_cap: also Jev
+  const capSet = $derived(typeof cap === "number" && cap > 0);
   let experiment = $state<ExperimentConfig | null>(null);
   let buildError = $state("");
   let running = $state<string | null>(null);
@@ -195,6 +228,7 @@
     }
     if (candidateSelfHosted && nameProblem(candidateName)) reasons.push(nameProblem(candidateName));
     if (buildError) reasons.push(buildError);
+    if (priced && !capSet) reasons.push("Set a spend limit above $0 to run this.");
     if (estimate?.unknown_prices?.length) reasons.push(`${estimate.unknown_prices.join(", ")} has no known price; strict budgets can't run it.`);
     return reasons;
   });
@@ -218,10 +252,11 @@
     if ([...selfHostedRoles.map(([n]) => n), ...(judgeSelfHosted ? ["judge"] : [])].some((n) => !matches[n])) return;
     if (candidateSelfHosted && nameProblem(candidateName)) return;
     try {
-      const built = await app.backend.claimExperiment({ ...request(), cap_usd: null });
+      // A placeholder limit for estimating: the engine refuses a priced run without one.
+      const built = await app.backend.claimExperiment({ ...request(), cap_usd: 0 });
       estimate = await app.backend.estimate(built);
       experiment = built;
-      cap = estimate.cost_usd > 0 ? Math.round(estimate.cost_usd * 1.5 * 10000) / 10000 : null;
+      if (!capTouched) cap = estimate.cost_usd > 0 ? Math.round(estimate.cost_usd * 1.5 * 10000) / 10000 : null;
     } catch (e) {
       buildError = e instanceof Error ? e.message : String(e);
     }
@@ -236,7 +271,7 @@
   async function run() {
     if (!app.backend || !experiment || runReasons.length) return;
     try {
-      const built = await app.backend.claimExperiment({ ...request(), cap_usd: estimate && estimate.cost_usd > 0 ? cap : null });
+      const built = await app.backend.claimExperiment({ ...request(), cap_usd: capSet ? cap : null });
       const id = await app.backend.startRun({ experiment: built });
       for (const [local, name] of Object.entries(declaredNames())) rememberName(local, name);
       for (const [name, ref] of Object.entries(matches)) if (ref) rememberMatch(check!.claim_hash, name, ref);
@@ -256,7 +291,6 @@
   async function finish(id: string) {
     result = await app.backend!.bundle(id);
     queueMicrotask(() => resultHeading?.focus());
-    void loadThread();
   }
 
   function declare(name: string, spec: ClaimRole) {
@@ -416,11 +450,11 @@
             <KeyPanel providers={missingKeys} heading={`Add ${missingKeys.map((p) => (p === "openai" ? "an OpenAI" : "an Anthropic")).join(" and ")} key to run this${estimate ? ` · est. ${usd(estimate.cost_usd)}` : ""} · the key stays in this ${mode === "local" ? "app" : "tab"}`} />
           {/if}
           {#if estimate}
-            {#if estimate.cost_usd > 0}
+            {#if priced}
               <label class="field">Spend limit (USD)
-                <input type="number" min="0" step="0.01" bind:value={cap} aria-describedby="limit-hint" />
+                <input type="number" min="0" step="0.01" bind:value={cap} oninput={() => (capTouched = true)} aria-describedby="limit-hint" />
               </label>
-              <p id="limit-hint" class="muted small">Estimate {usd(estimate.cost_usd)}. The run stops at this limit; a stopped run can't be posted.
+              <p id="limit-hint" class="muted small">Estimate {usd(estimate.cost_usd)}{estimate.needs_cap && estimate.cost_usd === 0 ? " plus a paid decision service the estimate doesn't cover" : ""}. The run stops at this limit; a stopped run can't be posted.
                 {#if unpricedRoles.length || candidateSelfHosted} Covers OpenAI/Anthropic only; {[...unpricedRoles, ...(candidateSelfHosted ? [role] : [])].join(", ")} isn't priced and isn't limited.{/if}</p>
               {#if cap != null && cap < estimate.cost_usd}<p class="note">The limit is below the estimate; the run may stop early and then can't be posted.</p>{/if}
             {:else}
@@ -451,7 +485,7 @@
       {#if stopReason(progress)}<p class="note">This run stopped early ({stopReason(progress)}), so it can't be posted.</p>{/if}
       {#if result}
         {#if result.summary.replacements?.length}<ReplacementEffects effects={result.summary.replacements} />{/if}
-        <ClaimBand runId={running} bundle={result} />
+        <ClaimBand runId={running} bundle={result} onposted={reloadThread} />
         <p class="muted small"><a href={`#/runs/${encodeURIComponent(running)}`}>Open full run</a></p>
       {:else}<p class="muted">Loading the result…</p>{/if}
     </section>
@@ -461,10 +495,11 @@
     <section aria-labelledby="thread-title">
       <h2 id="thread-title" aria-live="polite">Reproductions ({stats?.rows.length ?? "…"})</h2>
       {#if threadFailure}<p class="note">{failureText(threadFailure)} <button onclick={loadThread}>Retry</button></p>{/if}
+      {#if threadError}<p class="error" role="alert">The reproductions couldn't be tallied: {threadError}</p>{/if}
       {#if stats}
         <label class="small">Engine <select bind:value={engineFilter}><option value="">all</option><option value="pages">pages</option><option value="local">local</option></select></label>
         {#if !stats.rows.length}
-          <p class="muted">Not reproduced yet. Be the first: re-running costs ≈ {estimate ? (estimate.cost_usd > 0 ? usd(estimate.cost_usd) : `your own models (${NOT_PRICED})`) : "a few cents"}.</p>
+          <p class="muted">Not reproduced yet. Be the first{#if estimate}: re-running {estimate.cost_usd > 0 ? `costs ≈ ${usd(estimate.cost_usd)}` : priced ? "uses a paid decision service" : `uses your own models (${NOT_PRICED})`}{/if}.</p>
         {/if}
         {#each stats.rows as row (row.comment_id)}
           <div class="card repro">

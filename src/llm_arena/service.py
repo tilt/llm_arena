@@ -35,7 +35,7 @@ from llm_arena.claims import (
     repro_from_run,
     trust_stats,
 )
-from llm_arena.core.errors import ConfigError, RunConflictError, RunLimitError
+from llm_arena.core.errors import ArenaError, ConfigError, RunConflictError, RunLimitError
 from llm_arena.decisions.config import SERVICES
 from llm_arena.decisions.records import DecisionSummary
 from llm_arena.llm.catalog import Catalog
@@ -44,6 +44,7 @@ from llm_arena.llm.registry import resolve_model
 from llm_arena.llm.spec import ModelSpec
 from llm_arena.report.aggregate import ConfigSummary, PairedTest, ReplacementEffect, credited, summarize
 from llm_arena.report.leaderboard import Leaderboard, build_leaderboards
+from llm_arena.runner.budget import is_free
 from llm_arena.runner.config import ExperimentConfig
 from llm_arena.runner.events import EventSink, ignore
 from llm_arena.runner.ports import RunData, RunStore, Runtime
@@ -93,6 +94,11 @@ class Estimate(BaseModel):
     tokens: int
     cost_usd: float
     unknown_prices: list[str] = Field(default_factory=list, description="models without a known price (costed at 0)")
+    needs_cap: bool = Field(
+        default=False,
+        description="something may cost money (a priced model or a paid decision "
+        "service, which the estimate doesn't cost): a strict budget needs a limit",
+    )
     note: str = "Rough estimate from typical tokens per trial; actual spend depends on model verbosity."
 
 
@@ -209,7 +215,7 @@ class ArenaService:
                 tokens += JUDGE_TOKENS_PER_TRIAL
         return Estimate(
             trials=len(trials), per_scenario=per_scenario, tokens=tokens, cost_usd=round(cost, 4),
-            unknown_prices=sorted(unknown),
+            unknown_prices=sorted(unknown), needs_cap=any(runner.may_pay(trial) for trial in trials),
         )  # fmt: skip
 
     # ---- running --------------------------------------------------------------------------
@@ -355,7 +361,10 @@ class ArenaService:
         """What Share as claim would publish for this run, or every reason it can't (nothing is published here)."""
         data = credited(data)
         experiment = json.loads(data.run.get("config_json") or "{}")
-        judge = self._resolve(str(experiment["judge"])) if experiment.get("judge") else None
+        try:
+            judge = self._resolve(str(experiment["judge"])) if experiment.get("judge") else None
+        except ArenaError as exc:  # e.g. the judge's endpoint was removed since the run
+            return ClaimDraft(reasons=[f"judge: {exc}"])
         return claim_from_run(
             data, names, engine=self.engine, made_at=datetime.now(UTC).isoformat(timespec="seconds"),
             arena_version=ARENA_VERSION, config=config, judge=judge,
@@ -393,8 +402,17 @@ class ArenaService:
             except ClaimError as exc:
                 raise ClaimError(f"{role}: {exc}") from exc
             if actual != expected:
-                fields = [f for f in expected.model_fields if getattr(actual, f) != getattr(expected, f)]
+                fields = [f for f in type(expected).model_fields if getattr(actual, f) != getattr(expected, f)]
                 raise ClaimError(f"Your models resolve differently from the claim: {role} {', '.join(fields)}")
+        # Strict budgets skip every check without a limit, so a priced model never runs without one.
+        if cap_usd is None:
+            refs = {ref for config in experiment.configs for ref in config.roles.values()}
+            if experiment.judge is not None:
+                refs.add(experiment.judge)
+            priced = sorted(ref for ref in refs if not is_free(self._resolve(ref)))
+            priced += sorted({svc for c in experiment.configs if c.decisions for svc in c.decisions.paid_services()})
+            if priced:
+                raise ClaimError(f"Set a spend limit: {', '.join(priced)} can cost money")
         return experiment
 
     async def claim_candidates(self, claim: str, role: str, names: Mapping[str, str]) -> list[tuple[str, str | None]]:
