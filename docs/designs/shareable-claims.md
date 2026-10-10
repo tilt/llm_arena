@@ -38,6 +38,37 @@ decision's full record.
   reproducer's run view flags its own deleted comment; the page states what can't be detected.
 - **Purity (O5):** `llm_arena.claims` joins the import-linter "Engine is pure" `source_modules`.
 
+## Eng re-review amendments (binding, 2026-10-09)
+
+These override the sections below and the first eng review where they differ (records R15 onward).
+
+- **Pairing (C1):** the swap config in `claim_experiment` sets `compare_to="claim-baseline"` and keeps its `StudyTag`;
+  `report/aggregate.py` `_replacements` pairs by `compare_to`.
+- **Self-hosted models (R15, D5):** claims and repro blocks carry a portable role: `SPEC_FIELDS` only, never
+  `endpoint`, `endpoint_identity` or `base_url`; `setup_fp` = `fingerprint(portable setup)`. Local `setup_of`,
+  fingerprints, resume keys and leaderboards are unchanged. `openai_compatible` is claimable on Pages (CORS-enabled
+  endpoints) and locally, as a claim's own role and as a Beat-this candidate. Self-hosted roles (Ollama, LM Studio,
+  endpoints) travel as `provider: "self_hosted"` with a declared "compare as" name (R19, D7) and match any of the
+  visitor's self-hosted models declared with that name (several: the visitor picks; none: declare in place, §13.2).
+  Every self-hosted role needs a declared name; there is no raw-id fallback (design 13.3). Unpriced endpoint roles cost $0 ("not priced"); the spend limit bounds priced roles. Endpoint-
+  served roles carry the caption "Self-hosted: names are declared by people; serving may differ (quantization,
+  context)." (one string everywhere; placement in §13).
+- **Candidate rule (R17, D6):** `claims.py` `candidate_problem(...)` is the one rule; `claim_experiment` refuses a
+  failing candidate before any spend, and `Backend.claimCandidates(claim, role)` builds the Beat-this list from it.
+- **Posted record (R16, D8):** a per-browser `localStorage` note per run drives "Posted" and D15's own-comment check.
+- **Judge (R22, D1 of re-review 2):** a claim pins its grader: `claim.judge` (portable role or null) is inside
+  `claim_hash`; rule 4b counts a repro only with the same judge; Beat this runs with it; estimate and cap include it.
+- **Run lookup (R18, D11):** the reproduced setup is found by its portable `setup_fp`, the variant by `compare_to`;
+  never by setup name or by a `baseline` tag. Any setup can be a reference.
+- **GitHub key (Q4):** labeled "GitHub (claims)"; local Post without a key shows 3.1's `KeyPanel` filtered to `github`.
+- **Build without publishing (A4):** `Backend` also gets `claimDraft(runId, names)` and `reproDraft(runId)` (names per
+  design 13.16; `claim_ref.declared_names` freezes a Beat-this run's names), and `claimComment(ref, commentId)` for the
+  13.5 posted check; `createClaim` /
+  `postRepro` publish exactly the draft's text.
+- **Claim route (A6, design 2.1):** `claims.ts` starts the fetch once the mode (local / browser) is known, before the
+  engine is ready; a locked local app shows the locked screen and §10 restores the hash.
+- **KeyPanel (A7, design 3.1):** only a `providers` filter prop; `refresh()` already re-derives runnable state.
+
 ## Problem Statement
 
 Developers choosing models for their own agent pick from generic leaderboards and vibes. None of those answer the
@@ -147,8 +178,8 @@ reproductions accumulating where everyone can see them.
   max_tokens`). Endpoint, key, `base_url`, `api_key_env` and `extra_body` fields cannot appear, because the closed
   schema rejects them.
 - **Allow-lists:**
-  - Providers: `openai` and `anthropic` everywhere, plus `ollama` and `lmstudio` in the local app only;
-    `openai_compatible` is never claimable.
+  - Providers: `openai`, `anthropic` and `openai_compatible` (named endpoints, portable role without endpoint
+    fields; re-review R15) everywhere, plus `ollama` and `lmstudio` in the local app only.
   - `params`: every key must be a key of the scenario's `default_params` (`scenarios/base.py`). Its value must equal
     the default, or be one of `param_choices[key]`. A param without declared choices must equal its default. Scenarios
     declare no numeric bounds, so this is the whole rule.
@@ -295,7 +326,7 @@ ExperimentConfig(scenarios=[claim.scenario], configs=configs, task_ids=[t.id for
     `escalation`) exactly when they appear in `DecisionConfig.llm_roles()` of the claim's decisions
     (`decisions/config.py:55`). A cascade with a Jev/Ollaya stage, or with no fallback, may call only one of them, or
     neither.
-  - Pages offers OpenAI/Anthropic candidates from the discovered catalog. The local app adds discovered Ollama and
+  - Pages offers OpenAI/Anthropic and named-endpoint candidates from the discovered catalog (re-review R15). The local app adds discovered Ollama and
     LM Studio models.
   - **The candidate inherits the replaced role's `max_tokens`**, appended as `#max_tokens=N` to `candidate_ref`. The
     card shows it, and the visitor can override it. Discovered specs have `max_tokens=None`, which strict mode would
@@ -425,7 +456,7 @@ Decisions from the design review. They refine §11 and override the wireframe wh
   | Grading-only drift (D1) | workspace: `.note` replaces Beat this | the §9 read-only text with the author's re-claim command | copy command |
   | Same-version task drift | whole page, `.error` | "The task set changed without a version bump (likely an arena bug)." | report link |
   | `setup_fp` mismatch (pre-run) | workspace: `.note` replaces Run | "Your models resolve differently from the claim: <fields>." | none |
-  | Baseline needs a local model (Pages) | workspace: `.note` replaces Run | "This claim uses a local model. Reproduce it in the local app." | "Open in local app" + command (§10) |
+  | Self-hosted role, no model here (13.2; was "Baseline needs a local model") | Setup row, `.note`; Run disabled with the reason | "None of your models is declared as <name>." | declare in place; Models link; "Open in local app" + command (§10) |
   | Unpriced model / model unavailable for the key | Beat this, inline under the role | "<model> has no known price" / "<model> isn't available for your key" | pick another candidate; missing key per 3.1 |
   | Thread: unreachable / 5xx / throttled / 60-per-hour | thread area only, `.note` | the D6 / §8 message; claim and Run keep working | Retry / add token |
   | Thread empty | thread area | "Not reproduced yet. Be the first: re-running costs ≈ <estimate>." | scrolls to Run |
@@ -473,7 +504,7 @@ Decisions from the design review. They refine §11 and override the wireframe wh
   | thread rows | `.card` (the only cards on the page, per 1.1) |
   | Run, Post | `button.primary` (one per area); all other actions plain `button` |
   | percentages, costs, counts | `pct()` / `usd()` from `lib/format.ts`, `font-variant-numeric: tabular-nums` |
-  | paired result | `ReplacementEffects` unchanged |
+  | paired result | `ReplacementEffects` (cost cell per 13.10 when a side is unpriced) |
   | corner radius | `--radius` |
 - **Trust visualization (5.2):** the header's trust line uses the existing `BarsCI` with two rows: "claimed"
   (low = high = value, so no interval) and "reproduced · N people" (pooled rate with its 95% Wilson interval; with a
@@ -523,6 +554,7 @@ Decisions from the design review. They refine §11 and override the wireframe wh
   | 2 | Reads headline and paired numbers | "is this real?" | 1.2, 1.4 |
   | 3 | Picks a role and a cheaper model | hooked | 1.3 |
   | 4 | Has no API key | unblocked in place | 3.1 |
+  | 4b | Has no model declared as the claim's self-hosted name | unblocked in place | 13.2 |
   | 5 | Sees estimate and limit, runs | cautious about money | Pass 7 (limit control) |
   | 6 | Watches progress | anxious, then patient | 2.3 |
   | 7 | Reads the paired result | proud or surprised | ReplacementEffects |
@@ -543,6 +575,92 @@ Decisions from the design review. They refine §11 and override the wireframe wh
 ├ thread ───────────────────────────────────────────────────────────────────────┤
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
+
+### 13. Self-hosted UI (plan-design-review re-review, 2026-10-09)
+
+Decisions for the UI the eng re-review added (R15-R21). They extend §12 and use its vocabulary.
+
+- **Caveat placement (13.1):** a claim with any `self_hosted` role shows a `.pill` "self-hosted" after the h1 text, and
+  the trust line's reproduced half carries the qualifier "· names self-declared" (attached like the D14/D15
+  qualifiers). The caption "Self-hosted: names are declared by people; serving may differ (quantization, context)."
+  appears once, as `.muted.small` under the Setup table.
+- **Self-hosted match (13.2):** each `self_hosted` row in Setup gets a second line "here: [your models declared
+  qwen3-14b ▾]", preselecting the match used last for this (claim_hash, role) (guarded `localStorage`, as R16). With
+  none matching, that row shows a `.note`: "None of your models is declared as qwen3-14b. Use one of yours as
+  qwen3-14b: [select of your self-hosted models] [Use]"; Use writes the declaration (if the model was declared under
+  another name: "was qwen3-14b-awq; this changes it for future claims"). With no self-hosted models at all: on Pages a
+  link to Models ("endpoints need CORS to work here") plus "Open in local app" (§10); locally a link to Models. Run
+  stays disabled until every self-hosted role has a match, with that reason next to Run (6.2). §12's state row
+  "Baseline needs a local model (Pages)" becomes "Self-hosted role, no model here", placed on the Setup row with these
+  actions. Storyboard step 4b: "has no model declared as <name>" → unblocked in place (13.2).
+- **Compare-as field (13.3):** required for every self-hosted role. First time it is prefilled with a suggestion from
+  the server id: lowercase, organization prefix dropped, `/`, `:` and `_` become `-` (`qwen3:14b` → `qwen3-14b`,
+  `Qwen/Qwen3-14B-AWQ` → `qwen3-14b-awq`); afterwards with the remembered name. A visible hint "lowercase letters,
+  digits, . and -; up to 64" is linked with `aria-describedby`; an empty or invalid name disables Share (or Run) with
+  that hint as the reason. R19's "raw id is used" fallback is removed.
+- **Spend limit with free models (13.4):** extends 7.1. When the priced estimate is $0, the limit input is hidden and
+  one line reads "Nothing in this run is priced, so there is no spend limit."; the run starts without a cap
+  (`max_cost_usd: null`; strict validation already skips free models). When some roles are priced, a line under the
+  limit names the rest: "Covers OpenAI/Anthropic only; gpu-box: qwen3-14b isn't priced and isn't limited." Tests: both
+  variants (with the engine fix for a $0 limit, which the user is making separately).
+- **Posted check (13.5):** extends 7.2, R16 and D15. The band asks GitHub for the one stored comment
+  (`GET /gists/{id}/comments/{comment_id}`), not the thread. States: while checking, `.pill` "checking…"; found,
+  "Posted · view on GitHub"; GitHub answers 404, `.note` "Your reproduction is no longer in the thread (removed by the
+  gist owner or you)" with Post again (`button.primary`) and Copy comment; any other failure, `.muted` "Posted ·
+  couldn't check the thread now (<D6 reason>)". Always one `.muted.small` line: "Posted status is remembered in this
+  browser only." *(Eng implication: `Backend.claimComment(ref, commentId)`; the local adapter accepts a numeric comment
+  id within D5's limits; cached per session.)*
+- **Waiting and errors for engine calls (13.6):** the run-view band shows "Checking whether this run can be shared…"
+  with its buttons disabled while `claimDraft` / `reproDraft` run, and `.error` with the message and Retry if they
+  fail. The Beat-this candidate select is disabled and reads "loading models…" while `claimCandidates` runs; with no
+  passing candidate it reads "No model you can use passes this claim's rules" (followed by 13.7's list); on failure,
+  `.note` with Retry.
+- **Models not offered (13.7):** under the candidate select, a closed disclosure "k models not offered · why" (the
+  SwapPanel "Skipped" pattern) lists each refused catalog ref with `claimCandidates`' reason in plain words, one
+  `.small` line each: "gpu-box: qwen3 · can't see images", "same model as the claim (qwen3-14b)" (A4: the engine's
+  reason for a candidate identical to the claimed role, which rule 8 already refuses). An endpoint whose catalog failed
+  adds "gpu-box couldn't be reached (CORS?) · Models" with a link.
+- **Not a reproduction (13.8, applies 2.5's pattern):** when `reproDraft` refuses a run, the 7.2 band shows a `.note`
+  "This run can't be posted as a reproduction: <reason in plain words, e.g. 'two setups match the claimed one'>" and
+  keeps Open claim. Internal terms (`setup_fp`, `compare_to`) never appear.
+- **Share privacy (13.9):** extends 2.5's Ready state for runs with self-hosted roles. Under each compare-as field:
+  "Others match this role by this name. Your endpoint's name and address aren't shared." Below the fields, a one-line
+  preview of the published roles from the claim draft, e.g. "agent = self-hosted qwen3-14b · reasoning none ·
+  max_tokens 4096", updating as names change.
+- **Unpriced costs (13.10):** one word, "not priced", everywhere a self-hosted model has no price: the model picker
+  (`lib/format.ts` `perMtok` returns "not priced" instead of "free (local)"; an intentional app-wide change, added to
+  R20's intentional changes), estimates, results and rows. When either side of a comparison has an unpriced role, the
+  cost delta reads "cost: not priced" instead of a percentage (ReplacementEffects and 7.3 rows). The header's cost half
+  reads "$0.0012/task + not priced (critic)", or "not priced" when nothing is priced. The empty-thread line reads
+  "Not reproduced yet. Be the first: re-running uses your own models (not priced)." when nothing is priced.
+  *(Eng implication: `ReplacementEffect` gains an `unpriced` flag from `report/aggregate.py`.)*
+- **Candidate name (13.11):** picking a self-hosted candidate in Beat this shows an inline compare-as field under the
+  candidate select (13.3's rules); once a name is remembered it collapses to "compare as qwen3-14b · change". "Share my
+  variant as a new claim" reuses that name without asking again. Labels: "Your result" (the visitor's own view) shows
+  "gpu-box: Qwen3-14B-AWQ as qwen3-14b (self-declared)"; Reproductions rows show only "self-hosted qwen3-14b
+  (self-declared)", since endpoint names are never published (R15). The candidate picker is `ModelRefInput` with its
+  existing per-source groups.
+- **GitHub token row (13.12):** the `keyRows` helper (R20) carries per-provider placeholder, aria label and warning.
+  The GitHub row reads "GitHub (claims)", placeholder "paste token", aria label "GitHub token", warning "This token can
+  read, edit and delete all your gists." Filtered to `github` (Post without a token, Q4), the panel's heading and intro
+  become "Add a GitHub token to post"; after Use, focus returns to Post and nothing posts automatically. Model-key rows
+  keep today's wording (R20 regression).
+- **No Pages GitHub row (13.13):** on Pages the token appears only in the inline field at Post (2.4), memory-only by
+  default with the existing remember opt-in; the Pages Models page lists model keys only. The "GitHub (claims)" row
+  exists in the local app only.
+- **Phone and accessibility (13.14, applies 6.1 / 6.2):** the compare-as hints use `aria-describedby` (13.3); a Run
+  disabled by a missing match shows its reason as visible text (13.2); after Use, focus moves to that row's "here"
+  select (13.2) or back to Post (13.12); the "checking…" pill (13.5) and the match status carry `aria-live="polite"`.
+  Below 640px the Setup row's second line and the declare `.note` wrap at full width, with 44px controls.
+- **Name memory key (13.15):** a remembered compare-as name belongs to one model on one server: the full local ref
+  (`gpu-box:Qwen3-14B`, `ollama:qwen3:14b`), so the same id on two servers can carry different names. A model on a server
+  without a remembered name gets the 13.3 suggestion, or the name it has on another of the visitor's servers, prefilled
+  for confirmation.
+- **Names frozen in the run (13.16):** a Beat-this run stores the names declared at start with its claim link:
+  `claim_ref` gains `declared_names: {role: name}` (the claimed setup's self-hosted roles and the candidate), and
+  `reproDraft` posts exactly those, after any reload or in another browser. Share as claim passes the names typed in its
+  fields: `claimDraft(runId, names)`, so the 13.9 preview always matches what is published. *(Eng implication: extends
+  D7's closed `claim_ref` and A4's draft call by one field each.)*
 
 ## Open Questions
 
@@ -1825,18 +1943,1253 @@ None.
 +====================================================================+
 ```
 
+## Eng Re-review (plan-eng-review, 2026-10-09)
+
+Target: `docs/designs/shareable-claims.md` (this document), re-checked against HEAD `9c220ad` after four commits since
+the first eng review at `3b967b9`: `8aca81a` (experiment builder), `227b619` (OpenAI-compatible endpoints), `10e02bc`
+(baseline-tied swap setups, `compare_to`), `9c220ad` (UI fixes). Also re-checks design decisions 2.1, 3.1 and 7.2.
+
+### Scope record (re-review)
+
+Complexity gate resolved by exact prior answers: feature answers D1 (regrade deferred) and D13 (no `bundle.json`),
+structure D2 (smaller arrangement), plus the design review's file additions it approved (D12 `KeyPanel`, D9 RunView
+progress extraction, D22 `lib/leaderboard.ts`). No new cuts or arrangements proposed. Search check: no new
+architectural pattern in this delta (search unavailable; not needed). TODOS.md: nothing blocks; nothing new fits.
+Scope Challenge result: scope accepted as-is (the first review's reduction stands).
+
+### Scope Challenge findings (drift since the approved plan)
+
+1. C1 [P2] (confidence: 9/10) `src/llm_arena/report/aggregate.py:211-217`: pairing no longer uses `StudyTag` alone.
+   `baselines = {c["name"]: c.get("compare_to") or (legacy if tags[c["name"]].get("kind") == "swap" else None) …}`,
+   where `legacy` exists only for "Runs from before compare_to". `runner/study.py` now emits `"compare_to": "baseline"`
+   on every swap. §6's two configs would still pair through the legacy path. **Correction (no behavior change):** the
+   swap config in `claim_experiment` sets `compare_to="claim-baseline"` and keeps its `StudyTag`; `ReplacementEffects`
+   groups by `baseline` and renders it unchanged. "What already exists" now reads `aggregate.py` `_replacements`
+   (`compare_to`). Proof: `claim_experiment` output has `compare_to`, and the report yields exactly one
+   `ReplacementEffect` with `baseline == "claim-baseline"`.
+
+### Section 1 findings (Architecture)
+
+1. A3 [P2] (confidence: 9/10) `src/llm_arena/adapters/browser/arena.py` `_client`: `if spec.provider ==
+   "openai_compatible": … return ProtocolClient(spec, self._transport, api_key=api_key, browser=True)`, and
+   `catalog()` now adds `compatible_entries(endpoint, …)` (`llm/catalog.py`), priced at the endpoint's
+   `input_cost_per_mtok` (default `0.0`, so "known"). `runner/fingerprint.py` `_role_setup` adds `endpoint` and
+   `endpoint_identity` to a role's setup when set. Pages therefore lists named-endpoint models in the same catalog
+   the Beat-this candidate list reads. A visitor who picks one runs a variant whose setup carries endpoint fields,
+   which the closed role schema rejects (rule 8): they pay for a run they can't post. → R15 (D3).
+2. A4 [P2] (confidence: 8/10) §8 `Backend` gets `claim`, `claimThread`, `createClaim(runId)`, `postRepro(ref,
+   runId)`, all of which publish or read GitHub. 2.5 ("Not claimable" reasons on every finished run, "Download
+   claim.json" without a token), 7.2 (Copy comment in the band) and ClaimView's Copy comment need the engine's claim or
+   repro **without publishing**. **Correction (necessary implementation of approved 2.4, 2.5, 7.2, D6, D7):**
+   `Backend` also gets `claimDraft(runId) → {claim_json} | {reasons[]}` and `reproDraft(runId) → {block} |
+   {reasons[]}` (worker protocol entries + `GET /api/runs/{id}/claim-draft` and `/repro-draft`, session auth like
+   every route); `createClaim` / `postRepro` publish exactly the draft's text. Proof: an unclaimable run returns every
+   reason; the posted text equals `reproDraft`'s block.
+3. A5 [P2] (confidence: 8/10) D15's run-view check ("your reproduction is no longer in the thread") and a "Posted"
+   state after reload need the posted comment id, but `config_json` is written once at run start (`runner/run.py`
+   `start_run`), and nothing else records the post. → R16 (asked after D3).
+4. A6 [P3] (confidence: 8/10) design 2.1 re-check, `web/src/App.svelte:32-48,165`: the mode (`local` / `browser`) is
+   known after `detectLocalBackend()` and before `await worker.ready`; the claim's transport depends on it (§8: direct
+   GitHub on Pages, `/api/claims` locally under `connect-src 'self'`). **Correction:** `claims.ts` starts the fetch
+   once the mode is known, not literally on route parse (D11's parallelism with the engine is unchanged); a locked
+   local app shows the existing locked screen, and §10's pending hash restores the route. The claim branch sits
+   before `{:else if app.mode === "browser" && !app.backend}`. The preview guard renders through Svelte text
+   interpolation only (no `{@html}`). 2.1 is otherwise feasible as approved.
+5. A7 [P3] (confidence: 8/10) design 3.1 re-check, `web/src/components/KeyPanel.svelte:18`: `save()` already calls
+   `refresh({ models: true })`, so `app.models` updates and ClaimView's runnable state re-derives reactively.
+   **Correction (simplification, same behavior):** `KeyPanel` gains only a `providers` filter prop; no on-set callback.
+6. 7.2 re-check: feasible on the unchanged `RunView.svelte`; it depends on A4's drafts and on R16.
+
+### Decision ledger (re-review)
+
+### R15: How claims treat models served by named OpenAI-compatible endpoints
+Finding: A3, P2, confidence 9/10, src/llm_arena/adapters/browser/arena.py `_client` / `catalog()`,
+src/llm_arena/llm/catalog.py `compatible_entries`, src/llm_arena/runner/fingerprint.py `_role_setup`; plan-eng-review
+(Claude). Reopened twice by the user's answers to D3 and D4 (changed requirement).
+Plan baseline: §1 "`openai_compatible` is never claimable"; §6 "Pages offers OpenAI/Anthropic candidates" (approved
+plan, 2026-10-07). User requirements: D3 answer, "We need to be able use our own end points as an alternative to
+OpenAI / Anthropic as we have already implemented. If we do so, adding costs for the cost control is optional (when we
+cannot obtain information from the API or the user hasn't entered it)." D4 answer, "In the end only the models and
+configurations (thinking / reasoning / etc.) matter. The end point is irrelevant for comparing models and we don't want
+to share it."
+Runtime evidence: unchanged from D4 (endpoints run on Pages and locally; unpriced endpoints are free to strict budgets,
+`llm/pricing.py:65-66`, `runner/budget.py:101-102`; `setup_of` adds `endpoint` + salted `endpoint_identity`, so local
+fingerprints differ per server and per person by design of `227b619`).
+Fixed by the D4 answer (common to both options): claims and repro blocks carry a **portable role**: SPEC_FIELDS only
+(`provider, model, backend, tool_mode, temperature, reasoning_effort, max_tokens`), with `endpoint`,
+`endpoint_identity` and `base_url` never present; `setup_fp` = `fingerprint(portable setup)`; `setup_of` and local
+fingerprints, resume keys and leaderboards stay unchanged. A visitor's `openai_compatible` role resolves to any of
+their endpoints whose catalog entry serves that exact model id (several: the visitor picks; none: "add an endpoint
+serving <model>"). Unpriced endpoint roles count as $0, labeled "not priced"; the spend limit bounds priced roles.
+Claim pages caption endpoint-served roles "self-hosted: serving may differ (quantization, context)".
+Comparison grid:
+
+| Choice | Current | A) Candidates and claim setups (recommended) | B) Candidates only |
+|---|---|---|---|
+| R15 portable role, endpoint stripped (D4 answer) | endpoint fields in setup_of | applied | applied |
+| R15 `openai_compatible` roles as Beat-this candidates | not offered | offered on Pages and locally | offered on Pages and locally |
+| R15 `openai_compatible` roles in a claim's own setup (Share as claim, Share my variant) | never claimable | claimable; visitors reproduce with any of their endpoints serving the same model id | not claimable, reason "self-hosted models can be swap candidates, not claims" |
+| Enforcement point (engine guard vs list only) | none named | pending, asked next as R17 | pending (R17) |
+
+Question D5:
+D5 — May a self-hosted model also be the claim's own setup, or only a swap candidate?
+Project/branch/task: shareable-claims plan on main, eng re-review; applies your D4 rule (model + settings only).
+ELI10: With your rule, a self-hosted model is described like any other: "qwen3-14b, thinking off". The endpoint name,
+its code and its address are stripped. That makes it comparable, so it could be a swap candidate (Bob tests his
+server against Alice's cloud claim) and also a claim's own setup (Alice shares "my qwen3-14b agent passes 82%", and
+Bob reproduces it on any server of his that serves qwen3-14b). The open question is whether to allow the second.
+Stakes if we pick wrong: either self-hosted setups can't be shared as claims, or claims get pooled across servers
+that serve the same model differently.
+Recommendation: A because your rule makes self-hosted setups comparable, so blocking them as claims would only remove
+a use case.
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) Candidates and claim setups (recommended)
+  ✅ Anyone serving the same model id can reproduce a self-hosted claim, on Pages (with CORS) or locally.
+  ✅ "Share my variant as a new claim" works for a self-hosted winner too.
+  ❌ Reproductions pool across servers that may quantize differently; the page says so in one caption.
+B) Candidates only
+  ✅ Claims stay cloud-only, where every reproducer runs the very same hosted model.
+  ✅ Slightly smaller change: no endpoint matching for a claim's baseline (human: ~4h / CC: ~20 min).
+  ❌ A self-hosted winner can't be shared as a new claim; the button shows why.
+Net: sharing self-hosted setups as claims, at the cost of pooling across servers that may serve a model differently.
+Header: Self-hosted
+Options:
+A) Candidates and claim setups (recommended)
+✅ Anyone serving the same model id reproduces a self-hosted claim, on Pages (CORS) or locally. ✅ A self-hosted winner can be shared as a new claim. ❌ Repros pool across servers that may quantize differently; one caption says so. (human: ~6h / CC: ~30 min)
+B) Candidates only
+✅ Claims stay cloud-only, where every reproducer runs the same hosted model. ✅ Smaller: no endpoint matching for baselines (human: ~4h / CC: ~20 min). ❌ A self-hosted winner can't be shared as a new claim; the button says why.
+
+State: approved
+Actual answer: A) Candidates and claim setups (recommended), answered to D5 on 2026-10-09
+Accepted scope: the "Fixed by the D4 answer" portable role plus column A: `openai_compatible` roles are claimable (claim
+setups, Share my variant) and offered as Beat-this candidates on Pages and locally; `setup_fp` uses the portable setup;
+visitor endpoints matched by exact model id; unpriced endpoints $0 labeled "not priced"; the "self-hosted: serving may
+differ" caption; the §1 and §6 text and the re-review amendments updated. Tests: a claim made from an endpoint run has
+no endpoint fields and its `setup_fp` equals the portable fingerprint; the same claim reproduces through a different
+endpoint serving the same model id; a visitor without such an endpoint sees "add an endpoint serving <model>"; local
+fingerprints of endpoint runs are unchanged (regression row); an unpriced endpoint run passes strict validation.
+Enforcement point stays pending (R17).
+History: D4 (2026-10-09) asked "What should named endpoints be allowed to do in claims?" with A) Candidates only
+(recommended) / B) Candidates and claim baselines / C) Not in claims; after a plain-language explanation the user
+answered (Other): "In the end only the models and configurations (thinking / reasoning / etc.) matter. The end point is
+irrelevant for comparing models and we don't want to share it." That fixes the portable role above and removes D4's
+premise (salted identities in claims), so R15 was reopened as D5. Superseded D4 payload:
+
+> Comparison grid:
+>
+> | Choice | Current | A) Candidates only (recommended) | B) Candidates and claim baselines | C) Not in claims |
+> |---|---|---|---|---|
+> | R15 endpoints as Beat-this candidates | not offered (UI intent) | offered on Pages and locally next to OpenAI/Anthropic (+ Ollama/LM Studio locally) | offered | not offered |
+> | R15 endpoint roles in a claim baseline (Share as claim, Share my variant) | never claimable | not claimable, reason: "runs on your endpoint gpu-box; nobody else can reproduce it" | claimable; every other visitor gets the setup_fp mismatch state, because identities differ per person | not claimable |
+> | R15 repro schema, variant role | SPEC_FIELDS only | also `endpoint` + `endpoint_identity`, allowed only with provider `openai_compatible`; `base_url` never travels | same, and in claim roles | SPEC_FIELDS only |
+> | Enforcement point (engine guard vs list only) | none named | pending, asked next as R17 | pending (R17) | pending (R17) |
+> | Cost of an unpriced endpoint | n/a | counts as $0 (existing engine behavior); estimate and result label it "not priced"; the spend limit bounds the priced roles | same | n/a |
+>
+> Question D4:
+> D4 — What should named endpoints be allowed to do in claims?
+> Project/branch/task: shareable-claims plan on main, eng re-review; reopens D3 after your answer.
+> ELI10: You want your own endpoints usable like OpenAI/Anthropic. As a Beat-this candidate that works: swap the agent
+> to gpu-box:qwen3, run, post. The baseline still counts as a reproduction, and the variant is your self-reported result.
+> As the claim's own baseline it can't work: an endpoint's ID in a setup is a salted hash that differs per person, so
+> nobody else ever matches it. Cost: an endpoint with no price already counts as free, and the limit caps the cloud
+> models only.
+> Stakes if we pick wrong: either visitors can't test their own servers against a claim, or claims get shared that
+> nobody else can ever run.
+> Recommendation: A because it gives every visitor their own endpoints as swap candidates, without publishing claims
+> nobody can reproduce.
+> Note: options differ in kind, not coverage — no completeness score.
+> Pros / cons:
+> A) Candidates only (recommended)
+>   ✅ Visitors can test their own server against a cloud claim on Pages and locally, and post the result.
+>   ✅ Claims stay reproducible by anyone, so the trust tally keeps its meaning.
+>   ❌ "Share my variant as a new claim" is disabled for endpoint variants, with the reason shown.
+> B) Candidates and claim baselines
+>   ✅ An endpoint setup can be shared as a link like any other run.
+>   ✅ Fits a team that shares one endpoint and one salt (the salt can be supplied when saving an endpoint).
+>   ❌ For everyone else Run stays disabled with "your models resolve differently", so the link is a dead end.
+> C) Not in claims
+>   ✅ Smallest change: the original plan, endpoints stay out of claims (human: ~2h / CC: ~10 min).
+>   ✅ Repro schema stays SPEC_FIELDS only; no endpoint names appear in public comments.
+>   ❌ Drops the requirement you just stated: your own endpoints can't be swap candidates.
+> Net: endpoints as swap candidates everywhere, with claims kept to setups others can run.
+> Header: Endpoints
+> Options:
+> A) Candidates only (recommended)
+> ✅ Visitors swap a role to their own endpoint on Pages or locally and post the result; the baseline still counts. ✅ Claims stay reproducible by anyone. ❌ Share my variant is disabled for endpoint variants, with the reason. (human: ~5h / CC: ~25 min)
+> B) Candidates and claim baselines
+> ✅ Endpoint setups can be shared as claims too. ✅ Works for a team sharing one endpoint and its salt. ❌ Everyone else gets "your models resolve differently", so the link is a dead end. (human: ~6h / CC: ~30 min)
+> C) Not in claims
+> ✅ Original plan; endpoints stay out of claims (human: ~2h / CC: ~10 min). ✅ No endpoint names in public comments. ❌ Drops your requirement: own endpoints can't be swap candidates.
+
+Earlier history: D3 (2026-10-09) asked "Where should a Beat-this candidate be checked for claimability?" with A) Engine guard +
+same-rule list (recommended) / B) List filter only. Actual answer (Other): "We need to be able use our own end points as
+an alternative to OpenAI / Anthropic as we have already implemented. If we do so, adding costs for the cost control is
+optional (when we cannot obtain information from the API or the user hasn't entered it)." It selected neither option
+and changed the requirement, so R15 was reopened as D4. Superseded D3 payload:
+
+> Comparison grid:
+>
+> | Choice | Current | A) Engine guard + same-rule list (recommended) | B) List filter only |
+> |---|---|---|---|
+> | R15 candidate claimability enforcement | UI intent only ("OpenAI/Anthropic candidates") | `claim_experiment` refuses a candidate that fails §1's role rules for this runtime (allowed provider, no `endpoint`, default backend, known price, finite `max_tokens` after inheritance), with the reason; the Beat-this list shows only catalog entries passing the same rules; tests: endpoint candidate refused by the engine and absent from the list | the Beat-this list filters `source` to openai/anthropic (+ ollama/lmstudio locally); the engine runs any candidate |
+> | Share-as-claim reason for an endpoint role (necessary implementation of approved 2.5) | not worded | "agent runs on the named endpoint gpu-box; endpoints aren't claimable" | same |
+> | Text corrections (Constraints: Pages also runs CORS-enabled named endpoints; §1: `setup_of` adds `endpoint` fields, which claims refuse) | stale | applied | applied |
+>
+> Question D3:
+> D3 — Where should a Beat-this candidate be checked for claimability?
+> Project/branch/task: shareable-claims plan on main, eng re-review after the OpenAI-compatible endpoints commit.
+> ELI10: Since yesterday's endpoints commit, the browser build also lists models from your own named servers (e.g.
+> gpu-box:qwen3). Claims never allow those, but the plan only says the swap list "offers OpenAI/Anthropic", so nothing
+> stops a visitor from picking one. They'd pay for a run whose result the thread then rejects. We can check in the engine
+> (the one place every run passes) and filter the list with the same rule, or only filter the list.
+> Stakes if we pick wrong: a visitor spends money on a run that can never be posted, and only finds out at the end.
+> Recommendation: A because the engine is the only check every path goes through, and the list reuses the same rule.
+> Completeness: A=10/10, B=7/10
+> Pros / cons:
+> A) Engine guard + same-rule list (recommended)
+>   ✅ One rule in claims.py guards Pages, the local app and any future caller before money is spent.
+>   ✅ The list and the engine can't disagree: the list asks the same rule, so a refused pick never appears.
+>   ❌ One more engine check and two tests (human: ~3h / CC: ~15 min).
+> B) List filter only
+>   ✅ Smallest change: a source filter on the catalog in ClaimView (human: ~1h / CC: ~5 min).
+>   ✅ No engine change, since the claim baseline is already checked by the pre-run fingerprint.
+>   ❌ A stale list, a hand-edited hash link or a future caller can still start an unpostable paid run.
+> Net: one shared engine rule versus a UI-only filter that the next catalog change can silently bypass.
+> Header: Candidate check
+> Options:
+> A) Engine guard + same-rule list (recommended)
+> ✅ One rule in claims.py guards Pages, the local app and any future caller before money is spent. ✅ The list asks the same rule, so a refused pick never appears. ❌ One more engine check and two tests (human: ~3h / CC: ~15 min).
+> B) List filter only
+> ✅ Smallest change: a source filter in ClaimView (human: ~1h / CC: ~5 min). ✅ No engine change; the baseline already has the pre-run fingerprint check. ❌ A stale list, hand-edited link or future caller can still start an unpostable paid run.
+
+### R17: Where a Beat-this candidate's eligibility is enforced
+Finding: A3 (follow-up of R15), P2, confidence 9/10, src/llm_arena/adapters/browser/arena.py `catalog()` (the Pages
+catalog now mixes cloud, endpoint and unpriced entries); plan-eng-review (Claude)
+Plan baseline: R15 (D5=A) fixes which candidates are allowed; §6 "Runnable here?" (approved) disables Run when a model
+is unavailable; no enforcement point named for the candidate.
+Runtime evidence: `scenarios/base.py` `check_roles` raises `CapabilityError` at plan time for a model lacking a role's
+`needs` (no spend); nothing checks portability (backend, max_tokens on priced roles, price known-or-free) for a
+candidate before it runs. `web/src/lib/builder.ts:218` `eligibleModels(catalog, needs)` already filters by capability.
+Comparison grid:
+
+| Choice | Current | A) Engine rule, engine-built list (recommended) | B) TS list filter only |
+|---|---|---|---|
+| R17 enforcement | none | `claims.py` `candidate_problem(claim, role, spec, runtime)` (a reason, or None) (provider allowed here, default backend, finite `max_tokens` on a priced role after inheritance, price known or free, the role's capability `needs`); `claim_experiment` refuses with that reason; `Backend.claimCandidates(claim, role)` returns every catalog ref with its problem, and Beat this lists the passing ones; tests: refused candidate never runs, list and engine agree | ClaimView filters `app.models` in TS (source allow-list + `eligibleModels(needs)`); the engine runs any candidate it is given |
+
+Question D6:
+D6 — Who decides which swap candidates are allowed: the engine or the page?
+Project/branch/task: shareable-claims plan on main, eng re-review; follows D5 (self-hosted models allowed).
+ELI10: Beat this lists models you can swap in. A model is only usable if it fits the rules (allowed here, a token
+limit when it costs money, a known or zero price, the abilities the step needs). Either the engine checks every
+candidate and hands the page the list, so they can't disagree, or the page filters on its own and the engine runs
+whatever it gets.
+Stakes if we pick wrong: a visitor starts a paid run that the thread later rejects, or that errors at the start.
+Recommendation: A because one rule in the engine guards every path and the page never re-implements it.
+Completeness: A=10/10, B=7/10
+Pros / cons:
+A) Engine rule, engine-built list (recommended)
+  ✅ One rule in claims.py guards Pages, the local app and any later caller before money is spent.
+  ✅ The list comes from the same rule, so the page and the engine can't disagree.
+  ❌ One more Backend method plus engine tests (human: ~4h / CC: ~20 min).
+B) TS list filter only
+  ✅ Smallest change: a filter in ClaimView reusing eligibleModels (human: ~1h / CC: ~5 min).
+  ✅ No new Backend method or worker message.
+  ❌ A hand-edited link, a stale list or a later caller can still start an unpostable paid run.
+Net: one engine rule shared by list and run, versus a page-only filter the next catalog change can bypass.
+Header: Candidate rule
+Options:
+A) Engine rule, engine-built list (recommended)
+✅ One rule in claims.py guards every path before money is spent. ✅ The list comes from the same rule, so page and engine agree. ❌ One more Backend method plus tests (human: ~4h / CC: ~20 min).
+B) TS list filter only
+✅ Smallest: a ClaimView filter reusing eligibleModels (human: ~1h / CC: ~5 min). ✅ No new Backend method. ❌ A hand-edited link, stale list or later caller can still start an unpostable paid run.
+
+State: approved
+Actual answer: A) Engine rule, engine-built list (recommended), answered to D6 on 2026-10-09
+Accepted scope: column A: `claims.py` `candidate_problem(...)`; `claim_experiment` refuses a failing candidate with the
+reason before any spend; `Backend.claimCandidates(claim, role)` (worker protocol entry + local route, session auth)
+returns every catalog ref with its problem, and Beat this lists the passing ones. Tests: a refused candidate never
+starts a run; the list and the engine agree on a mixed catalog (cloud, endpoint, unpriced, lacking a capability).
+History: replaces the enforcement half of the superseded D3 (see R15 History); the D3 answer did not choose it.
+
+### R19: How a self-hosted model is identified across Ollama, LM Studio and endpoints
+Finding: A8, P2, confidence 9/10, user remark during D6 (2026-10-09): "The end point doesn't necessarily meet our ollama
+model names and then comparibility is more difficult. That shouldn't mean we don't allow end point models for taking
+part in the model. Maybe the user needs to fill in the information so that we can directly compare the runs".
+Evidence: the same weights carry different ids per server (`configs/models.yaml` header: `ollama:qwen3:14b`,
+`lmstudio:qwen/qwen3-14b`; a vLLM endpoint lists e.g. `Qwen/Qwen3-14B-AWQ`); the repo has no canonical model-name
+table (`configs/models.yaml` holds only call-changing aliases). plan-eng-review (Claude)
+Plan baseline: R15 (D5=A): portable role keeps the provider and the raw model id; a visitor's endpoint matches by exact
+model id. This record reopens only that matching rule; the rest of R15 stays approved.
+Runtime evidence: unknown how many real ids would collide; nothing maps ids today.
+Comparison grid:
+
+| Choice | Current (R15) | A) Declared "compare as" name (recommended) | B) Raw id per provider | C) Curated table + declared override |
+|---|---|---|---|---|
+| R19 identity of a self-hosted role in claims and repros | provider + raw model id | `provider: "self_hosted"`, `model: <compare-as name>` plus settings, for Ollama, LM Studio and endpoints alike; without a declared name the raw id is used, so only identical ids match | unchanged: provider + raw id | as A, with names prefilled from a repo table (`configs/model-names.yaml`, known ids → names); the person can override |
+| Where the name is entered | n/a | Share as claim asks for each self-hosted role ("compare as: [qwen3-14b]"), prefilled from the last name used for that model; picking a self-hosted model in Beat this asks the same once; remembered per model in this browser / local app | n/a | same, but most common models need no input |
+| Name rules | n/a | lowercase `[a-z0-9.-]`, 1-64 chars; shown as "self-declared" next to the role; caption "self-hosted: names are declared by people, serving may differ" | n/a | same, plus table maintenance |
+| Matching on reproduction | exact id, same provider | any of the visitor's self-hosted models declared with that name (Ollama/LM Studio locally, endpoints on Pages and locally), so an Ollama claim can be reproduced on Pages through an endpoint | exact id, same provider | as A |
+| Local fingerprints, resume, leaderboards | unchanged | unchanged (the name lives only in claims and repros) | unchanged | unchanged |
+
+Question D7:
+D7 — How should a self-hosted model be named so runs on different servers compare?
+Project/branch/task: shareable-claims plan on main, eng re-review; your remark during D6.
+ELI10: The same model has a different name on every server: qwen3:14b in Ollama, qwen/qwen3-14b in LM Studio,
+Qwen/Qwen3-14B-AWQ on a vLLM box. Matched by those raw names, they never count as the same model. Your idea: the person
+fills in one "compare as" name (qwen3-14b) when sharing or swapping, and claims match on that, whichever server runs it.
+Stakes if we pick wrong: self-hosted claims either never find a reproducer, or pool models that were only named alike.
+Recommendation: A because it does exactly what you described with one small input, and needs no name list we'd have
+to keep up to date.
+Completeness: A=9/10, B=6/10, C=10/10
+Pros / cons:
+A) Declared "compare as" name (recommended)
+  ✅ Ollama, LM Studio and endpoint runs of one model compare directly, even an Ollama claim reproduced on Pages.
+  ✅ One field, asked only at share or swap time, remembered per model afterwards.
+  ❌ Names are self-declared: two different quantizations can share a name; the page says so.
+B) Raw id per provider
+  ✅ No input from anyone, nothing to get wrong by typing.
+  ✅ Smallest change (human: ~2h / CC: ~10 min).
+  ❌ Self-hosted claims almost never match across servers, which is the problem you raised.
+C) Curated table + declared override
+  ✅ Common models compare with no input at all.
+  ✅ Still lets people declare names for anything missing.
+  ❌ A name table to maintain, and every wrong mapping silently pools different models (human: ~1.5 days / CC: ~50 min).
+Net: one self-declared field that makes self-hosted runs comparable, versus no input (no matches) or a maintained list.
+Header: Model names
+Options:
+A) Declared "compare as" name (recommended)
+✅ Ollama, LM Studio and endpoint runs of one model compare directly. ✅ One field at share or swap time, remembered per model. ❌ Self-declared: two quantizations can share a name; the page says so. (human: ~1 day / CC: ~35 min)
+B) Raw id per provider
+✅ No input needed; nothing to mistype. ✅ Smallest change (human: ~2h / CC: ~10 min). ❌ Self-hosted claims almost never match across servers.
+C) Curated table + declared override
+✅ Common models need no input. ✅ Declared names cover the rest. ❌ A table to maintain; wrong mappings silently pool models (human: ~1.5 days / CC: ~50 min).
+
+State: approved
+Actual answer: A) Declared "compare as" name (recommended), answered to D7 on 2026-10-09
+Accepted scope: column A. Self-hosted roles (Ollama, LM Studio, named endpoints) are portable in claims and repros as
+`provider: "self_hosted"`, `model: <compare-as name>` plus settings; without a declared name the raw id is used. Share
+as claim asks the name for each self-hosted role, prefilled from the last name used for that model; picking a
+self-hosted model in Beat this asks once; names are remembered per model (browser storage on Pages, the local app's
+settings locally). Names: lowercase `[a-z0-9.-]`, 1-64 chars, shown "self-declared", with the caption "self-hosted:
+names are declared by people, serving may differ". Reproduction matches any of the visitor's self-hosted models
+declared with that name, on Pages through endpoints and locally through any of the three. Local fingerprints, resume
+keys and leaderboards unchanged. Replaces R15's exact-id matching. Tests: an Ollama claim reproduces through an
+endpoint declared with the same name (Pages and local); an undeclared model matches only its identical raw id; an
+invalid name is refused; a claim and repro carry no endpoint name, identity or URL; `candidate_problem` (R17) accepts
+`self_hosted` roles.
+History: none
+
+### R16: Where a posted reproduction is remembered for its run
+Finding: A5, P2, confidence 8/10, src/llm_arena/runner/run.py `start_run` (persists `config_json` once at run start);
+approved D15 (run view: "your reproduction is no longer in the thread") and design 7.2 (band); plan-eng-review (Claude)
+Plan baseline: D15 and 7.2 approved; where the posted comment id lives is unspecified.
+Runtime evidence: no run field or store method records a post; `config_json` is rewritten only by rename
+(`runner/rename.py` `rename_data`).
+Comparison grid:
+
+| Choice | Current | A) Per-browser record (recommended) | B) Stored with the run |
+|---|---|---|---|
+| R16 posted-reproduction record | none | `localStorage` key `arena.claimPosts`: run id → {gist id, comment id, claim_hash, posted at}, every read and write in try/catch; with a record the band shows "Posted · view on GitHub" and runs D15's check; without one (other browser, cleared storage) it offers Post again, and the latest-per-user dedupe keeps the tally right; the page says the check is per browser | `RunStore` gains `set_claim_post(run_id, …)` (IndexedDB + a SQLite column), included in run bundles; the band and D15's check work in any browser that has the run |
+
+Question D8:
+D8 — Where should the app remember that a run's reproduction was posted?
+Project/branch/task: shareable-claims plan on main, eng re-review, Section 1 finding A5.
+ELI10: After you post a reproduction, the run's page should say "Posted" and later warn if the claim's author deleted
+your comment. For that the app must remember which comment you posted. It can keep that note in this browser, or save
+it with the run itself. If the browser note is lost, you just see "Post" again, and posting twice changes nothing in
+the tally (only your latest counts).
+Stakes if we pick wrong: either extra storage plumbing for a convenience, or the deletion warning missing in another
+browser.
+Recommendation: A because nothing about the tally depends on it, and it needs no change to how runs are stored.
+Completeness: A=8/10, B=10/10
+Pros / cons:
+A) Per-browser record (recommended)
+  ✅ No store, schema or bundle change: a few guarded lines in the web app (human: ~2h / CC: ~10 min).
+  ✅ Losing it is harmless: Post shows again and the tally counts only your latest reproduction.
+  ❌ The deletion warning only appears in the browser you posted from.
+B) Stored with the run
+  ✅ "Posted" and the deletion warning follow the run into any browser and exported bundles.
+  ✅ One source of truth next to the run's other data.
+  ❌ A new store method in both stores, a SQLite column and bundle schema change (human: ~1 day / CC: ~40 min).
+Net: a lightweight per-browser note versus store plumbing so the warning follows the run everywhere.
+Header: Posted record
+Options:
+A) Per-browser record (recommended)
+✅ No store or bundle change, a few guarded lines (human: ~2h / CC: ~10 min). ✅ Losing it is harmless: Post shows again; only your latest repro counts. ❌ The deletion warning shows only in the browser you posted from.
+B) Stored with the run
+✅ "Posted" and the deletion warning follow the run anywhere, bundles included. ✅ One source of truth with the run. ❌ New store method, SQLite column, bundle schema change (human: ~1 day / CC: ~40 min).
+
+State: approved
+Actual answer: A) Per-browser record (recommended), answered to D8 on 2026-10-09
+Accepted scope: column A: `localStorage` `arena.claimPosts` (run id → gist id, comment id, claim_hash, posted at), all
+access in try/catch; "Posted · view on GitHub" and D15's check where the record exists; otherwise Post is offered again;
+the page states the check is per browser. Tests: after post + reload the band shows Posted; with storage throwing, the
+band offers Post and nothing crashes; a deleted own comment shows D15's warning.
+History: none
+
+### Section 1 dispositions (re-review)
+
+A3 accepted (R15 D5=A, R17 D6=A, R19 D7=A, from the user's requirement); A4, A6, A7 corrections applied; A5 accepted
+(R16 D8=A); 7.2 feasible with A4 + R16.
+
+### Section 2 findings (Code quality)
+
+1. Q3 [P2] (confidence: 8/10) `src/llm_arena/runner/rename.py:18-20,55-58`: `RenameRun.configs` ("old setup name ->
+   new setup name") renames setups after a run; `rename_data` swaps `name` and `compare_to` and leaves `study` tags.
+   §2 and D7 refer to the Beat-this configs by name (`claim-baseline`, `swap-…`). After a rename, rebuilding the repro
+   (`reproDraft`) or "Share my variant" can't find them. → R18.
+2. Q4 [P3] (confidence: 8/10) `web/src/components/KeyPanel.svelte:44-46` renders every entry of `app.runtime.keys`;
+   D5 adds `github` to `server/keys.py` `KEY_ENV`, so the local Models page shows a raw "github" row; and 2.4 says local
+   Post "shows no field" without a path for a server lacking the key. **Correction (necessary implementation of §8's
+   "pasted PAT held in that store's session memory" and 2.4):** label `github` as "GitHub (claims)"; in the local app
+   without a github key, Post shows 3.1's inline `KeyPanel` filtered to `github` with the gists warning. Proof: the label
+   renders; local no-key Post shows the filtered panel; setting it enables Post.
+3. Q5 [P3] (confidence: 8/10) candidate capability needs (`scenarios/base.py` `check_roles` → `CapabilityError` at plan
+   time): resolved inside R17's rule (D6=A), which includes the role's `needs`.
+
+### R18: How a finished Beat-this run's claimed setup and variant are found
+Finding: Q3, P2, confidence 8/10, src/llm_arena/runner/rename.py:18-20 and 55-58; plan-eng-review (Claude). Reopened by
+the user's remark (2026-10-09): "I wonder how we define "baseline" at all. Anything can be the reference for a
+comparison".
+Plan baseline: D9=A (2026-10-09): baseline found by `study.kind == "baseline"`, variant by `compare_to` + `study.kind
+== "swap"`; names display only; rename test.
+Runtime evidence: since `10e02bc` any configuration can be a reference via `compare_to`
+(`report/aggregate.py` `_replacements`: `c.get("compare_to") or (legacy …)`); the `kind == "baseline"` tag survives
+only for runs from before `compare_to`. §1 already has the engine recompute the executed claim setup's fingerprint
+after the run.
+Comparison grid:
+
+| Choice | Current (D9=A) | A) Fingerprint + compare_to (recommended) | B) Keep D9 (study tags) |
+|---|---|---|---|
+| R18 how the reproduced setup is found | `study.kind == "baseline"` | the configuration whose portable `setup_fp` equals the claim's `setup_fp` (exactly one, else "not a reproduction of this claim") | `study.kind == "baseline"` |
+| R18 how the variant is found | `compare_to` + `study.kind == "swap"` | the configuration whose `compare_to` names the reproduced one (at most one); `study` tags are set for labels only | unchanged |
+| UI wording | "baseline" | unchanged here (a separate wording choice, not decided by D11) | unchanged |
+| Rename robustness (D9 behavior) | kept | kept (fingerprints and `compare_to` survive rename) | kept |
+
+Question D11:
+D11 — Find the claimed setup by its fingerprint instead of a "baseline" tag?
+Project/branch/task: shareable-claims plan on main, eng re-review; your question about what "baseline" means.
+ELI10: You're right that any setup can be the reference; the app already compares each setup to whatever it names
+with compare_to. In a claim run the reference isn't special by label, it's special by content: it is exactly the
+claimed setup. So the engine can find it by its fingerprint (the setup's content code) and the variant by "compares to
+that one". Both survive renames, as D9 wanted.
+Stakes if we pick wrong: claim code keeps depending on a legacy tag that newer code paths no longer need.
+Recommendation: A because it defines the reference by what it is, reuses the fingerprint check the engine already
+does, and drops the dependency on a legacy tag.
+Completeness: A=10/10, B=9/10
+Pros / cons:
+A) Fingerprint + compare_to (recommended)
+  ✅ The reproduced setup is proven by content, so a mislabeled or hand-edited run can't pose as a reproduction.
+  ✅ Matches how the app now compares setups: any reference, named by compare_to.
+  ❌ A runs-with-two-identical-setups edge case needs a clear error (human: ~1h / CC: ~5 min).
+B) Keep D9 (study tags)
+  ✅ Already approved, no plan change.
+  ✅ Simple label lookup.
+  ❌ Leans on the legacy "baseline" tag and still needs the separate fingerprint guard after the run.
+Net: define the reference by content and compare_to, versus a legacy label the engine checks separately anyway.
+Header: Reference
+Options:
+A) Fingerprint + compare_to (recommended)
+✅ The reproduced setup is proven by content; a mislabeled run can't pose as a reproduction. ✅ Matches compare_to, where any setup can be the reference. ❌ Needs a clear error for two identical setups (human: ~1h / CC: ~5 min).
+B) Keep D9 (study tags)
+✅ Already approved, no plan change. ✅ Simple label lookup. ❌ Leans on the legacy tag and still needs the separate fingerprint guard.
+
+State: approved
+Actual answer: A) Fingerprint + compare_to (recommended), answered to D11 on 2026-10-09
+Accepted scope: column A: the reproduced setup is the one configuration whose portable `setup_fp` equals the claim's
+(none or several: "not a reproduction of this claim", with the reason); the variant is the configuration whose
+`compare_to` names it (at most one); `study` tags only label; names display only. Tests: rename both setups, then
+`reproDraft` returns the same block; a run with two identical claimed setups is refused with its reason; a hand-edited
+run whose tagged "baseline" differs from the claim is not a reproduction.
+History: D9 (2026-10-09) approved A) Find by structure (recommended): baseline by `study.kind == "baseline"`, variant by
+`compare_to` + swap tag; reopened by the user's remark on what "baseline" means. Superseded D9 payload:
+
+> Comparison grid:
+>
+> | Choice | Current | A) Find by structure (recommended) | B) Block renaming claim runs |
+> |---|---|---|---|
+> | R18 config lookup in `reproDraft` / Share my variant / `claimDraft` | by name (implied) | baseline = the config with `study.kind == "baseline"`; variant = the config whose `compare_to` names it with `study.kind == "swap"`; names are display only; test: rename both setups, then `reproDraft` returns the same block | lookup by name; `rename` refuses to rename setups of a run with `claim_ref` ("claim runs keep their setup names"); test for the refusal |
+>
+> Question D9:
+> D9 — How should the app find the baseline and the variant in a finished Beat-this run?
+> Project/branch/task: shareable-claims plan on main, eng re-review, Section 2 finding Q3.
+> ELI10: You can rename a run's setups after it finishes (the leaderboard rename feature). If the claim code looks for the
+> setups by their names ("claim-baseline"), a rename breaks posting the reproduction later. The setups also carry hidden
+> markers ("this is the baseline", "this one compares to that one") that a rename keeps. We can look them up by those
+> markers, or forbid renaming setups of claim runs.
+> Stakes if we pick wrong: someone renames a setup, then can't post their paid reproduction, or loses the rename feature
+> for claim runs.
+> Recommendation: A because the markers already survive renames, so lookup by them costs nothing and keeps renaming.
+> Completeness: A=10/10, B=8/10
+> Pros / cons:
+> A) Find by structure (recommended)
+>   ✅ Renaming keeps working everywhere, including on claim runs.
+>   ✅ Uses markers the rename code already preserves (study tag, compare_to).
+>   ❌ Slightly more lookup logic than a name match, plus one rename test (human: ~1h / CC: ~5 min).
+> B) Block renaming claim runs
+>   ✅ Simple name lookup stays valid by construction.
+>   ✅ One refusal message in rename, one test (human: ~1h / CC: ~5 min).
+>   ❌ Claim runs lose the rename feature, and future name-based code keeps the same trap.
+> Net: robust lookup at no real cost, versus taking a feature away from claim runs.
+> Header: Run lookup
+> Options:
+> A) Find by structure (recommended)
+> ✅ Renaming keeps working, claim runs included. ✅ Uses markers rename already preserves (study tag, compare_to). ❌ A bit more lookup logic plus a rename test (human: ~1h / CC: ~5 min).
+> B) Block renaming claim runs
+> ✅ Name lookup stays valid by construction. ✅ One refusal message and test (human: ~1h / CC: ~5 min). ❌ Claim runs lose renaming; name-based code keeps the trap.
+>
+> State: approved
+> Actual answer: A) Find by structure (recommended), answered to D9 on 2026-10-09
+> Accepted scope: column A: `claims.py` finds the baseline by `study.kind == "baseline"` and the variant by `compare_to` +
+> `study.kind == "swap"`; names are display only. Test: rename both setups of a finished Beat-this run, then
+> `reproDraft` returns the same block and Share my variant still works.
+> History: none
+>
+> ### Section 2 dispositions (re-review)
+>
+> Q3 accepted (R18, D9=A); Q4 correction applied; Q5 resolved by R17.
+
+### Section 3 (Test review, re-review)
+
+Framework: pytest (`make test`), vitest (`web`, lib-level only, no component tests), Playwright (`web/tests/browser`,
+today `isolation.spec.ts`; D10 adds `claim.spec.ts`). New required proof for this review's approved decisions is listed
+in each record's accepted scope (C1, A4, R15-R19, Q4) and in the test plan artifact.
+
+```
+CODE PATHS (delta)                                     USER FLOWS (delta)
+[+] claims.py portable setup (R15/R19)                 [+] Self-hosted claim
+  ├── [GAP] strip endpoint fields → setup_fp             ├── [GAP] [→E2E] reproduce via endpoint with same name
+  ├── [GAP] self_hosted + compare-as name                └── [GAP] no matching model → "add a model declared as"
+  └── [GAP] invalid name refused                       [+] Beat this candidate list
+[+] candidate_problem + claimCandidates (R17)            ├── [GAP] mixed catalog: list == engine verdicts
+  ├── [GAP] refused candidate never runs                 └── [GAP] [→E2E] endpoint candidate offered on Pages
+  └── [GAP] capability needs (Q5)                      [+] Run view band
+[+] claimDraft / reproDraft (A4)                         ├── [GAP] Posted after reload (R16)
+  ├── [GAP] unclaimable → every reason                   ├── [GAP] storage throws → Post offered
+  └── [GAP] posted text == draft                         └── [GAP] renamed setups → same repro (R18)
+[+] claim_experiment compare_to (C1)                   [+] Local GitHub key (Q4)
+  └── [GAP] one ReplacementEffect, baseline set          └── [GAP] no key → filtered KeyPanel → Post enabled
+[~] existing: setup_of / fingerprints (endpoint runs)  [~] existing: Models page key list, RunView progress
+  └── [GAP] CRITICAL regression → R20                    └── [GAP] CRITICAL regression → R20
+
+COVERAGE (delta): 0/17 paths tested today (all new or proposed) | GAPS: 17 (3 E2E, 0 eval, 2 critical regression)
+```
+
+LLM/eval scope: no prompt or tool-definition changes; no eval needed.
+
+### R20: Regression contract for existing behavior touched by the re-review decisions
+Finding: T4 (IRON RULE), P1, confidence 9/10, web/src/components/KeyPanel.svelte:44-46 (gains a filter, D12/A7, and a
+label, Q4), web/src/views/RunView.svelte (progress block extracted, design D9), src/llm_arena/runner/fingerprint.py
+`setup_of` (claims add a portable setup next to it, R15), src/llm_arena/report/aggregate.py `_replacements` (C1);
+plan-eng-review (Claude)
+Plan baseline: first review's R6 regression contract (registry refs, YAML fingerprints and resume keys, importBundle,
+key-store status/set/clear, route auth, CSP) is approved and carried; these four surfaces are not in it.
+Runtime evidence: `tests/test_study.py` covers `_replacements` with `compare_to` and the legacy path (10e02bc); no test
+pins KeyPanel or RunView rendering (no component tests).
+Comparison grid:
+
+| Choice | Current | A) Rows in existing suites + claim.spec checks (recommended) | B) Python rows only |
+|---|---|---|---|
+| Preserve | (none stated) | Models page lists every runtime key with today's labels, order and Use/Forget when no filter is passed; RunView progress (trials done/total, spend vs limit, Stop) unchanged after extraction; `setup_of`, fingerprints and resume keys of existing endpoint and non-endpoint runs unchanged; `_replacements` output for existing runs unchanged | same |
+| Intentional change | (none stated) | local key list gains a "GitHub (claims)" row | same |
+| Assertions / where | (none) | pytest rows: fingerprints of an endpoint run and a cloud run before/after the claims code (tests for fingerprint), `_replacements` rows stay in `tests/test_study.py`; vitest: a pure `keyRows(keys, providers?)` helper that KeyPanel renders from (used by KeyPanel, no test-only seam); `claim.spec.ts` adds a Models-page key-list check and a run-page progress check | pytest rows only; KeyPanel and RunView checked by hand |
+
+Question D10:
+D10 — How should the existing behavior these decisions touch be protected by tests?
+Project/branch/task: shareable-claims plan on main, eng re-review, Section 3 regression rule.
+ELI10: Three things that work today get touched: the key list on the Models page (gains a filter and a GitHub row), the
+run page's progress block (moved into a shared piece) and the setup fingerprints of existing runs (claims add a second,
+stripped form). What must stay the same is fixed in both options; the choice is whether the two UI pieces get automated
+checks or a manual look.
+Stakes if we pick wrong: a broken Models key list or run progress ships unnoticed, because no test renders them today.
+Recommendation: A because the UI rows reuse the claim E2E that is being written anyway, at a few minutes each.
+Completeness: A=10/10, B=7/10
+Pros / cons:
+A) Rows in existing suites + claim.spec checks (recommended)
+  ✅ All four surfaces fail CI if they change, the two UI ones included.
+  ✅ Reuses suites already planned or present: pytest, vitest, claim.spec.ts.
+  ❌ Two more E2E checks and a small helper for KeyPanel (human: ~3h / CC: ~15 min).
+B) Python rows only
+  ✅ Fingerprints and pairing are pinned with the least test code (human: ~1h / CC: ~5 min).
+  ✅ No new web helper or E2E steps.
+  ❌ The key list and run progress depend on someone remembering to look.
+Net: automated checks for every touched surface versus pinning only the engine side.
+Header: Regression
+Options:
+A) Rows in existing suites + claim.spec checks (recommended)
+✅ All four surfaces fail CI on change, UI included. ✅ Reuses pytest, vitest and the planned claim.spec.ts. ❌ Two more E2E checks and a small KeyPanel helper (human: ~3h / CC: ~15 min).
+B) Python rows only
+✅ Pins fingerprints and pairing with the least code (human: ~1h / CC: ~5 min). ✅ No new web helper or E2E steps. ❌ Key list and run progress rely on a manual look.
+
+State: approved
+Actual answer: A) Rows in existing suites + claim.spec checks (recommended), answered to D10 on 2026-10-09
+Accepted scope: column A: the Preserve rows and the intentional "GitHub (claims)" row, asserted by pytest rows
+(fingerprints of an endpoint run and a cloud run unchanged; `_replacements` rows in `tests/test_study.py`), a vitest
+`keyRows(keys, providers?)` helper that KeyPanel renders from, and two `claim.spec.ts` checks (Models key list, run-page
+progress). Carries the first review's R6 contract unchanged.
+History: none
+
+### Section 3 dispositions (re-review)
+
+T4 accepted (R20, D10=A). Required proof of C1, A4, Q4 and R15-R19 carried from their records. Test plan artifact
+updated (`~/.gstack/projects/tilt-llm_arena/`, eng-review-test-plan 2026-10-09).
+
+### Section 4 findings (Performance)
+
+No issues found. `claimCandidates` checks each catalog entry once per (claim, role) pick, a few hundred pure checks at
+most (the OpenAI listing is the largest); ClaimView keeps the result until the catalog changes. `claimDraft` /
+`reproDraft` read one stored run per run-view open. Gist reads stay cached per session (§8). No new loops over the
+network; the R16 note is one `localStorage` read.
+
+### Outside voice (re-review)
+
+Codex unavailable: `MODEL_QUOTA_EXHAUSTED` ("You've hit your usage limit … try again at 10:33 PM"). Native fallback
+unavailable: this session has no `TaskOutput` tool for the bounded wait. Outside coverage for this re-review: none
+(logged as unavailable). The first review's Codex pass (2026-10-07) does not cover the decisions made here.
+
+### R21: TODO, evidence for self-declared self-hosted model names
+Finding: follow-up of R19 (D7=A), P3, confidence 7/10; plan-eng-review (Claude)
+Plan baseline: R19 approved self-declared "compare as" names, labeled "self-declared", with no verification.
+Runtime evidence: discovery already reads per-server metadata (`llm/catalog.py` `compatible_entries` reads
+`max_model_len` / `context_length`; Ollama and LM Studio listings carry model details); none is used for identity.
+Comparison grid:
+
+| Choice | Current | A) Add to TODOS.md (recommended) | B) Skip | C) Build now |
+|---|---|---|---|---|
+| R21 name evidence | none | TODO (P3, S-M, depends on v1): attach optional server-reported facts (quantization, context length, Ollama digest where listed) to self-hosted roles in repros, show them in reproduction rows, and split the tally when they differ | not tracked | in v1 scope now |
+
+Question D12:
+D12 — Track "evidence for self-declared model names" as a TODO?
+Project/branch/task: shareable-claims plan on main, eng re-review, TODO review after D7.
+ELI10: With D7, people type a "compare as" name for self-hosted models, and nobody checks it. Two people could call a
+4-bit and a full-precision model both "qwen3-14b", and their results pool. Servers often report facts like
+quantization or context length; a later version could attach those to reproductions and show or split mismatches.
+Stakes if we pick wrong: either the idea is forgotten, or v1 grows by work that isn't needed to ship.
+Recommendation: A because it is a real follow-up to D7 but not needed for v1, which already labels names
+"self-declared".
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) Add to TODOS.md (recommended)
+  ✅ Keeps the known weakness of declared names on the backlog with where to start.
+  ✅ No v1 scope added; the "self-declared" label covers it until then.
+  ❌ Self-hosted tallies may pool different quantizations until it ships.
+B) Skip
+  ✅ Nothing to track; the label already tells readers the names are unchecked.
+  ✅ Avoids a TODO that may never matter if self-hosted claims stay rare.
+  ❌ The idea is lost if pooling turns out to mislead people.
+C) Build now
+  ✅ Self-hosted reproductions carry server facts from day one.
+  ✅ Mismatched quantizations show up immediately in the rows.
+  ❌ Adds metadata plumbing across three server types to v1 (human: ~2 days / CC: ~1 h).
+Net: keep a known v1 limitation on the backlog versus dropping it or widening v1.
+Header: TODO names
+Options:
+A) Add to TODOS.md (recommended)
+✅ Keeps the weakness of declared names on the backlog, with a starting point. ✅ No v1 scope; the "self-declared" label covers it. ❌ Self-hosted tallies may pool quantizations until then.
+B) Skip
+✅ Nothing to track; the label already says names are unchecked. ✅ No TODO that may never matter. ❌ The idea is lost if pooling misleads people.
+C) Build now
+✅ Server facts on self-hosted repros from day one. ✅ Quantization mismatches visible at once. ❌ Metadata plumbing across three server types in v1 (human: ~2 days / CC: ~1 h).
+
+State: approved
+Actual answer: A) Add to TODOS.md (recommended), answered to D12 on 2026-10-09
+Accepted scope: TODOS.md "Evidence for self-declared self-hosted model names" under ## Claims (P3, Effort S-M, depends
+on v1 shipped). Written.
+History: none
+
+Approval readiness (re-review): PASS (R15 D5, R16 D8, R17 D6, R18 D11, R19 D7, R20 D10, R21 D12; corrections C1, A4,
+A6, A7, Q4 recorded as necessary implementation of approved contracts; scope record cites D1, D2, D13 and design
+D9, D12, D22). The first review's PASS (R1-R14) stands, amended by the re-review amendments at the top.
+
+### NOT in scope (re-review)
+
+- Verifying declared "compare as" names: TODOS.md (R21, P3); v1 labels them "self-declared".
+- A curated table of model names: rejected (D7 C), a list to maintain that would silently pool wrong mappings.
+- Storing the posted-reproduction note with the run: rejected (D8 B); per-browser note only.
+- Endpoint names, identities or URLs in claims: never shared (D4 answer, R15).
+- Wording of "baseline" in reproduction rows (design 7.3): unchanged by D11; revisit in design QA if it reads oddly.
+- Everything in the first review's NOT in scope list still holds.
+
+### What already exists (re-review)
+
+- `report/aggregate.py` `_replacements`: pairs by `compare_to` (any setup can be a reference); `runner/study.py` sets it.
+- `llm/pricing.py` `explicit_or_known_price` + `runner/budget.py` `validate_spec`: self-hosted models without a price are
+  free and skip strict checks, so endpoint prices stay optional with no change.
+- `runner/rename.py`: renames keep `study` and rewrite `compare_to`; fingerprints never depend on names.
+- `web/src/lib/builder.ts` `eligibleModels` / `lacking` and `components/ModelRefInput.svelte` (as `SwapPanel` uses
+  them): the candidate picker UI; the allowed set comes from the engine (R17).
+- `components/KeyPanel.svelte` `save()` → `refresh({ models: true })`: re-derives runnable state after a key is set.
+- `adapters/browser/arena.py` / `adapters/server` endpoint support (`227b619`): runs endpoint models on Pages (CORS)
+  and locally; claims only strip what they publish.
+
+### Diagrams (re-review delta)
+
+```
+Beat this (claim page)
+  role pick ──▶ Backend.claimCandidates(claim, role) ──▶ claims.candidate_problem per catalog entry (R17)
+                    │ passing refs (cloud · endpoints · Ollama/LM Studio locally)
+                    ▼
+  self-hosted pick? ──yes──▶ "compare as" name (remembered per model, R19)
+                    ▼
+  claim_experiment: claimed setup + swap(compare_to = claimed setup, C1)  ──refuses failing candidate before spend
+                    ▼
+  run (strict cap; unpriced self-hosted = $0) ──▶ result
+                    ▼
+  reproDraft(run): claimed setup = config with portable setup_fp == claim.setup_fp (R18);
+                   variant = config whose compare_to names it; roles portable (no endpoint fields, self_hosted names)
+                    ▼
+  Post (publishes the draft text) ──▶ localStorage note per run (R16) ──▶ run view: Posted / D15 check
+```
+
+### Failure modes (re-review delta)
+
+| New path | Realistic failure | Covered by | User sees |
+|---|---|---|---|
+| Self-hosted reproduction | no model declared with the claim's name | R19 + test | "add a model declared as <name>" |
+| Self-hosted reproduction | same name, different quantization | caption + TODO R21 | "self-declared · serving may differ" (pooled) |
+| Candidate list | endpoint without CORS on Pages | existing per-endpoint catalog error | endpoint missing from the list; error on Models page |
+| Candidate run | candidate fails the rule | R17 engine refusal + test | reason, no spend |
+| Run view | storage blocked or cleared | R16 try/catch + test | Post offered again |
+| Repro build | renamed or duplicated setups | R18 + tests | same block; or "not a reproduction of this claim" |
+| Local Post | no GitHub key on the server | Q4 + test | filtered KeyPanel, then Post |
+
+Critical gaps (no test, no handling, silent): none. The quantization pooling is labeled, not silent.
+
+### Worktree parallelization strategy (re-review)
+
+Same lanes as the first review. The re-review work joins them: Lane 1 (A, engine) takes the portable setup,
+`candidate_problem`, drafts core and fingerprint lookup; Lane 2 (B, local server) takes the draft and candidate routes;
+Lane 3 (C, web) takes `claimCandidates`, compare-as names, the posted note, `keyRows` and the mode-aware fetch, then the
+`claim.spec.ts` checks (F). Execution order unchanged: A; then B + C + E in parallel; then D, then F.
+Conflict flags: A and C share `contracts/` (regenerate once); B and C both add Backend methods (agree on the contract
+types from A first).
+
+## Implementation Tasks (re-review)
+Synthesized from this review's findings. Each task derives from a specific
+finding above. Run with Claude Code or Codex; checkbox as you ship.
+
+- [ ] **T1 (P1, human: ~1.5 days / CC: ~1 h)** — engine — Portable claim setup with `self_hosted` compare-as names, `candidate_problem`, `compare_to` on the swap, fingerprint lookup, and draft builders
+  - Surfaced by: Section 1 A3/A4 (R15, R17, R19), Scope Challenge C1, Section 2 Q3 (R18)
+  - Files: src/llm_arena/claims.py, contracts.py, contracts/
+  - Verify: `make format && make test` (rows listed in R15, R17, R18, R19)
+- [ ] **T2 (P1, human: ~1 day / CC: ~30 min)** — backend plumbing — `claimDraft`, `reproDraft`, `claimCandidates` through worker protocol, browser arena and local routes
+  - Surfaced by: Section 1 A4, R17
+  - Files: web/src/lib/backend.ts, web/src/lib/worker-backend.ts, web/src/engine/protocol.ts, src/llm_arena/adapters/browser/arena.py, src/llm_arena/server/app.py
+  - Verify: `make test`; tests/test_browser_arena.py and server route rows (session auth)
+- [ ] **T3 (P2, human: ~1 day / CC: ~35 min)** — web — Compare-as name input (share and swap), engine-built candidate list, "not priced" and self-hosted captions
+  - Surfaced by: R15, R17, R19
+  - Files: web/src/views/ClaimView.svelte, web/src/views/RunView.svelte, web/src/lib/claims.ts
+  - Verify: `make test-web`; claim.spec.ts self-hosted path
+- [ ] **T4 (P2, human: ~2h / CC: ~10 min)** — web — Per-browser posted note driving "Posted" and D15's check
+  - Surfaced by: Section 1 A5 (R16)
+  - Files: web/src/lib/claims.ts, web/src/views/RunView.svelte
+  - Verify: vitest rows (record present, storage throwing)
+- [ ] **T5 (P2, human: ~3h / CC: ~15 min)** — web — `keyRows` helper, `providers` filter, "GitHub (claims)" label, local no-key Post panel
+  - Surfaced by: Section 1 A7, Section 2 Q4, R20
+  - Files: web/src/components/KeyPanel.svelte, web/src/lib (keyRows), web/src/views/ClaimView.svelte, web/src/views/RunView.svelte
+  - Verify: vitest `keyRows`; claim.spec.ts Models key-list check
+- [ ] **T6 (P2, human: ~2h / CC: ~10 min)** — web — Mode-aware claim fetch before the engine is ready; locked local app restores the hash
+  - Surfaced by: Section 1 A6 (design 2.1)
+  - Files: web/src/App.svelte, web/src/lib/claims.ts
+  - Verify: E2E with a delayed engine; locked-app restore test
+- [ ] **T7 (P1, human: ~3h / CC: ~15 min)** — tests — Regression rows (R20) and the two claim.spec.ts checks
+  - Surfaced by: Section 3 T4 (R20)
+  - Files: tests (fingerprint rows), tests/test_study.py, web/src/lib/*.test.ts, web/tests/browser/claim.spec.ts
+  - Verify: `make test && make test-web`; `npx playwright test claim.spec.ts --project=chromium`
+
+_No new tasks from Performance._ Effort assumption: features ~30x, tests ~50x, architecture ~5x human-to-CC ratios.
+These extend the first review's T1-T7 and the design review's T1-T11.
+
+### Unresolved decisions (re-review)
+
+None in this review.
+
+### Completion summary (re-review)
+
+- Step 0: Scope Challenge: scope accepted as-is (first review's reduction stands); 1 correction (C1)
+- Architecture Review: 5 issues found (A3 decided via D5/D6/D7; A4, A6, A7 corrections; A5 decided via D8)
+- Code Quality Review: 3 issues found (Q3 decided via D9/D11; Q4 correction; Q5 folded into R17)
+- Test Review: diagram produced, 17 new paths need tests, 1 regression-contract gap (R20, D10)
+- Performance Review: 0 issues found
+- NOT in scope: written
+- What already exists: written
+- TODOS.md updates: 1 item proposed to user (accepted)
+- Failure modes: 0 critical gaps flagged
+- Unresolved decisions: 0 in this review
+- Outside voice: codex unavailable (usage limit until 10:33 PM); native fallback unavailable (no TaskOutput tool); no outside coverage
+- Parallelization: 4 lanes as before, 3 parallel / 3 sequential steps
+- Lake Score: 4/6 (D6, D9, D10, D11 picked the 10/10 option; D7 and D8 picked 9/10 and 8/10 by recommendation)
+
+## Design Re-review (plan-design-review, 2026-10-09)
+
+Target: `docs/designs/shareable-claims.md`, focused (D1) on the UI the eng re-review added: compare-as names, the
+self-hosted match, self-declared marks, unpriced costs and the spend limit, the posted check, the GitHub token row and
+the engine-built candidate list; the 20 decisions of 2026-10-08 got a consistency check (one §12 state row retitled by
+13.2, the 5.1 ReplacementEffects row amended by 13.10). No DESIGN.md (TODOS.md, P3); calibrated against `app.css` and
+§12. Mockups: none (designer has no OpenAI key). Outside voices: Codex unavailable (usage limit, reset 10:33 PM); a
+Claude subagent completed (20 findings, `[single-model]`). Accepted decisions are §13 above.
+
+### Decisions (each approved individually)
+
+| Issue | Decision | Answer |
+|---|---|---|
+| 1 self-hosted caveat | pill + trust-line qualifier + one caption (13.1) | D3 = A |
+| 2 self-hosted match | on the Setup row, declare in place; §12 state row retitled (13.2) | D4 = A |
+| 3 compare-as field | required, prefilled suggestion, inline check; raw-id fallback removed (13.3) | D5 = A |
+| 4 spend limit with free models | hidden when nothing is priced; coverage line otherwise (13.4) | D6 = A |
+| 5 posted check | one-comment request, four states (13.5) | D7 = A |
+| 6 engine-call states | one waiting + error pattern (13.6) | D8 = A |
+| 7 refused candidates | "k models not offered · why" disclosure (13.7) | D9 = A |
+| 8 share privacy | privacy line + preview of published roles (13.9) | D10 = A |
+| 9 unpriced costs | "not priced" everywhere, no fake deltas (13.10) | D11 = A |
+| 10 candidate name | inline under the picker, collapses once known (13.11) | D12 = A |
+| 11 GitHub token row | per-provider wording in keyRows (13.12) | D13 = A |
+| 12 Pages GitHub row | none in v1 (13.13) | D14 = A |
+| 13 name memory key | per model on each server (13.15) | D15 = A |
+| 14 names between Run and Post | frozen in the run (`claim_ref.declared_names`) (13.16) | D16 = A |
+
+Recorded without a question, as applications of approved decisions: 13.8 (2.5's reason pattern), 13.14 (6.1/6.2),
+storyboard step 4b (13.2), the candidate picker's per-source groups (eng re-review: `ModelRefInput` reuse), the "same
+model as the claim" reason (rule 8, R17). One clarification while applying D12: endpoint names show only in the
+visitor's own "Your result", never in published rows (R15).
+
+### NOT in scope (design re-review)
+
+- Visual mockups: the designer still has no OpenAI key; run `~/.claude/skills/gstack/design/dist/design setup`, then
+  `/design-shotgun` for the claim page if visuals are wanted.
+- A GitHub row on the Pages Models page (13.13).
+- Verifying declared names: TODOS.md (eng R21).
+- Formal DESIGN.md: TODOS.md (P3).
+
+### What already exists (reused)
+
+`ModelRefInput` (candidate picker, per-source groups), SwapPanel's "Skipped" list pattern (13.7), `KeyPanel` and the
+R20 `keyRows` helper (13.12), `lib/format.ts` `perMtok` (13.10), the guarded `localStorage` note of R16 (13.2), §12's
+`.pill` / `.note` / `.error` / `.muted.small` vocabulary, 2.5's reason pattern (13.8), 6.1/6.2 rules (13.14).
+
+## Implementation Tasks (design re-review)
+Synthesized from this review's findings. Each task derives from a specific
+finding above. Run with Claude Code or Codex; checkbox as you ship.
+
+- [ ] **T1 (P1, human: ~1 day / CC: ~30 min)** — ClaimView — Self-hosted caveat (pill, trust qualifier, caption) and the Setup-row match with declare in place
+  - Surfaced by: Pass 1 issues 1-2 (13.1, 13.2)
+  - Files: web/src/views/ClaimView.svelte, web/src/lib/claims.ts
+  - Verify: claim.spec.ts: self-hosted claim shows pill + qualifier; no match → declare → Run enables
+- [ ] **T2 (P1, human: ~5h / CC: ~20 min)** — web — Compare-as field (suggestion, validation, collapse, per-server memory) shared by Share and Beat this
+  - Surfaced by: Pass 2 issue 3, Pass 4 issue 10, Pass 7 issue 13 (13.3, 13.11, 13.15)
+  - Files: web/src/components (compare-as field), web/src/lib/claims.ts (+ vitest for the suggestion rule)
+  - Verify: vitest: `qwen3:14b` → `qwen3-14b`, `Qwen/Qwen3-14B-AWQ` → `qwen3-14b-awq`, invalid names refused
+- [ ] **T3 (P1, human: ~2h / CC: ~10 min)** — engine + web — Freeze declared names in `claim_ref`; `claimDraft(runId, names)`
+  - Surfaced by: Pass 7 issue 14 (13.16)
+  - Files: src/llm_arena/runner/config.py, src/llm_arena/claims.py, contracts/, web/src/lib/backend.ts
+  - Verify: rename a model's name after a run → reproDraft unchanged; preview equals published claim
+- [ ] **T4 (P2, human: ~2h / CC: ~10 min)** — ClaimView — Spend-limit variants for free and partly free runs
+  - Surfaced by: Pass 2 issue 4 (13.4)
+  - Files: web/src/views/ClaimView.svelte
+  - Verify: all-free run shows no input and starts uncapped; mixed run names the unlimited models
+- [ ] **T5 (P2, human: ~5h / CC: ~25 min)** — RunView band — Posted check states, waiting/error, not-a-reproduction note; `claimComment`
+  - Surfaced by: Pass 2 issues 5-6 (13.5, 13.6, 13.8)
+  - Files: web/src/views/RunView.svelte, web/src/lib/backend.ts, web/src/lib/worker-backend.ts, src/llm_arena/adapters/server/gists.py, src/llm_arena/server/app.py
+  - Verify: 200 / 404 / 5xx comment responses map to the four states; engine error shows Retry
+- [ ] **T6 (P2, human: ~3h / CC: ~15 min)** — ClaimView — Candidate list waiting/error and "k models not offered · why"
+  - Surfaced by: Pass 2 issues 6-7 (13.6, 13.7)
+  - Files: web/src/views/ClaimView.svelte
+  - Verify: mixed catalog lists refused models with reasons; unreachable endpoint shows the CORS line
+- [ ] **T7 (P2, human: ~2h / CC: ~10 min)** — run view — Share privacy line and published-roles preview
+  - Surfaced by: Pass 3 issue 8 (13.9)
+  - Files: web/src/views/RunView.svelte
+  - Verify: preview text equals the claim draft's roles; no endpoint name or URL in it
+- [ ] **T8 (P2, human: ~4h / CC: ~20 min)** — web + report — "not priced" vocabulary and no fake cost deltas
+  - Surfaced by: Pass 3 issue 9 (13.10)
+  - Files: web/src/lib/format.ts, web/src/components/ReplacementEffects.svelte, src/llm_arena/report/aggregate.py, web/src/views/ClaimView.svelte
+  - Verify: unpriced side → "cost: not priced"; picker shows "not priced" for local models (intentional R20 change)
+- [ ] **T9 (P2, human: ~2h / CC: ~10 min)** — KeyPanel — Per-provider wording; GitHub row local only
+  - Surfaced by: Pass 5 issues 11-12 (13.12, 13.13)
+  - Files: web/src/components/KeyPanel.svelte, web/src/lib (keyRows)
+  - Verify: vitest keyRows wording; local filtered panel heading; Pages Models has no GitHub row
+- [ ] **T10 (P2, human: ~2h / CC: ~10 min)** — e2e — Phone and accessibility checks for the new controls
+  - Surfaced by: Pass 6 (13.14)
+  - Files: web/tests/browser/claim.spec.ts
+  - Verify: 390px: declare note wraps, no horizontal scroll; aria-describedby on the name hint; focus after Use
+
+Effort assumption: features ~30x, tests ~50x human-to-CC ratios. These extend the eng re-review's T1-T7 (lane C).
+
+### Unresolved decisions (design re-review)
+
+None.
+
+### Completion summary (design re-review)
+
+```
++====================================================================+
+|         DESIGN PLAN REVIEW — COMPLETION SUMMARY                    |
++====================================================================+
+| System Audit         | no DESIGN.md (app.css + §12); UI: self-hosted additions |
+| Step 0               | 6/10 initial; focus: new pieces, quick check of the rest |
+| Pass 1  (Info Arch)  | 6/10 → 9/10 after fixes                        |
+| Pass 2  (States)     | 4/10 → 9/10 after fixes                        |
+| Pass 3  (Journey)    | 6/10 → 9/10 after fixes                        |
+| Pass 4  (AI Slop)    | 7/10 → 9/10 after fixes                        |
+| Pass 5  (Design Sys) | 6/10 → 9/10 after fixes                        |
+| Pass 6  (Responsive) | 8/10 → 9/10 after fixes                        |
+| Pass 7  (Decisions)  | 2 resolved, 0 deferred                         |
++--------------------------------------------------------------------+
+| NOT in scope         | written (4 items)                              |
+| What already exists  | written                                        |
+| TODOS.md updates     | 0 items proposed (none outstanding)            |
+| Approved Mockups     | 0 generated, 0 approved (no OpenAI key)        |
+| Decisions made       | 14 added to plan                               |
+| Decisions deferred   | 0                                              |
+| Overall design score | 4/10 → 9/10                                    |
++====================================================================+
+```
+
+## Eng Re-review 2 (plan-eng-review, 2026-10-10)
+
+Target: `docs/designs/shareable-claims.md`, re-checked against HEAD `010a481` for the engine pieces the design
+re-review added (13.5 `claimComment`, 13.16 `claim_ref.declared_names` + `claimDraft(runId, names)`, 13.10
+`ReplacementEffect.unpriced`) and the user's budget fix (`965cd19`, `010a481`).
+
+### Scope record (re-review 2)
+
+Complexity gate resolved by exact prior answers (D1, D2, D13 of the first review; design D9, D12, D22; re-review
+D5-D12; design re-review D3-D16). No new cuts or arrangements proposed. Search check: no new architectural pattern.
+TODOS.md: nothing blocks. Scope Challenge result: scope accepted as-is.
+
+### Scope Challenge findings (re-review 2)
+
+1. C2 [P2] (confidence: 9/10) `src/llm_arena/runner/budget.py` `exceeded` is now strictly over the limit
+   (`self.spent_usd > self.limit_usd`) and `refused` is set once a priced call is turned away; `runner/run.py` records
+   paid trials after a refusal as status `budget` without running them, while free trials keep running.
+   **Correction (no behavior change to the plan):** 13.4 stays as decided (no input and no cap when nothing is priced;
+   a $0 cap would now also work). Rule 7 counts status `budget` as `budget_stopped`. A capped mixed Beat-this run
+   (paid claimed setup, free variant) can finish its variant: the reproduction is not postable, Share my variant is,
+   as §2 already allows.
+
+### Section 1 findings (re-review 2)
+
+1. A9 [P1] (confidence: 9/10) The claim never pins the grader. `launch_brief`, `reflection_writing`, `chart_codegen`
+   and `research_report` (all claimable) include a `RubricJudgeEvaluator`; with no judge it returns no scores
+   (`eval/judge.py:135` `if ctx.judge is None: return []`), and `eval/credit.py:40-41` passes a trial on the criteria
+   that produced a verdict. The judge is `ExperimentConfig.judge` (`runner/config.py:124`), not part of `setup_of`, so
+   neither the claim's `setup_fp` nor rule 4 sees it. A claim graded by one judge and reproductions graded by another,
+   or by none, pool in one tally; judge calls are also missing from §7's estimate and strict cap. → R22.
+
+### Decision ledger (re-review 2)
+
+### R22: How claims treat judge-graded scenarios
+Finding: A9, P1, confidence 9/10, src/llm_arena/eval/judge.py:135, src/llm_arena/eval/credit.py:40-41,
+src/llm_arena/runner/config.py:124; plan-eng-review (Claude)
+Plan baseline: §1 claim format pins scenario, version, tasks, seed, repeats and setup; no judge field (approved plan).
+Runtime evidence: as quoted; `TrialRecord.judge_cost_usd` is tracked separately from role cost (`runner/ports.py:44`).
+Comparison grid:
+
+| Choice | Current | A) Pin the judge in the claim (recommended) | B) Not claimable in v1 | C) Claims grade without a judge |
+|---|---|---|---|---|
+| R22 judge-graded scenarios | claimable, judge unpinned | claimable; `claim.judge` = portable role or null, inside `claim_hash`; repros carry `judge` and count only if it equals the claim's (new rule 4b); Beat this runs with that judge; §7's estimate and cap include judge calls; the judge passes the same candidate rule (R17) and needs its provider's key (3.1); null means "graded by code checks only" and reproductions must also run without a judge | refused by `claim_from_run` with "graded by an LLM judge; not claimable in v1" (the four scenarios) | claims and repros always run with `judge: null`; the page says "code checks only"; local leaderboard numbers with a judge will differ from the claim |
+
+Question D1:
+D1 — How should claims handle scenarios that an AI judge helps grade?
+Project/branch/task: shareable-claims plan on main; eng re-review 2, Section 1 finding A9.
+ELI10: Four claimable scenarios (launch_brief, reflection_writing, chart_codegen, research_report) are partly graded by
+an AI judge model. The claim records who ran the tasks but not who graded them. If Alice graded with Claude and Bob
+graded with GPT, or with no judge at all, their pass rates differ for reasons that have nothing to do with the setup,
+yet they'd count as reproductions of each other. The judge's calls also cost money the cost cap ignores.
+Stakes if we pick wrong: trust tallies on four scenarios mix different graders, and visitors' runs can cost more than
+the cap shown.
+Recommendation: A because the grader is part of what a claim states, and those four scenarios are among the arena's
+most interesting.
+Completeness: A=10/10, B=7/10, C=6/10
+Pros / cons:
+A) Pin the judge in the claim (recommended)
+  ✅ Claims and reproductions are graded by the same judge, so the tally compares like with like.
+  ✅ The estimate and cap include judge calls, so visitors see the real cost before Run.
+  ❌ One more claim field, one validation rule, judge keys and cost to wire (human: ~1 day / CC: ~40 min).
+B) Not claimable in v1
+  ✅ Smallest change: four scenarios refused with a clear reason (human: ~1h / CC: ~5 min).
+  ✅ No grader questions until the claim format can carry one.
+  ❌ Drops four of the arena's richest scenarios from sharing for now.
+C) Claims grade without a judge
+  ✅ No judge keys or cost for visitors; grading is deterministic code checks.
+  ✅ Simple: every claim run sets the judge to none (human: ~2h / CC: ~10 min).
+  ❌ Claimed numbers differ from the same setup's local leaderboard numbers, which do use the judge.
+Net: pinning the grader for full comparability versus dropping or weakening those four scenarios.
+Header: Judge
+Options:
+A) Pin the judge in the claim (recommended)
+✅ Same judge for claim and reproductions, like with like. ✅ Estimate and cap include judge calls. ❌ One more field, rule, keys and cost wiring (human: ~1 day / CC: ~40 min).
+B) Not claimable in v1
+✅ Smallest: four scenarios refused with a reason (human: ~1h / CC: ~5 min). ✅ No grader questions yet. ❌ Drops four rich scenarios from sharing for now.
+C) Claims grade without a judge
+✅ No judge keys or cost for visitors. ✅ Simple: judge always none (human: ~2h / CC: ~10 min). ❌ Claimed numbers differ from the same setup's local, judged numbers.
+
+State: approved
+Actual answer: A) Pin the judge in the claim (recommended), answered to D1 on 2026-10-10
+Accepted scope: column A: `claim.judge` (portable role, self-hosted judges with a declared name per R19, or null)
+inside `claim_hash`; repro blocks carry `judge`, and new rule 4b counts a repro only if it equals the claim's; Beat
+this sets `ExperimentConfig.judge` to it; §7's estimate and strict cap include judge calls; the judge passes R17's
+candidate rule and joins 3.1's key check; null shows "graded by code checks only" and requires null in repros. Tests:
+a repro with another judge, or none, is rejected (passing and failing case, plus 2 conformance vectors); the estimate
+includes judge calls; a judged claim's Beat-this run uses the claim's judge.
+History: none
+
+### Section 1 findings, continued (re-review 2)
+
+2. A10 [P2] (confidence: 8/10) design 13.5 and 13.16 need input bounds the plan doesn't state. **Corrections
+   (necessary implementation of approved 13.5 / 13.16 / D5):**
+   - `claimComment(ref, commentId)`: the local adapter accepts a comment id matching `[0-9]{1,20}` only, builds
+     `https://api.github.com/gists/{id}/comments/{comment_id}` from the fixed base, and keeps D5's redirect, size and
+     timeout limits; a 404 maps to 13.5's "removed" state, every other failure to "couldn't check".
+   - `claim_ref.declared_names`: closed `{role: name}`, names per 13.3's pattern, roles limited to the claimed setup's
+     self-hosted roles plus the swapped role; part of `config_json` only (fingerprints and resume keys unchanged).
+     These names also map the visitor's local self-hosted roles to portable ones for the pre-run and post-run
+     fingerprint checks of §1.
+   - `claimDraft(runId, names)`: refuses with reasons when a self-hosted role (or a self-hosted judge, R22) has no
+     valid name.
+
+### Section 1 dispositions (re-review 2)
+
+A9 accepted (R22, D1=A). A10 corrections applied. C2 correction recorded.
+
+### Section 2 findings (re-review 2)
+
+1. Q6 [P2] (confidence: 9/10) design 13.10 needs `ReplacementEffect.unpriced`, but `report/aggregate.py` sees only
+   `setup` (provider, model, settings; `runner/ports.py:51`) and costs, never prices. Inferring "unpriced" from the
+   provider would mislabel an endpoint with a declared price. **Correction (the only mechanism that fits approved
+   13.10):** `runner/run.py` records each trial's unpriced roles at run time (resolved specs where
+   `runner/budget.py` `is_free` holds) on the trial record; `_replacements` sets `unpriced` when either config has
+   any. Runs from before the field read as priced. R20 gains the intentional change "ReplacementEffect gains
+   `unpriced`, false for older runs".
+
+### Section 2 dispositions (re-review 2)
+
+Q6 correction applied.
+
+### Section 3 (Test review, re-review 2)
+
+Required proof, carried from the approved records (no new choices):
+
+```
+CODE PATHS (delta)                                   USER FLOWS (delta)
+[+] claim.judge + rule 4b (R22)                       [+] Judged claim
+  ├── [GAP] repro with other judge → rejected            ├── [GAP] [→E2E] Beat this uses the claim's judge
+  ├── [GAP] repro without judge vs null claim → ok       └── [GAP] estimate shows judge cost before Run
+  └── [GAP] 2 conformance vectors
+[+] claimComment bounds (A10)                         [+] Posted check (13.5)
+  └── [GAP] bad comment id → 400, no outbound call       └── [GAP] 200 / 404 / 5xx → three states
+[+] declared_names schema (A10)
+  └── [GAP] unknown role or bad name refused
+[+] unpriced per trial (Q6)
+  └── [GAP] priced endpoint not marked unpriced; older runs read as priced
+[~] budget fix (C2, already tested in 965cd19 / 010a481)
+  └── [★★★ TESTED] $0 limit runs free trials; refused paid trials recorded as budget
+
+COVERAGE (delta): 1/10 paths tested | GAPS: 9 (1 E2E)
+```
+
+Tests go in the existing suites (claims tests, `tests/test_server_security.py` for the adapter bound,
+`tests/test_runner_and_report.py` for `unpriced`, conformance vectors, `claim.spec.ts`). Test plan artifact updated.
+
+### Section 4 (Performance, re-review 2)
+
+No issues found. Judge calls roughly add one judge completion per judged trial to a Beat-this run's cost and time;
+they are now in the estimate (R22). `claimComment` is one request per posted run-view open, cached per session.
+
+### Outside voice (re-review 2)
+
+Codex (gpt-5.6-sol) started but timed out after the 5-minute limit while still reading code (exit 124); no verdict.
+Native fallback unavailable (no `TaskOutput` tool in this session). Outside coverage: none. One fact from Codex's
+partial reads, verified: `ArenaService.estimate` (`service.py`) already adds the judge (`if judge is not None: cost +=
+_cost(judge, JUDGE_TOKENS_PER_TRIAL, unknown)`). **Correction to R22:** the estimate part is satisfied by setting
+`ExperimentConfig.judge` on the Beat-this run; the strict-cap part stays a test row.
+
+### R23: TODO, variant-only Beat-this runs
+Finding: follow-up raised in conversation (2026-10-10, "why do we associate runs with different configurations"), P3,
+confidence 7/10; plan-eng-review (Claude)
+Plan baseline: §6 Beat this always runs the claimed setup and the variant together; a repro's `variant` may be null
+(pure reproduction).
+Runtime evidence: n/a (proposal).
+Comparison grid:
+
+| Choice | Current | A) Add to TODOS.md (recommended) | B) Skip | C) Build now |
+|---|---|---|---|---|
+| R23 variant-only runs | not offered | TODO (P3, S): a cheaper "variant only" option compared with the claim's published numbers, labeled "unpaired, conditions may differ", never counted as a reproduction, posted with `baseline: null` | not tracked | in v1 scope now |
+
+Question D2:
+D2 — Track "variant-only Beat-this runs" as a TODO?
+Project/branch/task: shareable-claims plan on main; eng re-review 2, TODO review.
+ELI10: Today Beat this always re-runs the claim's own setup next to your swapped one, so you pay twice. That makes
+the comparison fair and doubles as a reproduction. A cheaper option would run only your swap and compare it with the
+claim's published number, clearly labeled as a weaker, unpaired comparison that doesn't count as a reproduction.
+Stakes if we pick wrong: either a useful cheap mode is forgotten, or v1 grows with a weaker comparison mode.
+Recommendation: A because it is a real cost saver for visitors but needs its own labeling rules, and v1 works without it.
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) Add to TODOS.md (recommended)
+  ✅ Keeps the cost-saving idea with its labeling rules written down for later.
+  ✅ v1 stays focused on paired, reproducible comparisons.
+  ❌ Visitors pay for the claimed setup on every swap until it ships.
+B) Skip
+  ✅ Nothing to track; paired runs are the stronger evidence anyway.
+  ✅ Avoids a mode that people might misread as a real comparison.
+  ❌ Cost-sensitive visitors may skip Beat this entirely.
+C) Build now
+  ✅ Half-price swaps from day one.
+  ✅ More people try swaps, so more variant results appear.
+  ❌ New repro shape (baseline null), labels and tests in v1 (human: ~1 day / CC: ~40 min).
+Net: a backlog note for a cheaper mode versus dropping it or widening v1.
+Header: TODO variant
+Options:
+A) Add to TODOS.md (recommended)
+✅ Keeps the idea with its labeling rules. ✅ v1 stays paired-only. ❌ Visitors pay for the claimed setup on every swap until then.
+B) Skip
+✅ Nothing to track; paired is stronger evidence. ✅ No easily misread mode. ❌ Cost-sensitive visitors may skip Beat this.
+C) Build now
+✅ Half-price swaps from day one. ✅ More variant results. ❌ New repro shape, labels, tests in v1 (human: ~1 day / CC: ~40 min).
+
+State: approved
+Actual answer: A) Add to TODOS.md (recommended), answered to D2 on 2026-10-10
+Accepted scope: TODOS.md "Variant-only Beat-this runs" under ## Claims (P3, Effort S, depends on v1 shipped). Written.
+History: none
+
+### R24: TODO, the local leaderboard and resume ignore the judge
+Finding: found while checking A9, P2, confidence 9/10, src/llm_arena/runner/fingerprint.py:49-52 (`resume_key` from
+setup fingerprint, scenario version, task fp and seed only), `setup_of` (no judge), `report/leaderboard.py:4` (pools
+by setup fingerprint); plan-eng-review (Claude). Existing behavior, outside this plan's scope.
+Plan baseline: none (not in the plan); R6 regression contract keeps existing fingerprints and resume keys unchanged.
+Runtime evidence: as quoted; judged and unjudged runs of one setup land in one leaderboard row, and a resumed run with
+a different judge can skip trials graded under the old one.
+Comparison grid:
+
+| Choice | Current | A) Add to TODOS.md (recommended) | B) Skip | C) Build in this plan |
+|---|---|---|---|---|
+| R24 judge in local comparability | ignored | TODO (P2, S-M): add the judge to the leaderboard grouping and the resume key without changing fingerprints of unjudged runs (append only when set, like endpoint fields), with a migration note for existing judged runs | not tracked | in this plan's scope, breaking R6's "fingerprints and resume keys unchanged" for judged runs |
+
+Question D3:
+D3 — Track "the local leaderboard and resume ignore the judge" as a TODO?
+Project/branch/task: shareable-claims plan on main; eng re-review 2, TODO review (existing behavior).
+ELI10: The claim fix (D1) pins the judge for shared claims, but your own leaderboard has the same blind spot today:
+runs of one setup graded by Claude, by GPT or by no judge all land in one row, and resuming a run after changing the
+judge can reuse trials graded by the old one. Fixing it changes how existing judged runs are grouped, so it deserves
+its own careful change.
+Stakes if we pick wrong: either a real comparability bug in the leaderboard is forgotten, or this plan grows by a
+change that rewrites existing runs' grouping.
+Recommendation: A because it's a real bug worth fixing on its own, with its own migration care, separate from claims.
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) Add to TODOS.md (recommended)
+  ✅ The bug is written down with where to start and how to keep unjudged runs stable.
+  ✅ Claims ship without touching existing fingerprints (R6 holds).
+  ❌ Local leaderboards keep mixing graders until it ships.
+B) Skip
+  ✅ Nothing to track; most local experiments use one judge throughout.
+  ✅ No risk of regrouping existing runs.
+  ❌ Mixed graders silently skew rows whenever someone changes the judge.
+C) Build in this plan
+  ✅ Fixes the leaderboard and resume together with claims.
+  ✅ One consistent judge rule across the arena.
+  ❌ Breaks R6's promise for judged runs and widens this plan (human: ~1 day / CC: ~45 min).
+Net: a tracked, separate fix versus ignoring it or widening the claims plan.
+Header: TODO judge
+Options:
+A) Add to TODOS.md (recommended)
+✅ Written down with a starting point and stability rule. ✅ Claims ship with R6 intact. ❌ Local rows keep mixing graders until then.
+B) Skip
+✅ Nothing to track; most runs keep one judge. ✅ No regrouping risk. ❌ Mixed graders silently skew rows.
+C) Build in this plan
+✅ Leaderboard and resume fixed with claims. ✅ One judge rule everywhere. ❌ Breaks R6 for judged runs; widens the plan (human: ~1 day / CC: ~45 min).
+
+State: approved
+Actual answer: A) Add to TODOS.md (recommended), answered to D3 on 2026-10-10
+Accepted scope: TODOS.md "Leaderboard and resume ignore the judge" under ## Leaderboard (P2, Effort S-M). Written.
+History: none
+
+Approval readiness (re-review 2): PASS (R22 D1, R23 D2, R24 D3; corrections C2, A10, Q6 and the R22 estimate
+correction recorded as necessary implementation of approved contracts). Earlier PASS results (R1-R14, R15-R21) stand.
+
+### NOT in scope (re-review 2)
+
+- Judge in local leaderboard grouping and resume keys: TODOS.md (R24, P2).
+- Variant-only Beat-this runs: TODOS.md (R23, P3).
+- Everything in the earlier NOT in scope lists still holds.
+
+### What already exists (re-review 2)
+
+- `ArenaService.estimate` (`service.py`) already prices the judge per trial; setting `ExperimentConfig.judge` is enough.
+- `runner/budget.py` `is_free` and `refused` (from `965cd19` / `010a481`): the unpriced flag (Q6) and rule 7's
+  `budget` status reuse them.
+- `eval/judge.py` `RubricJudgeEvaluator.owns` / `judge_cost_usd` on trials: judge scores and cost are already separable.
+
+### Failure modes (re-review 2 delta)
+
+| New path | Realistic failure | Covered by | User sees |
+|---|---|---|---|
+| Judged claim | visitor lacks the judge provider's key | R22 + 3.1 key check | inline KeyPanel for that provider before Run |
+| Judged repro | posted with another judge | rule 4b + vectors | row "rejected: graded by a different judge" |
+| Posted check | crafted comment id | A10 bound + test | 400, no outbound call |
+| Unpriced flag | priced endpoint | Q6 run-time record + test | real cost delta shown |
+
+Critical gaps (no test, no handling, silent): none.
+
+### Worktree parallelization (re-review 2)
+
+Unchanged lanes. R22 and Q6 join Lane 1 (engine: `claims.py`, `runner/run.py`, `report/aggregate.py`); A10 joins
+Lane 2 (local adapter) and Lane 1 (`claim_ref` schema). Conflict flag: Q6 and the design re-review's T8 both touch
+`report/aggregate.py`; land Q6 first.
+
+## Implementation Tasks (re-review 2)
+Synthesized from this review's findings. Each task derives from a specific
+finding above. Run with Claude Code or Codex; checkbox as you ship.
+
+- [ ] **T1 (P1, human: ~1 day / CC: ~40 min)** — engine — Pin the judge in claims: `claim.judge`, rule 4b, Beat-this judge, strict-cap coverage
+  - Surfaced by: Section 1 A9 (R22)
+  - Files: src/llm_arena/claims.py, src/llm_arena/conformance.py, contracts/, web/src/views/ClaimView.svelte
+  - Verify: `make test` (rule 4b pass/fail, 2 vectors); estimate includes judge calls on a judged claim
+- [ ] **T2 (P2, human: ~2h / CC: ~10 min)** — local adapter + engine — Bounds for `claimComment`, `claim_ref.declared_names` and `claimDraft(runId, names)`
+  - Surfaced by: Section 1 A10
+  - Files: src/llm_arena/adapters/server/gists.py, src/llm_arena/runner/config.py, src/llm_arena/claims.py, tests/test_server_security.py
+  - Verify: bad comment id → 400 without outbound call; unknown role or bad name refused
+- [ ] **T3 (P2, human: ~2h / CC: ~10 min)** — runner + report — Record unpriced roles per trial; `ReplacementEffect.unpriced`
+  - Surfaced by: Section 2 Q6
+  - Files: src/llm_arena/runner/run.py, src/llm_arena/runner/ports.py, src/llm_arena/report/aggregate.py, tests/test_runner_and_report.py
+  - Verify: priced endpoint not unpriced; older runs read as priced
+
+_No new tasks from Performance._ Effort assumption: features ~30x, tests ~50x human-to-CC ratios. These extend the eng
+re-review's T1-T7 and the design re-review's T1-T10.
+
+### Unresolved decisions (re-review 2)
+
+None in this review.
+
+### Completion summary (re-review 2)
+
+- Step 0: Scope Challenge: scope accepted as-is; 1 correction (C2, budget fix)
+- Architecture Review: 2 issues found (A9 decided via D1; A10 corrections)
+- Code Quality Review: 1 issue found (Q6 correction)
+- Test Review: diagram produced, 9 gaps identified (all required proof of approved decisions)
+- Performance Review: 0 issues found
+- NOT in scope: written
+- What already exists: written
+- TODOS.md updates: 2 items proposed to user (both accepted)
+- Failure modes: 0 critical gaps flagged
+- Unresolved decisions: 0 in this review
+- Outside voice: codex (gpt-5.6-sol) timed out after 5 minutes; native fallback unavailable (no TaskOutput tool); no outside coverage
+- Parallelization: 4 lanes as before; Q6 before design T8 in report/aggregate.py
+- Lake Score: 1/1 (D1 picked the 10/10 option)
+
 ## GSTACK REVIEW REPORT
 
 | Review | Trigger | Why | Runs | Status | Findings |
 |--------|---------|-----|------|--------|----------|
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
-| Outside Review | codex (eng outside voice; design outside voice) | Independent 2nd opinion | 2 | completed | eng: 7 findings, all resolved; design: 1 hard rejection + 7 findings, folded into D3-D22 |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | ISSUES OPEN | 8 issues, 0 critical gaps |
-| Design Review | `/plan-design-review` | UI/UX gaps | 1 | CLEAR | score: 2/10 → 8/10, 20 decisions |
+| Outside Review | codex (eng and design outside voices) | Independent 2nd opinion | 6 | unavailable (latest, 2026-10-10: timeout) | 2026-10-07 eng: 7 findings, resolved; 2026-10-08 design: folded into D3-D22; 2026-10-09 eng and design: usage limit; 2026-10-10 eng: timed out |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 3 | ISSUES OPEN | 3 issues, 0 critical gaps (re-review 2, 2026-10-10; all decided or corrected) |
+| Design Review | `/plan-design-review` | UI/UX gaps | 2 | CLEAR | score: 4/10 → 9/10, 14 decisions |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
 
-- **OUTSIDE COVERAGE:** codex (gpt-5.5): plan-review phase completed (issues_found); design phase completed (issues_found). The Claude design subagent completed on retry (native, not outside coverage).
-- **CROSS-MODEL:** In the design phase, Codex and the Claude subagent agreed on stacked cards, the unverified anchor, the hidden primary action and missing headings. Codex alone raised the run-view action band and motion. The subagent alone found the engine-splash gate, the no-key dead end, state placement, posting, phone layout and accessibility, all verified in code.
-- **VERDICT:** DESIGN CLEARED. Eng Review is ISSUES OPEN, so eng review is required. Design decisions 2.1 (claim route outside the engine gate), 3.1 (inline KeyPanel) and 7.2 (run-view band) change architecture-adjacent behavior and should be re-checked by `/plan-eng-review`.
+- **OUTSIDE COVERAGE:** codex: plan-review 2026-10-07 completed; design 2026-10-08 completed; plan-review and design 2026-10-09 unavailable (usage limit); plan-review 2026-10-10 unavailable (timeout after 5 minutes). Native: Claude design subagent 2026-10-09 completed (in-host). Decisions since 2026-10-09 have no completed external review.
+- **CROSS-MODEL:** none since 2026-10-08.
+- **VERDICT:** DESIGN CLEARED. Eng Review is ISSUES OPEN (mapped work, 0 unresolved), so eng review required before it counts as CLEAR.
 
 NO UNRESOLVED DECISIONS
