@@ -109,6 +109,11 @@ class Scenario(ABC):
     @abstractmethod
     def evaluators(self, params: dict[str, Any]) -> list[Evaluator]: ...
 
+    def needs_live(self, params: dict[str, Any]) -> bool:
+        """Whether these params need live services (web search, external APIs) that a visitor reproducing a shared
+        claim cannot be assumed to have. Static needs such as a sandbox are declared in `requires`."""
+        return False
+
     def brief(self) -> Brief | None:
         """What the scenario tests and how it is graded (None: the one-line description is all there is)."""
         return None

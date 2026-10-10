@@ -3,7 +3,11 @@
 // are kept in IndexedDB and can be exported/imported as RunBundle files.
 import type { ArenaBackend, ModelsResponse, Persistence, TrialTrace } from "./backend";
 import { BackendError } from "./backend";
-import type { ModelPreset, EndpointView, Estimate, RenameRun, ExperimentConfig, Leaderboard, RunBundle, RunEvent, RunListing, RuntimeResponse, SaveEndpoint, ScenarioManifest, StartRun, TaskView } from "./contracts";
+import type {
+  Candidate, CandidatesRequest, ClaimCheck, ClaimDraft, ClaimDraftRequest, ClaimExperimentRequest, ModelPreset, EndpointView, Estimate,
+  RenameRun, ExperimentConfig, Leaderboard, ReproDraft, ReproDraftRequest, RunBundle, RunEvent, RunListing, RuntimeResponse, SaveEndpoint,
+  ScenarioManifest, StartRun, TaskView, ThreadRequest, TrustStats,
+} from "./contracts";
 import type { EngineMethod, EngineReply } from "../engine/protocol";
 import { editedPresets, storeEditedPresets, usablePresets } from "./presets";
 import { listBundles, loadBundle, saveBundle } from "./idb";
@@ -173,12 +177,32 @@ export class WorkerBackend implements ArenaBackend {
     }
   }
 
+  /** An imported run file: the engine validates it first, and an id already in use here gets a suffix
+   *  (`<id>-imported-N`), so an import never overwrites a run of this browser. */
   async importBundle(file: File): Promise<string> {
-    const bundle = JSON.parse(await file.text()) as RunBundle;
-    const runId = String(bundle.run.run_id ?? file.name.replace(/\.json$/, ""));
+    const checked = await this.json<RunBundle>("check_bundle", await file.text());
+    const taken = new Set([...(await listBundles()).map((b) => String(b.run.run_id ?? "")), ...this.unsaved.keys()]);
+    const runId = importId(String(checked.run.run_id), taken);
+    const bundle = runId === checked.run.run_id ? checked : {
+      ...checked, run: { ...checked.run, run_id: runId },
+      trials: checked.trials.map((t) => ({ ...t, run_id: runId })),
+    };
     await saveBundle(runId, bundle);
     return runId;
   }
+
+  async claimCheck(claim: string): Promise<ClaimCheck> { return this.json("claim_check", claim); }
+  async claimDraft(runId: string, request: ClaimDraftRequest): Promise<ClaimDraft> {
+    return this.json("claim_draft", JSON.stringify(await this.bundle(runId)), JSON.stringify(request));
+  }
+  async reproDraft(runId: string, request: ReproDraftRequest): Promise<ReproDraft> {
+    return this.json("repro_draft", JSON.stringify(await this.bundle(runId)), JSON.stringify(request));
+  }
+  async claimExperiment(request: ClaimExperimentRequest): Promise<ExperimentConfig> {
+    return this.json("claim_experiment", JSON.stringify(request));
+  }
+  async claimCandidates(request: CandidatesRequest): Promise<Candidate[]> { return this.json("claim_candidates", JSON.stringify(request)); }
+  async claimThread(request: ThreadRequest): Promise<TrustStats> { return this.json("claim_thread", JSON.stringify(request)); }
 
   async selftest(vectors: Record<string, unknown>): Promise<SelftestResult[]> {
     return this.json("selftest", JSON.stringify(vectors));
@@ -219,6 +243,14 @@ export class WorkerBackend implements ArenaBackend {
     if (reply.kind === "result") pending.resolve(reply.result);
     else pending.reject(new BackendError(reply.error, 400));
   }
+}
+
+/** The id an imported run gets: its own, or `<id>-imported-N` when that is already taken here. */
+export function importId(runId: string, taken: Set<string>): string {
+  if (!taken.has(runId)) return runId;
+  let n = 1;
+  while (taken.has(`${runId}-imported-${n}`)) n++;
+  return `${runId}-imported-${n}`;
 }
 
 function listingOf(bundle: RunBundle): RunListing {

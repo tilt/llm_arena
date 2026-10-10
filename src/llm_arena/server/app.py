@@ -25,17 +25,30 @@ from pydantic import BaseModel, ValidationError
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from llm_arena.adapters.server.gists import GistClient, GistFailure
 from llm_arena.adapters.server.report_html import render_report, report_csp
 from llm_arena.api import (
+    Candidate,
+    CandidatesRequest,
+    ClaimDraftRequest,
+    ClaimExperimentRequest,
+    CreateClaimGist,
+    CreatedGist,
     EndpointView,
+    GistClaim,
+    GistComment,
+    PostComment,
+    ReproDraftRequest,
     RunListing,
     RunStartedResponse,
     RuntimeResponse,
     SaveEndpoint,
     SetKey,
     StartRun,
+    ThreadRequest,
     run_listing,
 )
+from llm_arena.claims import ClaimCheck, ClaimDraft, ClaimError, ReproDraft, TrustStats, parse_repro, repro_comment
 from llm_arena.core.errors import ArenaError, RunConflictError, RunLimitError
 from llm_arena.llm.errors import LLMError
 from llm_arena.llm.registry import EndpointStore
@@ -219,6 +232,7 @@ def create_app(
     port: int = DEFAULT_PORT,
     session_token: str | None = None,
     dev_origin: str | None = None,
+    gists: GistClient | None = None,
 ) -> FastAPI:
     session_token = session_token or secrets.token_urlsafe(32)
     app = FastAPI(title="LLM Arena", version="0.1.0")
@@ -248,6 +262,7 @@ def create_app(
     listing_cache: dict[str, tuple[float, RunListing]] = {}
     keys = keys or KeyStore()
     endpoints = endpoints if endpoints is not None else EndpointStore()
+    gists = gists or GistClient(token=lambda: keys.secret("github"))
 
     def endpoint_view(endpoint: Endpoint) -> EndpointView:
         return EndpointView(**endpoint.model_dump(), key=keys.endpoint_source(endpoint))
@@ -480,6 +495,96 @@ def create_app(
             render_report(runs_dir / run_id, inline_plotly=True, nonce=nonce),
             headers={"Content-Security-Policy": report_csp(nonce, True)},
         )
+
+    # ---- shareable claims: GitHub through the server (the page keeps connect-src 'self') ------------------------
+    async def _github[T](call: Awaitable[T]) -> T:
+        try:
+            return await call
+        except GistFailure as failure:
+            raise HTTPException(status_code=failure.status, detail=failure.detail()) from failure
+
+    def _claim_error(exc: Exception) -> HTTPException:
+        return HTTPException(status_code=400, detail=str(exc))
+
+    @app.get("/api/claims/gists/{gist_id}/comments", response_model=list[GistComment])
+    async def claim_comments(gist_id: str, page: int = 1) -> list[GistComment]:
+        return [GistComment(**row) for row in await _github(gists.comments(gist_id, page))]
+
+    @app.get("/api/claims/gists/{gist_id}/comments/{comment_id}", response_model=GistComment)
+    async def claim_comment(gist_id: str, comment_id: str) -> GistComment:
+        row = await _github(gists.comment(gist_id, comment_id))
+        if row is None:
+            raise HTTPException(status_code=404, detail={"kind": "not_found", "message": "this comment is gone"})
+        return GistComment(**row)
+
+    # After the /comments routes: a revision segment would otherwise swallow 'comments'.
+    @app.get("/api/claims/gists/{gist_id}/{revision}", response_model=GistClaim)
+    async def claim_gist(gist_id: str, revision: str) -> GistClaim:
+        return GistClaim(**await _github(gists.claim(gist_id, revision)))
+
+    @app.post("/api/claims/gists", response_model=CreatedGist)
+    async def create_claim_gist(body: CreateClaimGist) -> CreatedGist:
+        try:
+            check = service.check_claim(body.claim)
+        except (ClaimError, ArenaError) as exc:
+            raise _claim_error(exc) from exc
+        description = f"llm_arena claim · {check.claim.scenario} v{check.claim.scenario_version}"
+        return CreatedGist(**await _github(gists.create(body.claim, description)))
+
+    @app.post("/api/claims/gists/{gist_id}/comments", response_model=GistComment)
+    async def post_claim_comment(gist_id: str, body: PostComment) -> GistComment:
+        # Only a reproduction block, exactly as the engine writes it: the token can't be used for anything else.
+        repro = parse_repro(body.body)
+        if repro is None or isinstance(repro, str) or repro_comment(repro) != body.body.strip():
+            raise HTTPException(status_code=400, detail="only a reproduction block can be posted")
+        return GistComment(**await _github(gists.post_comment(gist_id, body.body.strip())))
+
+    @app.post("/api/claims/check", response_model=ClaimCheck)
+    def claim_check(body: CreateClaimGist) -> ClaimCheck:
+        try:
+            return service.check_claim(body.claim)
+        except (ClaimError, ArenaError) as exc:
+            raise _claim_error(exc) from exc
+
+    @app.post("/api/claims/experiment", response_model=ExperimentConfig)
+    def claim_run_config(body: ClaimExperimentRequest) -> ExperimentConfig:
+        try:
+            return service.claim_experiment(
+                body.claim, local=body.local, swap=body.swap, cap_usd=body.cap_usd,
+                gist=(body.gist_id, body.revision) if body.gist_id and body.revision else None,
+                declared_names=body.declared_names, judge_local=body.judge_local,
+            )  # fmt: skip
+        except (ClaimError, ArenaError, ValidationError) as exc:
+            raise _claim_error(exc) from exc
+
+    @app.post("/api/claims/candidates", response_model=list[Candidate])
+    async def claim_candidates(body: CandidatesRequest) -> list[Candidate]:
+        try:
+            rows = await service.claim_candidates(body.claim, body.role, body.names)
+        except (ClaimError, ArenaError) as exc:
+            raise _claim_error(exc) from exc
+        return [Candidate(ref=ref, problem=problem) for ref, problem in rows]
+
+    @app.post("/api/claims/thread", response_model=TrustStats)
+    def claim_thread(body: ThreadRequest) -> TrustStats:
+        try:
+            return service.claim_thread(body.claim, body.comments, author=body.author, total=body.total,
+                                        engine=body.engine)  # fmt: skip
+        except (ClaimError, ArenaError, ValidationError) as exc:
+            raise _claim_error(exc) from exc
+
+    @app.post("/api/runs/{run_id}/claim-draft", response_model=ClaimDraft)
+    def claim_draft(run_id: str, body: ClaimDraftRequest) -> ClaimDraft:
+        _require_run(runs_dir, run_id)
+        return service.claim_draft(service.store_factory(run_id).load_run(), body.names, config=body.config)
+
+    @app.post("/api/runs/{run_id}/repro-draft", response_model=ReproDraft)
+    def repro_draft(run_id: str, body: ReproDraftRequest) -> ReproDraft:
+        _require_run(runs_dir, run_id)
+        try:
+            return service.repro_draft(service.store_factory(run_id).load_run(), body.claim, body.seen)
+        except (ClaimError, ArenaError) as exc:
+            raise _claim_error(exc) from exc
 
     @app.middleware("http")
     async def cache_policy(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:

@@ -1,0 +1,224 @@
+{
+  "$defs": {
+    "ThreadRow": {
+      "properties": {
+        "baseline_cost_usd_per_task": {
+          "default": 0.0,
+          "title": "Baseline Cost Usd Per Task",
+          "type": "number"
+        },
+        "baseline_passed": {
+          "default": 0,
+          "title": "Baseline Passed",
+          "type": "integer"
+        },
+        "baseline_trials": {
+          "default": 0,
+          "title": "Baseline Trials",
+          "type": "integer"
+        },
+        "comment_id": {
+          "title": "Comment Id",
+          "type": "integer"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "engine": {
+          "anyOf": [
+            {
+              "enum": [
+                "pages",
+                "local"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Engine"
+        },
+        "reason": {
+          "default": "",
+          "title": "Reason",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "counted",
+            "author",
+            "superseded",
+            "rejected",
+            "edited",
+            "filtered"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "user": {
+          "title": "User",
+          "type": "string"
+        },
+        "variant_cost_usd_per_task": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant Cost Usd Per Task"
+        },
+        "variant_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant Model"
+        },
+        "variant_passed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant Passed"
+        },
+        "variant_role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant Role"
+        }
+      },
+      "required": [
+        "comment_id",
+        "user",
+        "created_at",
+        "status"
+      ],
+      "title": "ThreadRow",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "above_interval": {
+      "default": false,
+      "description": "claimed rate above the pooled interval (≥3 people)",
+      "title": "Above Interval",
+      "type": "boolean"
+    },
+    "hidden": {
+      "description": "comments without a reproduction block",
+      "title": "Hidden",
+      "type": "integer"
+    },
+    "high": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "High"
+    },
+    "loaded": {
+      "default": 0,
+      "title": "Loaded",
+      "type": "integer"
+    },
+    "low": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Low"
+    },
+    "partial": {
+      "default": false,
+      "description": "only the first `loaded` of `total` comments were read",
+      "title": "Partial",
+      "type": "boolean"
+    },
+    "passed": {
+      "default": 0,
+      "title": "Passed",
+      "type": "integer"
+    },
+    "people": {
+      "description": "distinct non-author reproducers counted",
+      "title": "People",
+      "type": "integer"
+    },
+    "rate": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rate"
+    },
+    "removed": {
+      "default": 0,
+      "description": "reproductions referenced by later ones but gone from the thread",
+      "title": "Removed",
+      "type": "integer"
+    },
+    "rows": {
+      "items": {
+        "$ref": "#/$defs/ThreadRow"
+      },
+      "title": "Rows",
+      "type": "array"
+    },
+    "total": {
+      "default": 0,
+      "title": "Total",
+      "type": "integer"
+    },
+    "trials": {
+      "default": 0,
+      "title": "Trials",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "rows",
+    "hidden",
+    "people"
+  ],
+  "title": "TrustStats",
+  "type": "object"
+}

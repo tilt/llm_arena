@@ -1,0 +1,356 @@
+{
+  "$defs": {
+    "ClaimRole": {
+      "additionalProperties": false,
+      "description": "A role's model as it travels: the call settings of `runner.fingerprint.SPEC_FIELDS`, no endpoint fields.",
+      "properties": {
+        "backend": {
+          "const": "auto",
+          "default": "auto",
+          "title": "Backend",
+          "type": "string"
+        },
+        "max_tokens": {
+          "anyOf": [
+            {
+              "maximum": 1000000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Tokens"
+        },
+        "model": {
+          "description": "the provider's model id, or a self-hosted model's declared 'compare as' name",
+          "title": "Model",
+          "type": "string"
+        },
+        "provider": {
+          "enum": [
+            "openai",
+            "anthropic",
+            "self_hosted"
+          ],
+          "title": "Provider",
+          "type": "string"
+        },
+        "reasoning_effort": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "minimal",
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reasoning Effort"
+        },
+        "temperature": {
+          "anyOf": [
+            {
+              "maximum": 2,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.2,
+          "title": "Temperature"
+        },
+        "tool_mode": {
+          "default": "native",
+          "enum": [
+            "native",
+            "json"
+          ],
+          "title": "Tool Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "model"
+      ],
+      "title": "ClaimRole",
+      "type": "object"
+    },
+    "ClaimSetup": {
+      "additionalProperties": false,
+      "properties": {
+        "decisions": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Decisions"
+        },
+        "params": {
+          "additionalProperties": true,
+          "maxProperties": 32,
+          "title": "Params",
+          "type": "object"
+        },
+        "roles": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ClaimRole"
+          },
+          "maxProperties": 16,
+          "minProperties": 1,
+          "title": "Roles",
+          "type": "object"
+        }
+      },
+      "required": [
+        "roles"
+      ],
+      "title": "ClaimSetup",
+      "type": "object"
+    },
+    "PerTask": {
+      "additionalProperties": false,
+      "properties": {
+        "b": {
+          "minimum": 0,
+          "title": "B",
+          "type": "integer"
+        },
+        "v": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "V"
+        }
+      },
+      "required": [
+        "b"
+      ],
+      "title": "PerTask",
+      "type": "object"
+    },
+    "ReproSide": {
+      "additionalProperties": false,
+      "properties": {
+        "budget_stopped": {
+          "minimum": 0,
+          "title": "Budget Stopped",
+          "type": "integer"
+        },
+        "cost_usd_per_task": {
+          "minimum": 0,
+          "title": "Cost Usd Per Task",
+          "type": "number"
+        },
+        "errors": {
+          "minimum": 0,
+          "title": "Errors",
+          "type": "integer"
+        },
+        "passed": {
+          "minimum": 0,
+          "title": "Passed",
+          "type": "integer"
+        },
+        "setup_fp": {
+          "pattern": "^[0-9a-f]{12}$",
+          "title": "Setup Fp",
+          "type": "string"
+        },
+        "timeouts": {
+          "minimum": 0,
+          "title": "Timeouts",
+          "type": "integer"
+        },
+        "trials": {
+          "minimum": 0,
+          "title": "Trials",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "setup_fp",
+        "passed",
+        "trials",
+        "errors",
+        "timeouts",
+        "budget_stopped",
+        "cost_usd_per_task"
+      ],
+      "title": "ReproSide",
+      "type": "object"
+    },
+    "ReproVariant": {
+      "additionalProperties": false,
+      "properties": {
+        "budget_stopped": {
+          "minimum": 0,
+          "title": "Budget Stopped",
+          "type": "integer"
+        },
+        "cost_usd_per_task": {
+          "minimum": 0,
+          "title": "Cost Usd Per Task",
+          "type": "number"
+        },
+        "errors": {
+          "minimum": 0,
+          "title": "Errors",
+          "type": "integer"
+        },
+        "passed": {
+          "minimum": 0,
+          "title": "Passed",
+          "type": "integer"
+        },
+        "setup": {
+          "$ref": "#/$defs/ClaimSetup"
+        },
+        "setup_fp": {
+          "pattern": "^[0-9a-f]{12}$",
+          "title": "Setup Fp",
+          "type": "string"
+        },
+        "timeouts": {
+          "minimum": 0,
+          "title": "Timeouts",
+          "type": "integer"
+        },
+        "trials": {
+          "minimum": 0,
+          "title": "Trials",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "setup_fp",
+        "passed",
+        "trials",
+        "errors",
+        "timeouts",
+        "budget_stopped",
+        "cost_usd_per_task",
+        "setup"
+      ],
+      "title": "ReproVariant",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "arena_repro": {
+      "const": 1,
+      "title": "Arena Repro",
+      "type": "integer"
+    },
+    "arena_version": {
+      "maxLength": 40,
+      "title": "Arena Version",
+      "type": "string"
+    },
+    "baseline": {
+      "$ref": "#/$defs/ReproSide"
+    },
+    "claim_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Claim Hash",
+      "type": "string"
+    },
+    "engine": {
+      "enum": [
+        "pages",
+        "local"
+      ],
+      "title": "Engine",
+      "type": "string"
+    },
+    "judge": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ClaimRole"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "per_task": {
+      "items": {
+        "$ref": "#/$defs/PerTask"
+      },
+      "maxItems": 500,
+      "title": "Per Task",
+      "type": "array"
+    },
+    "scenario_version": {
+      "maxLength": 16,
+      "title": "Scenario Version",
+      "type": "string"
+    },
+    "seen": {
+      "description": "comment ids counted at post time",
+      "items": {
+        "type": "integer"
+      },
+      "maxItems": 300,
+      "title": "Seen",
+      "type": "array"
+    },
+    "task_fps_hash": {
+      "pattern": "^[0-9a-f]{12}$",
+      "title": "Task Fps Hash",
+      "type": "string"
+    },
+    "variant": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReproVariant"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "arena_repro",
+    "claim_hash",
+    "scenario_version",
+    "task_fps_hash",
+    "baseline",
+    "per_task",
+    "engine",
+    "arena_version"
+  ],
+  "title": "Repro",
+  "type": "object"
+}

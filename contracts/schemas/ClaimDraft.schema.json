@@ -1,0 +1,46 @@
+{
+  "description": "What Share as claim would publish (`claim_json`, its hash), or every reason it can't, in plain words.",
+  "properties": {
+    "claim_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Claim Hash"
+    },
+    "claim_json": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Claim Json"
+    },
+    "reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reasons",
+      "type": "array"
+    },
+    "self_hosted": {
+      "description": "local models that need a 'compare as' name",
+      "items": {
+        "type": "string"
+      },
+      "title": "Self Hosted",
+      "type": "array"
+    }
+  },
+  "title": "ClaimDraft",
+  "type": "object"
+}

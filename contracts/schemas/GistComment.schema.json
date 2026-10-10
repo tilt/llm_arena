@@ -1,0 +1,52 @@
+{
+  "$defs": {
+    "GistUser": {
+      "properties": {
+        "login": {
+          "title": "Login",
+          "type": "string"
+        }
+      },
+      "required": [
+        "login"
+      ],
+      "title": "GistUser",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "body": {
+      "title": "Body",
+      "type": "string"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    },
+    "html_url": {
+      "default": "",
+      "title": "Html Url",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "integer"
+    },
+    "updated_at": {
+      "title": "Updated At",
+      "type": "string"
+    },
+    "user": {
+      "$ref": "#/$defs/GistUser"
+    }
+  },
+  "required": [
+    "id",
+    "user",
+    "created_at",
+    "updated_at",
+    "body"
+  ],
+  "title": "GistComment",
+  "type": "object"
+}

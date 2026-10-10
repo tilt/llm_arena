@@ -10,17 +10,37 @@ from __future__ import annotations
 
 import asyncio
 import base64
-from collections.abc import Callable, Iterable
+import json
+from collections.abc import Callable, Iterable, Mapping
+from datetime import UTC, datetime
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field
 
+from llm_arena.claims import (
+    ClaimCheck,
+    ClaimDraft,
+    ClaimError,
+    Engine,
+    ReproDraft,
+    Swap,
+    TrustStats,
+    candidate_problem,
+    check_claim,
+    claim_experiment,
+    claim_from_run,
+    portable_spec,
+    repro_from_run,
+    trust_stats,
+)
 from llm_arena.core.errors import ConfigError, RunConflictError, RunLimitError
 from llm_arena.decisions.config import SERVICES
 from llm_arena.decisions.records import DecisionSummary
 from llm_arena.llm.catalog import Catalog
 from llm_arena.llm.pricing import known_price, price_per_mtok
+from llm_arena.llm.registry import resolve_model
 from llm_arena.llm.spec import ModelSpec
 from llm_arena.report.aggregate import ConfigSummary, PairedTest, ReplacementEffect, credited, summarize
 from llm_arena.report.leaderboard import Leaderboard, build_leaderboards
@@ -35,6 +55,10 @@ from llm_arena.scenarios.base import SCENARIOS, get_scenario
 from llm_arena.scenarios.brief import TaskView
 from llm_arena.scenarios.manifest import ScenarioManifest
 
+try:
+    ARENA_VERSION = version("llm_arena")
+except PackageNotFoundError:  # running from a source tree without installed metadata
+    ARENA_VERSION = "0.0.0"
 JUDGE_TOKENS_PER_TRIAL = 1500  # rubric judging; a rough allowance for the estimate
 MAX_ACTIVE_RUNS = 4
 
@@ -318,6 +342,86 @@ class ArenaService:
             sink=sink,
             presets=self.presets,
         )
+
+    # ---- shareable claims (see llm_arena/claims.py) ---------------------------------------------------------------
+    @property
+    def engine(self) -> Engine:
+        return "pages" if self.runtime.name == "browser" else "local"
+
+    def check_claim(self, text: str) -> ClaimCheck:
+        return check_claim(text)
+
+    def claim_draft(self, data: RunData, names: Mapping[str, str], *, config: str | None = None) -> ClaimDraft:
+        """What Share as claim would publish for this run, or every reason it can't (nothing is published here)."""
+        data = credited(data)
+        experiment = json.loads(data.run.get("config_json") or "{}")
+        judge = self._resolve(str(experiment["judge"])) if experiment.get("judge") else None
+        return claim_from_run(
+            data, names, engine=self.engine, made_at=datetime.now(UTC).isoformat(timespec="seconds"),
+            arena_version=ARENA_VERSION, config=config, judge=judge,
+        )  # fmt: skip
+
+    def repro_draft(self, data: RunData, claim: str, seen: Iterable[int] = ()) -> ReproDraft:
+        return repro_from_run(credited(data), check_claim(claim), engine=self.engine, arena_version=ARENA_VERSION,
+                              seen=seen)  # fmt: skip
+
+    def claim_experiment(
+        self,
+        claim: str,
+        *,
+        local: Mapping[str, str],
+        swap: Swap | None,
+        cap_usd: float | None,
+        gist: tuple[str, str] | None,
+        declared_names: Mapping[str, str],
+        judge_local: str | None = None,
+    ) -> ExperimentConfig:
+        """The Beat-this run for a claim. A candidate the engine would refuse never reaches a (paid) run."""
+        check = check_claim(claim)
+        if swap is not None and swap.role is not None and swap.candidate is not None:
+            spec = self._resolve(swap.candidate)
+            problem = candidate_problem(check, swap.role, spec, engine=self.engine, names=declared_names)
+            if problem:
+                raise ClaimError(f"{swap.candidate}: {problem}")
+        experiment = claim_experiment(check, local=local, swap=swap, cap_usd=cap_usd, gist=gist,
+                                      declared_names=declared_names, judge_local=judge_local)  # fmt: skip
+        # Before anyone pays: the claimed roles must resolve here to exactly the claim's settings.
+        claimed = experiment.configs[0]
+        for role, expected in check.claim.setup.roles.items():
+            try:
+                actual = portable_spec(self._resolve(claimed.roles[role]), declared_names)
+            except ClaimError as exc:
+                raise ClaimError(f"{role}: {exc}") from exc
+            if actual != expected:
+                fields = [f for f in expected.model_fields if getattr(actual, f) != getattr(expected, f)]
+                raise ClaimError(f"Your models resolve differently from the claim: {role} {', '.join(fields)}")
+        return experiment
+
+    async def claim_candidates(self, claim: str, role: str, names: Mapping[str, str]) -> list[tuple[str, str | None]]:
+        """Every discovered model with why it can't be `role`'s Beat-this candidate (None: it can)."""
+        check = check_claim(claim)
+        catalog = await self.catalog()
+        return [
+            (entry.ref, candidate_problem(check, role, entry.spec, engine=self.engine, names=names))
+            for entry in catalog.filter()
+        ]
+
+    def claim_thread(
+        self,
+        claim: str,
+        comments: Iterable[Mapping[str, Any]],
+        *,
+        author: str,
+        total: int | None = None,
+        engine: Engine | None = None,
+    ) -> TrustStats:
+        return trust_stats(check_claim(claim), comments, author=author, total=total, engine=engine)
+
+    def _resolve(self, ref: str) -> ModelSpec:
+        try:
+            return resolve_model(ref, self.model_specs, self._catalog.specs() if self._catalog else None)
+        except KeyError as exc:
+            raise ConfigError(str(exc)) from exc
 
     def save_preset(self, name: str, profile: ModelPreset | None) -> dict[str, ModelPreset]:
         """Create, change or (None) reset a profile; persisted in the local override file."""

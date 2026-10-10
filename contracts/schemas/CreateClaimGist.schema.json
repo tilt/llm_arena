@@ -1,0 +1,15 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "claim": {
+      "maxLength": 262144,
+      "title": "Claim",
+      "type": "string"
+    }
+  },
+  "required": [
+    "claim"
+  ],
+  "title": "CreateClaimGist",
+  "type": "object"
+}

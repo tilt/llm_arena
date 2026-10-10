@@ -1,0 +1,29 @@
+{
+  "additionalProperties": false,
+  "description": "Share as claim: the \"compare as\" names for the run's self-hosted models; `config` picks one setup of a\nBeat-this run (Share my variant).",
+  "properties": {
+    "config": {
+      "anyOf": [
+        {
+          "maxLength": 200,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Config"
+    },
+    "names": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "maxProperties": 32,
+      "title": "Names",
+      "type": "object"
+    }
+  },
+  "title": "ClaimDraftRequest",
+  "type": "object"
+}

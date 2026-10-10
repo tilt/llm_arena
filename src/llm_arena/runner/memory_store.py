@@ -48,6 +48,7 @@ def trial_row(run_id: str, record: TrialRecord) -> dict[str, Any]:
         "execution_json": json.dumps(record.execution, sort_keys=True),
         "credit": record.credit,
         "criteria_json": json.dumps(record.criteria),
+        "unpriced_json": json.dumps(record.unpriced),
     }
 
 
