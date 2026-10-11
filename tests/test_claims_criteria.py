@@ -84,3 +84,14 @@ async def test_unset_post_v1_fields_stay_out_of_published_bytes() -> None:
     claim = payload(check.claim)
     claim["result"].pop("criteria")
     assert "criteria" not in payload(check_claim(canonical(claim)).claim)["result"]
+
+
+def test_the_task_level_interval_counts_each_task_once() -> None:
+    from llm_arena.claims import task_interval, wilson  # noqa: PLC0415
+
+    small = task_interval([1.0] * 11)  # 11 of 11 tasks
+    large = task_interval([1.0] * 95 + [0.0] * 5)  # 95 of 100 tasks
+    assert small[0] == 1.0 and round(small[1], 2) == 0.74
+    assert large[1] > small[1]  # the larger sample ranks higher on its low end
+    assert task_interval([0.5, 0.5]) == (0.5, *wilson(1, 2))
+    assert task_interval([]) == (0.0, 0.0, 1.0)

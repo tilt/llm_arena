@@ -70,6 +70,9 @@ class RoleManifest(BaseModel):
     kind: Literal["text", "vision", "code", "agent", "decision"] = Field(
         default="text", description="what the role does, for baseline profiles: text, vision, code, agent, decision"
     )
+    skill: Literal["writing", "critique", "planning"] | None = Field(
+        default=None, description="for text roles: what the output is judged as (claims board role groups)"
+    )
 
 
 class ParamManifest(BaseModel):

@@ -79,8 +79,8 @@ class ResearchReport(Scenario):
     description = "Research with search tools, write a cited report, review and revise it."
     roles = [
         RoleRequirement("researcher", "searches and reads sources", kind="agent"),
-        RoleRequirement("writer", "writes and revises the cited report", fallback="researcher"),
-        RoleRequirement("reviewer", "critiques the report against its sources", fallback="writer"),
+        RoleRequirement("writer", "writes and revises the cited report", fallback="researcher", skill="writing"),
+        RoleRequirement("reviewer", "critiques the report against its sources", fallback="writer", skill="critique"),
     ]
     default_params = {
         "max_turns": 8,

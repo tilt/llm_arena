@@ -47,14 +47,16 @@
       "fallback": null,
       "kind": "text",
       "name": "writer",
-      "needs": []
+      "needs": [],
+      "skill": "writing"
     },
     {
       "description": "reviews drafts against the brief",
       "fallback": "writer",
       "kind": "text",
       "name": "critic",
-      "needs": []
+      "needs": [],
+      "skill": "critique"
     }
   ],
   "supports_decisions": false,

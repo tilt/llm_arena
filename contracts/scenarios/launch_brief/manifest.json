@@ -64,28 +64,32 @@
       "fallback": null,
       "kind": "agent",
       "name": "orchestrator",
-      "needs": []
+      "needs": [],
+      "skill": null
     },
     {
       "description": "finds market trends",
       "fallback": "orchestrator",
       "kind": "agent",
       "name": "researcher",
-      "needs": []
+      "needs": [],
+      "skill": null
     },
     {
       "description": "picks the product from the catalog",
       "fallback": "orchestrator",
       "kind": "agent",
       "name": "analyst",
-      "needs": []
+      "needs": [],
+      "skill": null
     },
     {
       "description": "writes headline and tagline",
       "fallback": "orchestrator",
       "kind": "text",
       "name": "copywriter",
-      "needs": []
+      "needs": [],
+      "skill": "writing"
     }
   ],
   "supports_decisions": false,

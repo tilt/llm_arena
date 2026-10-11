@@ -55,14 +55,16 @@
       "fallback": null,
       "kind": "code",
       "name": "generator",
-      "needs": []
+      "needs": [],
+      "skill": null
     },
     {
       "description": "reviews the query",
       "fallback": "generator",
       "kind": "text",
       "name": "critic",
-      "needs": []
+      "needs": [],
+      "skill": "critique"
     }
   ],
   "supports_decisions": false,

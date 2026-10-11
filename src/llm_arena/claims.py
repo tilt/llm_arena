@@ -958,15 +958,36 @@ class TrustStats(BaseModel):
     removed: int = Field(default=0, description="reproductions referenced by later ones but gone from the thread")
 
 
-def wilson(passed: int, trials: int, z: float = 1.959964) -> tuple[float, float]:
-    """95% Wilson score interval of a pass rate."""
+def wilson(passed: float, trials: int, z: float = 1.959964) -> tuple[float, float]:
+    """95% Wilson score interval of a pass rate (`passed` may be fractional: a mean of per-task shares × trials)."""
     if trials <= 0:
         return 0.0, 1.0
-    p = passed / trials
+    p = min(1.0, max(0.0, passed / trials))
     denominator = 1 + z * z / trials
     centre = (p + z * z / (2 * trials)) / denominator
     margin = z * math.sqrt(p * (1 - p) / trials + z * z / (4 * trials * trials)) / denominator
     return max(0.0, centre - margin), min(1.0, centre + margin)
+
+
+def task_shares(claim: Claim, repros: Iterable[Repro]) -> list[float]:
+    """Each task's pass share: from the reproductions' per-task counts when there are any (pooled over people),
+    else the claim's own rate for every task, since a claim carries no per-task counts."""
+    pooled = list(repros)
+    if not pooled:
+        return [claim.result.pass_rate] * len(claim.tasks)
+    per_person = claim.repeats
+    return [sum(r.per_task[i].b for r in pooled) / (per_person * len(pooled)) for i in range(len(claim.tasks))]
+
+
+def task_interval(shares: list[float], z: float = 1.959964) -> tuple[float, float, float]:
+    """Rate and 95% Wilson interval over tasks: every task counts once, however many repeats or reproducers ran
+    it, so repeats can't buy a narrower interval (claims board R1-10). Returns (rate, low, high)."""
+    n = len(shares)
+    if n == 0:
+        return 0.0, 0.0, 1.0
+    rate = sum(shares) / n
+    low, high = wilson(rate * n, n, z)
+    return rate, low, high
 
 
 def parse_repro(body: str) -> Repro | None | str:

@@ -65,14 +65,16 @@
       "fallback": null,
       "kind": "text",
       "name": "planner",
-      "needs": []
+      "needs": [],
+      "skill": "planning"
     },
     {
       "description": "executes plan steps with the booking tools",
       "fallback": "planner",
       "kind": "agent",
       "name": "executor",
-      "needs": []
+      "needs": [],
+      "skill": null
     }
   ],
   "supports_decisions": false,

@@ -1484,6 +1484,10 @@ export interface RoleManifest {
    * capabilities the bound model must have
    */
   needs?: string[];
+  /**
+   * for text roles: what the output is judged as (claims board role groups)
+   */
+  skill?: ("writing" | "critique" | "planning") | null;
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema

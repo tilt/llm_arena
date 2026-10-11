@@ -202,7 +202,7 @@ class LaunchBrief(Scenario):
         RoleRequirement("orchestrator", "delegates and composes the brief", kind="agent"),
         RoleRequirement("researcher", "finds market trends", fallback="orchestrator", kind="agent"),
         RoleRequirement("analyst", "picks the product from the catalog", fallback="orchestrator", kind="agent"),
-        RoleRequirement("copywriter", "writes headline and tagline", fallback="orchestrator"),
+        RoleRequirement("copywriter", "writes headline and tagline", fallback="orchestrator", skill="writing"),
     ]
     default_params = {
         "mode": "multi_agent",

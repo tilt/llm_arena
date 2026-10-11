@@ -48,7 +48,8 @@
       "fallback": null,
       "kind": "code",
       "name": "agent",
-      "needs": []
+      "needs": [],
+      "skill": null
     }
   ],
   "supports_decisions": false,

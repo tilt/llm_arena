@@ -325,3 +325,14 @@ async def test_data_check_accepts_correct_charts_and_catches_wrong_data() -> Non
             not scores["spec_compliance"].passed
             and "Harbor Array: expected its 12 data points" in scores["spec_compliance"].rationale
         )
+
+
+def test_every_text_role_of_a_pattern_scenario_declares_its_skill() -> None:
+    """The claims board ranks models per job (writing, critique, planning); a new text role must pick one."""
+    from llm_arena.scenarios.base import SCENARIOS, get_scenario  # noqa: PLC0415
+
+    get_scenario("email_assistant")  # importing registers every scenario
+    for name in SCENARIOS:
+        scenario = get_scenario(name)
+        for role in scenario.roles if scenario.kind == "pattern" else ():
+            assert (role.skill is not None) == (role.kind == "text"), f"{name}.{role.name}"

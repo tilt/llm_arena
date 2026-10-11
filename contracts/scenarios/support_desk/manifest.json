@@ -51,7 +51,8 @@
       "fallback": null,
       "kind": "agent",
       "name": "agent",
-      "needs": []
+      "needs": [],
+      "skill": null
     },
     {
       "description": "control policy LLM (policy: llm / cascade)",
@@ -60,7 +61,8 @@
       "name": "decider",
       "needs": [
         "json_schema"
-      ]
+      ],
+      "skill": null
     },
     {
       "description": "cascade fallback LLM for uncertain decisions",
@@ -69,7 +71,8 @@
       "name": "escalation",
       "needs": [
         "json_schema"
-      ]
+      ],
+      "skill": null
     }
   ],
   "supports_decisions": true,
