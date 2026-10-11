@@ -176,3 +176,15 @@ def test_ledger_lines_validate_their_repro() -> None:
         LedgerLine.model_validate({"gist_id": GIST, "claim_hash": "0" * 64, "comment_id": 1, "user_login": "x",
                                    "created_at": "t", "recorded_at": "t", "block_sha256": "0" * 64, "repro": {},
                                    "prev_sha256": "0" * 64})  # fmt: skip
+
+
+def test_a_build_refuses_evidence_changed_since_the_last_build() -> None:
+    registry, claims, chash, fixture = _setup()
+    thread = _thread(chash, fixture, (2, "bob", 7, [1, 1]))
+    first, lines = build(registry, claims, [], {chash: GistState(status="ok", comments=thread, total=1)}, now=NOW)
+    assert (first.ledger_lines, first.registry_entries) == (1, 1)
+    renamed = Registry(entries=[registry.entries[0].model_copy(update={"owner_login": "mallory"})])
+    with pytest.raises(BoardIntegrityError, match="registry no longer matches"):
+        build(renamed, claims, lines, {}, now=NOW, previous=first)
+    with pytest.raises(BoardIntegrityError, match="ledger no longer matches"):
+        build(registry, claims, [], {}, now=NOW, previous=first)

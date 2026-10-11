@@ -28,6 +28,8 @@ from llm_arena.sandbox.base import Sandbox
 app = typer.Typer(help="Evaluate local and remote LLMs on benchmarks and agentic patterns.", no_args_is_help=True)
 models_app = typer.Typer(help="Inspect configured and served models.", no_args_is_help=True)
 app.add_typer(models_app, name="models")
+board_app = typer.Typer(help="Build the public claims board (run by the board workflow).", no_args_is_help=True)
+app.add_typer(board_app, name="board")
 console = Console()
 
 ModelsFile = Annotated[Path, typer.Option("--models", help="Model specs YAML")]
@@ -493,6 +495,56 @@ def providers() -> None:
             name, d.base_url or "(sdk default)", d.base_url_env or "", d.api_key_env or "", str(d.concurrency)
         )
     console.print(table)
+
+
+@board_app.command("run")
+def board_run(
+    data: Annotated[Path, typer.Option(help="A checkout of the board-data branch")],
+    actions: Annotated[Path, typer.Option(help="Where to write the submission answers for `board notify`")],
+    offline: Annotated[
+        bool, typer.Option(help="No GitHub calls: rebuild from the stored evidence (CI dry run)")
+    ] = False,
+) -> None:
+    """Answer-ready submissions, read every listed gist, build board.json and append to the witness ledger."""
+    import os  # noqa: PLC0415
+    from datetime import UTC, datetime  # noqa: PLC0415
+
+    from llm_arena.adapters.server.board_run import BoardData, RunStopped, dump_actions, run  # noqa: PLC0415
+    from llm_arena.adapters.server.gists import GistClient  # noqa: PLC0415
+    from llm_arena.adapters.server.github_issues import IssueClient  # noqa: PLC0415
+    from llm_arena.board import BoardIntegrityError  # noqa: PLC0415
+
+    read_token = os.environ.get("BOARD_READ_TOKEN") or None
+    if not offline and not read_token:
+        console.print("[red]BOARD_READ_TOKEN is not set[/]: the Actions token can't read gists (403). Add a "
+                      "fine-grained token with public read access as the BOARD_READ_TOKEN secret.")  # fmt: skip
+        raise typer.Exit(2)
+    repo, issue_token = os.environ.get("GITHUB_REPOSITORY", ""), os.environ.get("GITHUB_TOKEN") or None
+    issues = IssueClient(lambda: issue_token, repo) if repo and issue_token else None
+    now = datetime.now(UTC).replace(microsecond=0).isoformat()
+    try:
+        result = asyncio.run(run(BoardData(data), GistClient(lambda: read_token), issues, now=now, offline=offline))
+    except (RunStopped, BoardIntegrityError) as exc:
+        console.print(f"[red]board run stopped[/]: {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    actions.write_text(dump_actions(result.actions))
+    console.print(f"board: {result.board.claims} claims, {result.board.reproductions} reproductions recorded "
+                  f"({result.new_lines} new), {len(result.added)} added, {len(result.actions)} submissions answered")  # fmt: skip
+
+
+@board_app.command("notify")
+def board_notify(actions: Annotated[Path, typer.Option(help="The answers `board run` wrote")]) -> None:
+    """Answer and close the submissions a pushed board run decided (run only after the push succeeded)."""
+    import os  # noqa: PLC0415
+
+    from llm_arena.adapters.server.board_run import load_actions, notify  # noqa: PLC0415
+    from llm_arena.adapters.server.github_issues import IssueClient  # noqa: PLC0415
+
+    token = os.environ.get("GITHUB_TOKEN") or None
+    pending = load_actions(actions.read_text() if actions.exists() else "[]")
+    if pending:
+        asyncio.run(notify(pending, IssueClient(lambda: token, os.environ.get("GITHUB_REPOSITORY", ""))))
+    console.print(f"answered {len(pending)} submissions")
 
 
 if __name__ == "__main__":

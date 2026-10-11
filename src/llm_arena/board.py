@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timedelta
 from typing import Any, Literal
@@ -206,6 +207,10 @@ class Board(BaseModel):
     scenarios: list[ScenarioBoard] = Field(default_factory=list)
     overall: dict[Feed, dict[RoleGroup, list[OverallEntry]]] = Field(default_factory=dict)
     delisted: list[Delisted] = Field(default_factory=list)
+    ledger_lines: int = Field(default=0, description="ledger length at this build")
+    ledger_head: str = Field(default=GENESIS, description="hash of the ledger's last line at this build")
+    registry_entries: int = 0
+    registry_head: str = Field(default=GENESIS, description="hash of the registry's entries at this build")
 
 
 # ---- integrity ---------------------------------------------------------------------------------------------------
@@ -237,6 +242,20 @@ def check_cache(registry: Registry, claims: Mapping[str, str]) -> None:
             raise BoardIntegrityError(f"the cached claim {entry.claim_hash[:12]} doesn't parse: {exc}") from exc
         if found != entry.claim_hash:
             raise BoardIntegrityError(f"the cached claim {entry.claim_hash[:12]} doesn't match its hash")
+
+
+def _registry_head(entries: Sequence[RegistryEntry]) -> str:
+    return _sha(canonical([payload(e) for e in entries]))
+
+
+def check_anchor(previous: Board, registry: Registry, ledger: Sequence[LedgerLine]) -> None:
+    """The stored evidence still contains, unchanged, everything the last build recorded (its heads)."""
+    n = previous.ledger_lines
+    if len(ledger) < n or (n and _sha(line_text(ledger[n - 1])) != previous.ledger_head):
+        raise BoardIntegrityError("the ledger no longer matches the last build: recorded reproductions were changed")
+    m = previous.registry_entries
+    if len(registry.entries) < m or (m and _registry_head(registry.entries[:m]) != previous.registry_head):
+        raise BoardIntegrityError("the registry no longer matches the last build: listed claims were changed")
 
 
 def check_evidence(
@@ -475,6 +494,55 @@ def overall(boards: Sequence[ScenarioBoard], feed: Feed) -> dict[RoleGroup, list
     return result
 
 
+# ---- submissions ---------------------------------------------------------------------------------------------------
+SUBMISSION_LABEL = "claim-submission"
+DAILY_LIMIT = 5
+MAX_ATTEMPTS = 3
+_GIST_IN_TEXT = re.compile(r"(?:gist\.github\.com/[A-Za-z0-9-]{1,39}/|claim/gist/|\b)([0-9a-f]{32}|[0-9a-f]{20})\b")
+_REVISION_IN_TEXT = re.compile(r"\b([0-9a-f]{40})\b")
+
+
+class Submission(BaseModel):
+    gist_id: str = Field(pattern=_GIST_ID)
+    revision: str = Field(pattern=_REVISION)
+
+
+def parse_submission(body: str) -> Submission | str:
+    """The gist and pinned revision named in a submission issue (untrusted text), or why it names none."""
+    text = body[:65_536]
+    revision = _REVISION_IN_TEXT.search(text)
+    if revision is None:
+        return "the issue names no claim revision (use Submit to board on the claim page)"
+    gist = _GIST_IN_TEXT.search(text.replace(revision.group(1), " "))
+    if gist is None:
+        return "the issue names no claim gist (use Submit to board on the claim page)"
+    return Submission(gist_id=gist.group(1), revision=revision.group(1))
+
+
+def admit(
+    registry: Registry, claim_text: str, submission: Submission, *, owner_login: str, owner_id: int | None,
+    submitter_id: int | None, issue: int, now: str,
+) -> RegistryEntry | str:  # fmt: skip
+    """A registry entry for a valid submission, or the reason it's refused (the claim's fault, never GitHub's)."""
+    if len(registry.entries) >= MAX_REGISTRY:
+        return f"the board is full ({MAX_REGISTRY} claims); the maintainer has been told"
+    if owner_id is None or submitter_id != owner_id:
+        return "only the gist's owner can submit it to the board"
+    try:
+        check = check_claim(claim_text)
+    except ClaimError as exc:
+        return f"this isn't a valid claim: {exc}"
+    if check.state != "ok":
+        return check.message or "this claim was made on another scenario version"
+    if check.claim_hash in {r.claim_hash for r in registry.removed}:
+        return "this claim was delisted from the board"
+    if check.claim_hash in {e.claim_hash for e in registry.entries}:
+        return "this claim is already on the board"
+    return RegistryEntry(gist_id=submission.gist_id, revision=submission.revision, claim_hash=check.claim_hash,
+                         owner_login=owner_login, owner_id=owner_id, submitted_by_id=submitter_id, issue=issue,
+                         added_at=now)  # fmt: skip
+
+
 # ---- the whole build ---------------------------------------------------------------------------------------------
 def build(
     registry: Registry,
@@ -488,6 +556,8 @@ def build(
     """The board and the ledger lines to append. `threads` is keyed by claim hash; a missing one counts as failed."""
     check_chain(ledger)
     check_cache(registry, claims)
+    if previous is not None:
+        check_anchor(previous, registry, ledger)
     removed = {r.claim_hash: r for r in registry.removed}
     old_rows = {
         r.claim_hash: r
@@ -520,13 +590,17 @@ def build(
     board = Board(
         built_at=now, claims=len(rows), reproductions=len(ledger) + len(new_lines), scenarios=boards,
         overall={feed: overall(boards, feed) for feed in FEEDS}, delisted=delisted,
+        ledger_lines=len(ledger) + len(new_lines),
+        ledger_head=_sha(line_text([*ledger, *new_lines][-1])) if ledger or new_lines else GENESIS,
+        registry_entries=len(registry.entries), registry_head=_registry_head(registry.entries),
     )  # fmt: skip
     return board, new_lines
 
 
 __all__ = [
-    "BOARD_VERSION", "MAX_REGISTRY", "Board", "BoardIntegrityError", "Delisted", "GistState",
+    "BOARD_VERSION", "DAILY_LIMIT", "MAX_ATTEMPTS", "MAX_REGISTRY", "SUBMISSION_LABEL", "Board", "Submission",
+    "admit", "parse_submission", "BoardIntegrityError", "Delisted", "GistState",
     "LedgerLine", "OverallEntry", "Registry", "RegistryEntry", "Removal", "Row", "RowNote", "ScenarioBoard",
-    "build", "check_cache", "check_chain", "check_evidence", "check_grows", "claim_row", "line_text", "overall",
+    "build", "check_anchor", "check_cache", "check_chain", "check_evidence", "check_grows", "claim_row", "line_text", "overall",
     "rank_key", "record", "role_group", "scenario_boards", "used_models",
 ]  # fmt: skip

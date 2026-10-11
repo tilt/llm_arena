@@ -83,6 +83,7 @@ class GistClient:
         self._token = token
         self._transport = transport
         self._timeout_s = timeout_s
+        self.remaining: int | None = None  # X-RateLimit-Remaining of the latest response (the board's budget guard)
 
     # ---- reads ---------------------------------------------------------------------------------------------------
     async def claim(self, gist_id: str, revision: str) -> dict[str, Any]:
@@ -104,6 +105,18 @@ class GistClient:
             "head_revision": str(history[0].get("version") or "") if history else revision,
             "comments": int(head.get("comments") or 0),
             "html_url": str(head.get("html_url") or ""),
+        }
+
+    async def head(self, gist_id: str) -> dict[str, Any]:
+        """The gist's current state in one request: owner, comment count, newest revision (the board's build reads
+        only this plus the comment pages it needs; the claim itself comes from the board's cache)."""
+        head = await self._get(f"{API}/{check_gist_id(gist_id)}")
+        history = head.get("history") or []
+        return {
+            "owner": str((head.get("owner") or {}).get("login") or ""),
+            "owner_id": _account_id(head.get("owner")),
+            "head_revision": str(history[0].get("version") or "") if history else "",
+            "comments": int(head.get("comments") or 0),
         }
 
     async def comments(self, gist_id: str, page: int) -> list[dict[str, Any]]:
@@ -175,6 +188,8 @@ class GistClient:
                 http.stream(method, url, params=params, json=json_body, headers=headers) as response,
             ):
                 data = await _read_capped(response)
+                remaining = response.headers.get("x-ratelimit-remaining", "")
+                self.remaining = int(remaining) if remaining.isdigit() else self.remaining
         except httpx.TimeoutException as exc:
             raise GistFailure("unreachable", "GitHub didn't answer within 10 seconds") from exc
         except httpx.TransportError as exc:
