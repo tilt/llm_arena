@@ -18,6 +18,9 @@ pip install pre-commit && pre-commit install   # secret scanning on every commit
 - If you changed scenarios, schemas or behaviour, run `make contracts` and `cd web && npm run contracts`, and commit
   the regenerated files. The diff shows exactly what other runtimes will see change.
 - If you changed the browser engine, run `make web`, serve `web/dist` and check that `#/selftest` passes.
+- If you changed shareable claims, run `make web`, then `cd web && npm run test:claim`: the claim link, Beat this,
+  post and count loop in Chromium against the built site (it sets `CLAIM_E2E`; GitHub and OpenAI are mocked).
+  `npm run test:isolation` runs only the browser-isolation spec (`isolation.spec.ts`).
 
 ## Rules that matter here
 

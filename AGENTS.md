@@ -21,8 +21,9 @@ the tests pass.
 | `src/llm_arena/scenarios`, `benchmarks` | Tasks + pipeline + evaluators + manifest + fixtures; registered via `@register`. |
 | `src/llm_arena/eval`, `report/aggregate.py` | Scores, metrics, judge, calibration; pure run summaries. |
 | `src/llm_arena/runner`, `service.py` | Orchestration behind ports (`RunStore`, `Runtime`, events, budget) and the `ArenaService` facade. |
+| `src/llm_arena/claims.py` | Shareable claims: schemas, checks, Beat-this experiments, thread statistics. |
 | `src/llm_arena/conformance.py`, `contracts.py` | Conformance cases and the contract exporter (`contracts/`). |
-| `src/llm_arena/adapters/server` | SDK clients, httpx, discovery, subprocess/Docker sandbox, DuckDB, Hub datasets, HTML report, CLI progress. |
+| `src/llm_arena/adapters/server` | SDK clients, httpx, discovery, subprocess/Docker sandbox, DuckDB, Hub datasets, HTML report, CLI progress, GitHub gists (claims). |
 | `src/llm_arena/adapters/browser` | Pyodide fetch transport. |
 | `src/llm_arena/server` | Local app: FastAPI over ArenaService, SSE event channels, session key store. |
 | `src/llm_arena/cli.py` | Typer CLI composing the server runtime (`arena run`, `arena ui`, …). |

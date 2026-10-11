@@ -92,6 +92,10 @@ Details:
   GET  /api/runs/{id}/report               GET /api/runs/{id}/trials/{trial}/trace
   GET  /api/runs/{id}/artifacts/{key}      GET /api/leaderboard
   PATCH /api/runs/{id}                     (rename a finished run and its setups; ids stay)
+  POST /api/runs/{id}/claim-draft          POST /api/runs/{id}/repro-draft
+  POST /api/claims/check   POST /api/claims/experiment   POST /api/claims/candidates   POST /api/claims/thread
+  POST /api/claims/gists   GET /api/claims/gists/{id}/{revision}
+  GET|POST /api/claims/gists/{id}/comments GET /api/claims/gists/{id}/comments/{comment}
   ```
 
 ### Web UI
@@ -211,7 +215,7 @@ local app and CLI; its API does not allow browser calls.
 Turn a finished run into a **claim** others can check: *setup S passes scenario X vN at p% for $c per task*.
 "Share as claim" on the run page publishes it as a public GitHub gist (or, without a token, as a link that carries
 the claim). Anyone who opens the link sees the claim and how often others reproduced it, and can **Beat this**: re-run
-the claimed setup with their own keys next to a copy that swaps one step's model, under a strict spend limit, then post
+the claimed setup with their own keys next to a copy that swaps one step's model, under a strict budget, then post
 the result to the gist's comments. The claimed half counts as a reproduction; the page tallies reproductions from
 people other than the author with a 95% interval.
 
@@ -219,6 +223,11 @@ people other than the author with a 95% interval.
 - Self-hosted models travel under a "compare as" name you declare (e.g. `qwen3-14b`); endpoint names and URLs are
   never shared.
 - Claims pin the judge for judge-graded scenarios and refuse live-only params, so every claim is reproducible.
+- A Beat-this run that can cost money needs a spend limit: a priced model, the judge, the swap candidate or the paid
+  Jev decision service. A run on free models needs none.
+- Posting a gist needs a GitHub token with the Gists permission: pasted on Pages (kept in the tab's memory), or
+  `GITHUB_TOKEN` in `.env` or "GitHub (claims)" under API keys in the local app. There, a missing or refused GitHub
+  token answers 403; a 401 always means the app session ended, and the page asks you to reopen the `arena ui` link.
 - Design and decisions: [docs/designs/shareable-claims.md](docs/designs/shareable-claims.md).
 
 ## Model presets and replacement studies
