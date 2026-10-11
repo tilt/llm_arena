@@ -471,6 +471,12 @@ async def test_a_paid_decision_service_needs_a_spend_limit_too() -> None:
     capped = service.claim_experiment(draft.claim_json, local=roles, swap=jev, cap_usd=0.5, gist=None,
                                       declared_names=names)  # fmt: skip
     assert capped.max_cost_usd == 0.5
+    with pytest.raises(ClaimError, match="decisions"):  # not the canonical form a run records
+        service.claim_experiment(draft.claim_json, local=roles, swap=Swap(decisions={"policy": "jev"}), cap_usd=0.5,
+                                 gist=None, declared_names=names)  # fmt: skip
+    sql = await make_claim()
+    with pytest.raises(ClaimError, match="control policy"):  # reflection_sql has none
+        claim_experiment(sql, local={}, swap=jev, cap_usd=0.5, gist=None, declared_names={})
 
 
 async def test_the_estimate_says_when_a_limit_is_needed() -> None:
