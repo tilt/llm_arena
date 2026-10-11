@@ -230,6 +230,22 @@ people other than the author with a 95% interval.
   token answers 403; a 401 always means the app session ended, and the page asks you to reopen the `arena ui` link.
 - Design and decisions: [docs/designs/shareable-claims.md](docs/designs/shareable-claims.md).
 
+### Claims board
+
+The [claims board](https://tilt.github.io/llm_arena/#/board) lists submitted claims per scenario. Claims that someone
+other than the author reproduced are ranked by the low end of their pass-rate interval (each task counts once), then
+by how many steps worked; unreproduced claims wait in their own list, and a switch merges both. The **Overall** tab
+ranks models across scenarios by role group (tool calling, code, writing, critique, planning, vision, decision) by how
+far their setups are behind the best setup in each scenario.
+
+- Submit a claim with **Submit to board** on its claim page (only the gist's owner can). It opens a prefilled issue;
+  the board workflow checks it and answers within minutes.
+- The board keeps a witness ledger: a reproduction it has recorded still counts, flagged, if the gist's author later
+  deletes or edits it. Reproductions are self-reported; one person with several accounts can still inflate a claim.
+- It rebuilds every 6 hours (`.github/workflows/board.yml`); `arena board run --offline --data DIR --actions FILE`
+  rebuilds from stored evidence without GitHub. Setup for maintainers: [docs/board.md](docs/board.md).
+- Design and decisions: [docs/designs/claims-board.md](docs/designs/claims-board.md).
+
 ## Model presets and replacement studies
 
 A **model preset** gives every step a model by the kind of work it does: text, vision, code, agent or decision.
