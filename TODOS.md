@@ -67,6 +67,71 @@ repro block (`variant` may already be null; this adds the mirror case) and §5 (
 **Priority:** P3
 **Depends on:** shareable claims v1 shipped
 
+### Fewer GitHub requests and a size cap on Pages
+
+**What:** Cut the GitHub requests a claim page and a post make, and cap GitHub response sizes in the browser. Post from
+the run page with a head-only gist read (no re-download of the pinned claim), reuse the thread the claim page just
+loaded, fetch comment pages in parallel, and keep the immutable pinned claim in memory per tab. On Pages, read
+responses as text with a byte cap before parsing (the local proxy already caps at 2 MB).
+
+**Why:** Without a token GitHub allows 60 requests an hour. A post costs up to 6 requests today and every claim view 2-4,
+so active visitors hit the limit. A hostile thread of large comments is parsed in full on Pages.
+
+**Context:** Performance and Codex findings in the /review of the shareable-claims branch (2026-10-10):
+`web/src/lib/claims.ts` (`claim`, `thread`, `direct`), `web/src/components/ClaimBand.svelte` (`post`),
+`src/llm_arena/adapters/server/gists.py` (one `AsyncClient` per request).
+
+**Effort:** S
+**Priority:** P2
+**Depends on:** shareable claims v1 shipped
+
+### Claim page polish from the design review
+
+**What:** Close the design-checklist findings on the claim page:
+- Show the variant's cost change and "(self-declared)" names in reproduction rows (design 7.3, 13.10, 13.11).
+- Hide empty baseline fragments on rejected rows.
+- Name the right provider in "Add a … key" from `keyRows()`, and build the partial-limit line from the run's priced
+  providers.
+- Give ClaimBand an h3 when it is embedded.
+- Move focus back to whichever button asked for a token.
+- Keep one persistent aria-live region for the posted state.
+- Use unframed setup and Beat-this columns on phones (1.1).
+- Give child controls 44 px touch targets.
+- Drop the progress-bar width transition.
+- Show "spent $X of $limit".
+- Show unreachable endpoint catalogs even when no candidate was refused.
+
+**Why:** v1 works end to end, but these differ from `docs/designs/shareable-claims.md` and some hurt screen-reader and
+phone use.
+
+**Context:** Design specialist findings in the /review of the shareable-claims branch (2026-10-10), mostly
+`web/src/views/ClaimView.svelte` and `web/src/components/ClaimBand.svelte`. `/design-review` on the running site can do
+them with screenshots.
+
+**Effort:** M
+**Priority:** P2
+**Depends on:** shareable claims v1 shipped
+
+### Smaller claim follow-ups
+
+**What:**
+- Keep imported run ids within the run-id limit (`importId` can append past 121 characters, and the re-import then
+  fails).
+- Turn pydantic and `ClaimError` messages from the Pages engine into one clean line, as the local app does, instead of
+  the last traceback line.
+- Share the claim size limits (256 KB, 300 comments, 65,536 characters, id patterns) as constants instead of repeating
+  literals across `api.py`, `claims.py`, `gists.py` and `claims.ts`.
+- Make `runner.fingerprint`'s digest and `SPEC_FIELDS` the only source for `claims.py`.
+
+**Why:** Each one is small, but they drift or confuse: an export/import round trip breaks, Pages shows module paths, and
+a changed limit gives 400s in only one layer.
+
+**Context:** API-contract and maintainability findings in the /review of the shareable-claims branch (2026-10-10).
+
+**Effort:** S
+**Priority:** P3
+**Depends on:** shareable claims v1 shipped
+
 ## Leaderboard
 
 ### Leaderboard and resume ignore the judge
