@@ -156,6 +156,19 @@ describe("GitHub plumbing", () => {
     expect(calls.filter((u) => u.includes("comments?page="))).toHaveLength(3);
   });
 
+  it("tells an ended app session apart from a GitHub token problem", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => url.includes("?page=")
+      ? new Response(JSON.stringify({ detail: "Open the link printed by arena ui", auth: "required" }), { status: 401 })
+      : new Response(JSON.stringify({ detail: { kind: "unauthorized", message: "no token", retry_after_s: null } }), { status: 403 })));
+    const dispatchEvent = vi.fn();
+    vi.stubGlobal("window", { dispatchEvent });
+    const gh = new GitHub("local");
+    await expect(gh.comments(id, 1)).rejects.toMatchObject({ kind: "session" });
+    expect(dispatchEvent).toHaveBeenCalledOnce();  // the app's sign-in prompt
+    await expect(gh.post(id, "x")).rejects.toMatchObject({ kind: "unauthorized" });
+    expect(dispatchEvent).toHaveBeenCalledOnce();  // a GitHub token problem is not a session problem
+  });
+
   it("checks ids and the token before any request", async () => {
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
