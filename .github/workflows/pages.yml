@@ -5,6 +5,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  workflow_call:  # from board.yml after a board build
+    inputs:
+      ref:
+        description: the app commit to build (board.yml passes main, so a board deploy never ships an older app)
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -21,6 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -34,6 +41,14 @@ jobs:
         run: cd web && npm ci && npm run build
         env:
           ARENA_BASE: /llm_arena/
+      - name: Add the claims board (board-data may not exist before launch)
+        run: |
+          if git fetch -q --depth=1 origin board-data && git show FETCH_HEAD:board/board.json > web/dist/board.json; then
+            echo "board.json: $(wc -c < web/dist/board.json) bytes"
+          else
+            rm -f web/dist/board.json
+            echo "no board yet"
+          fi
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:

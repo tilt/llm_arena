@@ -77,6 +77,28 @@ jobs:
       - name: Claim link → Beat this → post → counted
         run: cd web && npm run test:claim
 
+  board:
+    # The claims board workflows: lint, the "only board.yml writes board-data" rule, and an offline dry run.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+      - name: actionlint (pinned)
+        run: uvx --from actionlint-py==1.7.12.25 actionlint
+      - name: Only board.yml may push board-data
+        run: |
+          offenders=$(grep -l "board-data" .github/workflows/*.yml | grep -v -e board.yml -e pages.yml -e ci.yml || true)
+          if [ -n "$offenders" ]; then echo "board-data is written only by board.yml: $offenders"; exit 1; fi
+          if grep -n "git push" .github/workflows/pages.yml .github/workflows/ci.yml; then exit 1; fi
+      - name: Dry run without GitHub
+        run: |
+          uv sync --python 3.12
+          mkdir -p "$RUNNER_TEMP/board-data"
+          uv run arena board run --data "$RUNNER_TEMP/board-data" --actions "$RUNNER_TEMP/actions.json" --offline
+          test -s "$RUNNER_TEMP/board-data/board/board.json"
+
   secrets:
     runs-on: ubuntu-latest
     steps:
