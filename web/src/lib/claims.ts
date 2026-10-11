@@ -141,13 +141,14 @@ export class GitHub {
   async claim(id: string, revision: string): Promise<GistClaim> {
     checkIds(id, revision);
     if (this.mode === "local") return this.local(`/api/claims/gists/${id}/${revision}`);
-    const pinned = await this.direct(`${API}/${id}/${revision}`) as { files?: Record<string, { content?: string; truncated?: boolean }>; owner?: { login?: string } };
+    const pinned = await this.direct(`${API}/${id}/${revision}`) as { files?: Record<string, { content?: string; truncated?: boolean }>; owner?: { login?: string; id?: unknown } };
     const head = await this.direct(`${API}/${id}`) as { history?: { version?: string }[]; comments?: number; html_url?: string };
     const file = pinned.files?.["claim.json"];
     if (!file || typeof file.content !== "string") throw new GitHubFailure("not_found", "this gist has no claim.json");
     if (file.truncated) throw new GitHubFailure("invalid", "claim.json is too large to be a claim");
     return {
-      claim: file.content, owner: String(pinned.owner?.login ?? ""), head_revision: String(head.history?.[0]?.version ?? revision),
+      claim: file.content, owner: String(pinned.owner?.login ?? ""), owner_id: accountId(pinned.owner?.id),
+      head_revision: String(head.history?.[0]?.version ?? revision),
       comments: Number(head.comments ?? 0), html_url: String(head.html_url ?? ""),
     };
   }
@@ -260,10 +261,15 @@ export function failureOf(response: { status: number; headers: { get(name: strin
   return new GitHubFailure("invalid", `GitHub refused the request (${status})`);
 }
 
+/** GitHub's numeric account id (it survives renames), or null when missing or malformed. */
+export function accountId(value: unknown): number | null {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : null;
+}
+
 function commentOf(row: unknown): GistComment {
-  const r = (row ?? {}) as { id?: unknown; user?: { login?: unknown }; created_at?: unknown; updated_at?: unknown; body?: unknown; html_url?: unknown };
+  const r = (row ?? {}) as { id?: unknown; user?: { login?: unknown; id?: unknown }; created_at?: unknown; updated_at?: unknown; body?: unknown; html_url?: unknown };
   return {
-    id: Number(r.id ?? 0), user: { login: String(r.user?.login ?? "").slice(0, 100) },
+    id: Number(r.id ?? 0), user: { login: String(r.user?.login ?? "").slice(0, 100), id: accountId(r.user?.id) },
     created_at: String(r.created_at ?? "").slice(0, 40), updated_at: String(r.updated_at ?? "").slice(0, 40),
     body: String(r.body ?? "").slice(0, 65_536), html_url: String(r.html_url ?? "").slice(0, 300),
   };

@@ -6,6 +6,20 @@
       "title": "Author",
       "type": "string"
     },
+    "author_id": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "the gist owner's account id (survives renames)",
+      "title": "Author Id"
+    },
     "claim": {
       "maxLength": 262144,
       "title": "Claim",

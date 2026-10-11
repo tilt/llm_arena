@@ -672,6 +672,10 @@ export interface GistClaim {
   head_revision: string;
   html_url?: string;
   owner: string;
+  /**
+   * the owner's numeric account id
+   */
+  owner_id?: number | null;
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema
@@ -690,6 +694,10 @@ export interface GistComment {
  * via the `definition` "GistUser".
  */
 export interface GistUser {
+  /**
+   * GitHub's numeric account id
+   */
+  id?: number | null;
   login: string;
 }
 /**
@@ -1583,6 +1591,10 @@ export interface Expectation {
  */
 export interface ThreadRequest {
   author: string;
+  /**
+   * the gist owner's account id (survives renames)
+   */
+  author_id?: number | null;
   claim: string;
   /**
    * @maxItems 300

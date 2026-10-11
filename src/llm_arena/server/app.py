@@ -570,8 +570,8 @@ def create_app(
     @app.post("/api/claims/thread", response_model=TrustStats)
     def claim_thread(body: ThreadRequest) -> TrustStats:
         try:
-            return service.claim_thread(body.claim, body.comments, author=body.author, total=body.total,
-                                        engine=body.engine)  # fmt: skip
+            return service.claim_thread(body.claim, body.comments, author=body.author, author_id=body.author_id,
+                                        total=body.total, engine=body.engine)  # fmt: skip
         except (ClaimError, ArenaError, ValidationError) as exc:
             raise _claim_error(exc) from exc
 

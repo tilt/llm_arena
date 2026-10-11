@@ -122,7 +122,7 @@
       const gist = await github.claim(ref.gist_id, ref.revision);
       const comments = await github.thread(ref.gist_id, gist.comments);
       const stats = await app.backend!.claimThread({ claim: claimText, comments: comments as unknown as Record<string, unknown>[],
-        author: gist.owner, total: gist.comments });
+        author: gist.owner, author_id: gist.owner_id ?? null, total: gist.comments });
       const fresh = await app.backend!.reproDraft(runId, { claim: claimText, seen: seenIds(stats.rows) });
       if (!fresh.block) { repro = fresh; return; }
       const comment = await github.post(ref.gist_id, fresh.block);

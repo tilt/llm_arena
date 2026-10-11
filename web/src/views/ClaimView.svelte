@@ -123,7 +123,7 @@
     const current = () => comments === rows && engineFilter === filter && gist === g && claimText === text;
     untrack(() => {
       threadError = "";
-      backend.claimThread({ claim: text, comments: rows as unknown as Record<string, unknown>[], author: g.owner, total: g.comments,
+      backend.claimThread({ claim: text, comments: rows as unknown as Record<string, unknown>[], author: g.owner, author_id: g.owner_id ?? null, total: g.comments,
         engine: filter || null }).then((value) => { if (current()) stats = value; })
         .catch((e) => { if (current()) threadError = e instanceof Error ? e.message : String(e); });
     });

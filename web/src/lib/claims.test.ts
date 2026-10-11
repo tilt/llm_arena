@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  GitHub, GitHubFailure, declaredAs, failureOf, failureText, fromBase64Url, inlineLink, nameProblem, parseClaimHash, postedNote, prefillName,
+  GitHub, GitHubFailure, accountId, declaredAs, failureOf, failureText, fromBase64Url, inlineLink, nameProblem, parseClaimHash, postedNote, prefillName,
   previewOf, savePostedNote, seenIds, suggestName, toBase64Url,
 } from "./claims";
 import type { CatalogItem } from "./backend";
@@ -154,6 +154,17 @@ describe("GitHub plumbing", () => {
     expect(calls.filter((u) => u.includes("comments?page="))).toHaveLength(3);
     expect(await gh.thread(id, 0)).toEqual([]);
     expect(calls.filter((u) => u.includes("comments?page="))).toHaveLength(3);
+  });
+
+  it("keeps GitHub account ids on Pages, so renamed accounts stay one person", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => url.includes("/comments?")
+      ? new Response(JSON.stringify([{ id: 5, user: { login: "bob", id: 7 }, body: "x" }, { id: 6, user: { login: "eve", id: "7" } }]))
+      : new Response(JSON.stringify(url.endsWith(rev)
+        ? { files: { "claim.json": { content: "{}" } }, owner: { login: "alice", id: 42 } } : { comments: 2 }))));
+    const gh = new GitHub("browser");
+    expect((await gh.claim(id, rev)).owner_id).toBe(42);
+    expect((await gh.thread(id, 2)).map((c) => c.user.id)).toEqual([7, null]);
+    expect([accountId(0), accountId(-1), accountId(1.5), accountId(true), accountId(9)]).toEqual([null, null, null, null, 9]);
   });
 
   it("tells an ended app session apart from a GitHub token problem", async () => {

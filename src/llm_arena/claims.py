@@ -826,6 +826,7 @@ class Comment(BaseModel):
 
     id: int
     user: str = Field(max_length=100)
+    user_id: int | None = Field(default=None, description="GitHub's numeric account id; survives renames")
     created_at: str = Field(max_length=40)
     updated_at: str = Field(max_length=40)
     body: str = Field(max_length=65_536)
@@ -834,8 +835,15 @@ class Comment(BaseModel):
     @classmethod
     def _github_shape(cls, data: Any) -> Any:
         if isinstance(data, dict) and isinstance(data.get("user"), dict):
-            data = {**data, "user": str(data["user"].get("login") or "")}
+            user = data["user"]
+            account = user.get("id")
+            data = {**data, "user": str(user.get("login") or ""),
+                    "user_id": account if isinstance(account, int) and account > 0 else None}  # fmt: skip
         return data
+
+    def person(self) -> str:
+        """Who posted it: the account id when GitHub gave one (renames keep it), else the login."""
+        return f"id:{self.user_id}" if self.user_id is not None else f"login:{self.user.lower()}"
 
 
 RowStatus = Literal["counted", "author", "superseded", "rejected", "edited", "filtered"]
@@ -903,11 +911,14 @@ def trust_stats(
     comments: Iterable[Mapping[str, Any]],
     *,
     author: str,
+    author_id: int | None = None,
     total: int | None = None,
     engine: Engine | None = None,
 ) -> TrustStats:
-    """Tally a claim's thread: valid reproductions, latest per GitHub user, the author's own excluded. `total`: how
-    many comments the gist has (more than loaded means a partial thread). `engine`: count one engine only."""
+    """Tally a claim's thread: valid reproductions, latest per GitHub account, the author's own excluded. People are
+    keyed by account id when GitHub gave one, so a rename keeps one person; comments without ids fall back to the
+    login, as in v1. `total`: how many comments the gist has (more than loaded means a partial thread). `engine`:
+    count one engine only."""
     parsed = [Comment.model_validate(dict(c)) for c in comments]
     rows: list[ThreadRow] = []
     hidden = 0
@@ -933,12 +944,14 @@ def trust_stats(
         if engine is not None and repro.engine != engine:
             rows.append(row.model_copy(update={"status": "filtered", "reason": f"ran in {repro.engine}"}))
             continue
-        if comment.user.lower() == author.lower():
+        by_author = (comment.user_id == author_id if author_id is not None and comment.user_id is not None
+                     else comment.user.lower() == author.lower())  # fmt: skip
+        if by_author:
             rows.append(row.model_copy(update={"status": "author"}))
             continue
-        if previous := candidates.get(comment.user.lower()):
+        if previous := candidates.get(comment.person()):
             rows.append(previous.model_copy(update={"status": "superseded", "reason": "a later reproduction counts"}))
-        candidates[comment.user.lower()] = row.model_copy(update={"status": "counted"})
+        candidates[comment.person()] = row.model_copy(update={"status": "counted"})
     rows += candidates.values()
     rows.sort(key=lambda r: (r.created_at, r.comment_id))
     counted = list(candidates.values())

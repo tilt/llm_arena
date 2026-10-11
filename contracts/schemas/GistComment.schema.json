@@ -2,6 +2,19 @@
   "$defs": {
     "GistUser": {
       "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "GitHub's numeric account id",
+          "title": "Id"
+        },
         "login": {
           "title": "Login",
           "type": "string"

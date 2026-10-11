@@ -264,7 +264,12 @@ class BrowserArena:
     def claim_thread(self, request_json: str) -> str:
         body = ThreadRequest.model_validate_json(request_json)
         return self.service.claim_thread(
-            body.claim, body.comments, author=body.author, total=body.total, engine=body.engine
+            body.claim,
+            body.comments,
+            author=body.author,
+            author_id=body.author_id,
+            total=body.total,
+            engine=body.engine,
         ).model_dump_json()
 
     def bundle(self, run_id: str) -> str:
