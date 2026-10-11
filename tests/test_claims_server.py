@@ -188,7 +188,7 @@ def test_posting_without_a_token_is_refused_before_any_request(tmp_path: Path) -
         "per_task": [{"b": 0}], "engine": "local", "arena_version": "0",
     }))  # fmt: skip
     response = app(tmp_path, github).post(f"/api/claims/gists/{GIST}/comments", json={"body": block})
-    assert response.status_code == 401 and github.requests == []
+    assert response.status_code == 403 and response.json()["detail"]["kind"] == "unauthorized" and github.requests == []
     # With a token, the server's GitHub token still posts nothing but the engine's exact block.
     client = app(tmp_path, github, token="ghp_test")
     for body in (block + "\nhttps://evil.example", "buy now\n" + block, block.replace(",", ", ")):

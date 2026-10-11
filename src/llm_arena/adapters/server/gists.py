@@ -45,7 +45,8 @@ class GistFailure(Exception):
 
     @property
     def status(self) -> int:
-        return {"invalid": 400, "not_found": 404, "unauthorized": 401, "throttled": 429, "rate_limited": 429}.get(
+        # 403, not 401, for a missing or refused GitHub token: 401 means the UI session ended (the page re-authenticates).
+        return {"invalid": 400, "not_found": 404, "unauthorized": 403, "throttled": 429, "rate_limited": 429}.get(
             self.kind, 502
         )
 

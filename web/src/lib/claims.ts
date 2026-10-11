@@ -103,7 +103,7 @@ export function previewOf(text: string): ClaimPreview | null {
 }
 
 // ---- GitHub ---------------------------------------------------------------------------------------------------------
-export type GitHubFailureKind = "invalid" | "unreachable" | "server" | "throttled" | "rate_limited" | "not_found" | "unauthorized";
+export type GitHubFailureKind = "invalid" | "unreachable" | "server" | "throttled" | "rate_limited" | "not_found" | "unauthorized" | "session";
 
 export class GitHubFailure extends Error {
   constructor(readonly kind: GitHubFailureKind, message: string, readonly retryAfterS: number | null = null) {
@@ -121,6 +121,7 @@ export function failureText(failure: GitHubFailure): string {
     case "rate_limited": return "GitHub's limit of 60 requests per hour without a token is used up. Add a token, or wait"
       + `${failure.retryAfterS ? ` ${Math.ceil(failure.retryAfterS / 60)} min` : ""}.`;
     case "unauthorized": return "GitHub refused the token. It needs the Gists permission.";
+    case "session": return "Your session with the local app ended. Open the link printed by arena ui again.";
     default: return failure.message;
   }
 }
@@ -213,7 +214,11 @@ export class GitHub {
       const d = detail as { kind: GitHubFailureKind; message?: string; retry_after_s?: number | null };
       throw new GitHubFailure(d.kind, String(d.message ?? d.kind), d.retry_after_s ?? null);
     }
-    throw new GitHubFailure(response.status === 401 ? "unauthorized" : "invalid", typeof detail === "string" ? detail : response.statusText);
+    if (response.status === 401) {  // the UI session, not GitHub (GitHub token problems come back as 403 with a kind)
+      if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("arena-auth-required"));
+      throw new GitHubFailure("session", typeof detail === "string" ? detail : "the session ended");
+    }
+    throw new GitHubFailure("invalid", typeof detail === "string" ? detail : response.statusText);
   }
 
   private async direct(url: string, body?: unknown): Promise<unknown> {
