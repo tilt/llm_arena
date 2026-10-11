@@ -39,6 +39,10 @@ MAX_CLAIM_BYTES = 256 * 1024
 MAX_TASKS = 500
 MAX_REPEATS = 20
 MAX_SEEN = 300
+MAX_CRITERIA = 16
+# Optional fields added after v1. They are left out of the canonical form while unset, so every v1 claim and
+# reproduction keeps its exact bytes and hash (eng review D5).
+_ADDED_FIELDS = frozenset({"criteria", "partial"})
 CLAIMED_CONFIG = "claimed-setup"
 VARIANT_CONFIG_PREFIX = "swap"
 SHARED_PROVIDERS = ("openai", "anthropic")
@@ -96,6 +100,16 @@ class ClaimTask(_Closed):
     fp: str = Field(pattern=r"^[0-9a-f]{8}$")
 
 
+class StepResult(_Closed):
+    """One pass criterion over a run: in how many trials it passed, of those where it gave a verdict."""
+
+    passed: int = Field(ge=0)
+    graded: int = Field(ge=1)
+
+
+Criteria = dict[str, StepResult]
+
+
 class ClaimResult(_Closed):
     passed: int = Field(ge=0)
     trials: int = Field(ge=1)
@@ -104,6 +118,7 @@ class ClaimResult(_Closed):
     cost_usd_per_task: float = Field(ge=0, description="priced roles only")
     unpriced_roles: list[str] = Field(default_factory=list, max_length=16, description="roles whose cost is unknown")
     engine: Engine
+    criteria: Criteria | None = Field(default=None, max_length=MAX_CRITERIA, description="which steps worked")
 
 
 class Claim(_Closed):
@@ -131,6 +146,8 @@ class ReproSide(_Closed):
     timeouts: int = Field(ge=0)
     budget_stopped: int = Field(ge=0)
     cost_usd_per_task: float = Field(ge=0)
+    partial: float | None = Field(default=None, ge=0, le=1, description="mean partial credit over the tasks")
+    criteria: Criteria | None = Field(default=None, max_length=MAX_CRITERIA, description="which steps worked")
 
 
 class ReproVariant(ReproSide):
@@ -161,9 +178,23 @@ def canonical(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
 
 
+def _compact(value: Any) -> Any:
+    """Drop unset fields added after v1, at any depth, so older claims and reproductions keep their bytes."""
+    if isinstance(value, dict):
+        return {k: _compact(v) for k, v in value.items() if not (k in _ADDED_FIELDS and v is None)}
+    if isinstance(value, list):
+        return [_compact(v) for v in value]
+    return value
+
+
+def payload(model: BaseModel) -> dict[str, Any]:
+    """A claim or reproduction as published: JSON-ready, unset post-v1 fields left out."""
+    return _compact(model.model_dump(mode="json"))  # type: ignore[no-any-return]
+
+
 def claim_hash(claim: Claim) -> str:
     """Full-length SHA-256 of the canonical claim, so nobody can grind a free field into a collision."""
-    return hashlib.sha256(canonical(claim.model_dump(mode="json")).encode()).hexdigest()
+    return hashlib.sha256(canonical(payload(claim)).encode()).hexdigest()
 
 
 def task_fps_hash(tasks: Iterable[ClaimTask]) -> str:
@@ -327,6 +358,33 @@ class ClaimCheck(BaseModel):
     uses_judge: bool = False
 
 
+def run_criteria(scenario: Scenario, trial_ids: Iterable[str], scores: Iterable[Mapping[str, Any]]) -> Criteria | None:
+    """Per pass criterion: trials where it passed, of the trials where it gave a verdict (one verdict per trial)."""
+    wanted, ids = set(scenario.pass_criteria), set(trial_ids)
+    verdicts: dict[tuple[str, str], bool] = {}
+    for row in scores:
+        trial, name, passed = row.get("trial_id"), row.get("name"), row.get("passed")
+        if trial in ids and name in wanted and passed is not None:
+            verdicts[(str(trial), str(name))] = bool(passed)
+    counts: dict[str, list[int]] = {}
+    for (_, name), passed in verdicts.items():
+        count = counts.setdefault(name, [0, 0])
+        count[0] += passed
+        count[1] += 1
+    return {name: StepResult(passed=p, graded=g) for name, (p, g) in sorted(counts.items())} or None
+
+
+def criteria_problem(scenario: Scenario, criteria: Criteria | None, trials: int) -> str | None:
+    """Per-step results must name the scenario's pass criteria and fit the trial count."""
+    if criteria is None:
+        return None
+    if unknown := set(criteria) - set(scenario.pass_criteria):
+        return f"{scenario.name} has no pass criteria {sorted(unknown)}"
+    if any(c.passed > c.graded or c.graded > trials for c in criteria.values()):
+        return "per-step results don't fit the number of trials"
+    return None
+
+
 def parse_claim(text: str) -> Claim:
     if len(text.encode()) > MAX_CLAIM_BYTES:
         raise ClaimError("this claim is larger than 256 KB")
@@ -365,6 +423,8 @@ def check_claim(text: str) -> ClaimCheck:
         raise ClaimError("the result does not match the tasks and repeats")
     if abs(result.pass_rate - result.passed / result.trials) > 1e-6:
         raise ClaimError("pass_rate does not match passed / trials")
+    if problem := criteria_problem(scenario, result.criteria, result.trials):
+        raise ClaimError(problem)
     for name, role in claim.setup.roles.items():
         if problem := _price_problem(role, name):
             raise ClaimError(problem)
@@ -513,10 +573,11 @@ def claim_from_run(
             passed=passed, trials=len(trials), pass_rate=round(pass_rate, 6), partial=round(min(1.0, partial), 6),
             cost_usd_per_task=round(cost, 8), engine=engine,
             unpriced_roles=sorted(name for name, role in setup.roles.items() if role.provider == SELF_HOSTED),
+            criteria=run_criteria(scenario, (str(t.get("trial_id")) for t in trials), data.scores),
         ),
         made_at=made_at, arena_version=arena_version, parent_claim_hash=parent,
     )  # fmt: skip
-    text = canonical(claim.model_dump(mode="json"))
+    text = canonical(payload(claim))
     return ClaimDraft(claim_json=text, claim_hash=claim_hash(claim), self_hosted=local)
 
 
@@ -655,7 +716,7 @@ class ReproDraft(BaseModel):
 
 
 def repro_comment(repro: Repro) -> str:
-    return f"```{REPRO_FENCE}\n{canonical(repro.model_dump(mode='json'))}\n```"
+    return f"```{REPRO_FENCE}\n{canonical(payload(repro))}\n```"
 
 
 def repro_from_run(
@@ -693,7 +754,8 @@ def repro_from_run(
     if run_judge != claim.judge:
         reasons.append("it was graded by a different judge than the claim")
     tasks = [task.id for task in claim.tasks]
-    baseline, b_counts = _side(by_config[base_name], tasks, claim.repeats, claim.setup_fp)
+    scenario = _scenario(claim.scenario)
+    baseline, b_counts = _side(by_config[base_name], tasks, claim.repeats, claim.setup_fp, scenario, data.scores)
     variant: ReproVariant | None = None
     v_counts: list[int | None] = [None] * len(tasks)
     if variant_name is not None:
@@ -701,7 +763,9 @@ def repro_from_run(
             setup = portable_setup(_setup(by_config[variant_name][0]), names)
         except ClaimError as exc:
             return ReproDraft(reasons=[f"the variant can't be shared: {exc}"])
-        variant_side, counts = _side(by_config[variant_name], tasks, claim.repeats, setup_fingerprint(setup))
+        variant_side, counts = _side(
+            by_config[variant_name], tasks, claim.repeats, setup_fingerprint(setup), scenario, data.scores
+        )
         variant = ReproVariant(**variant_side.model_dump(), setup=setup)
         v_counts = list(counts)
     sides: list[tuple[str, ReproSide]] = [("claimed setup", baseline)] + ([("variant", variant)] if variant else [])
@@ -748,9 +812,18 @@ def _judge_from_ref(ref: str, names: Mapping[str, str]) -> ClaimRole | None:
         return None
 
 
-def _side(rows: list[dict[str, Any]], tasks: list[str], repeats: int, setup_fp: str) -> tuple[ReproSide, list[int]]:
+def _side(
+    rows: list[dict[str, Any]],
+    tasks: list[str],
+    repeats: int,
+    setup_fp: str,
+    scenario: Scenario,
+    scores: Iterable[Mapping[str, Any]],
+) -> tuple[ReproSide, list[int]]:
     relevant = [row for row in rows if row.get("task_id") in set(tasks)]
     counts = [sum(bool(r.get("passed")) for r in relevant if r.get("task_id") == task) for task in tasks]
+    credits = [[float(r.get("credit") or 0) for r in relevant if r.get("task_id") == task] for task in tasks]
+    partial = sum(sum(c) / len(c) for c in credits if c) / max(1, sum(bool(c) for c in credits))
     side = ReproSide(
         setup_fp=setup_fp,
         passed=sum(counts), trials=len(relevant),
@@ -758,6 +831,8 @@ def _side(rows: list[dict[str, Any]], tasks: list[str], repeats: int, setup_fp: 
         timeouts=sum(r.get("status") == "timeout" for r in relevant),
         budget_stopped=sum(r.get("status") == "budget" for r in relevant),
         cost_usd_per_task=round(sum(float(r.get("cost_usd") or 0) for r in relevant) / max(1, len(tasks)), 8),
+        partial=round(min(1.0, partial), 6) if relevant else None,
+        criteria=run_criteria(scenario, (str(r.get("trial_id")) for r in relevant), scores),
     )  # fmt: skip
     return side, [min(count, repeats) for count in counts]
 
@@ -815,6 +890,8 @@ def validate_repro(check: ClaimCheck, repro: Repro) -> str | None:
     for side in (repro.baseline, repro.variant):
         if side is not None and side.errors + side.timeouts + side.budget_stopped:
             return "the run had errors, timeouts or budget stops"
+        if side is not None and (problem := criteria_problem(_scenario(claim.scenario), side.criteria, side.trials)):
+            return problem
     return shape_problem(claim, repro)
 
 

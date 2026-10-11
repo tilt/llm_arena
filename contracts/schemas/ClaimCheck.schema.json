@@ -119,6 +119,23 @@
           "title": "Cost Usd Per Task",
           "type": "number"
         },
+        "criteria": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/StepResult"
+              },
+              "maxProperties": 16,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "which steps worked",
+          "title": "Criteria"
+        },
         "engine": {
           "enum": [
             "pages",
@@ -318,6 +335,28 @@
         "fp"
       ],
       "title": "ClaimTask",
+      "type": "object"
+    },
+    "StepResult": {
+      "additionalProperties": false,
+      "description": "One pass criterion over a run: in how many trials it passed, of those where it gave a verdict.",
+      "properties": {
+        "graded": {
+          "minimum": 1,
+          "title": "Graded",
+          "type": "integer"
+        },
+        "passed": {
+          "minimum": 0,
+          "title": "Passed",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "passed",
+        "graded"
+      ],
+      "title": "StepResult",
       "type": "object"
     }
   },

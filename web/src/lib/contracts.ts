@@ -185,6 +185,12 @@ export interface ClaimResult {
    * priced roles only
    */
   cost_usd_per_task: number;
+  /**
+   * which steps worked
+   */
+  criteria?: {
+    [k: string]: StepResult | undefined;
+  } | null;
   engine: "pages" | "local";
   partial: number;
   pass_rate: number;
@@ -246,6 +252,16 @@ export interface ClaimResult {
         string,
         string
       ];
+}
+/**
+ * One pass criterion over a run: in how many trials it passed, of those where it gave a verdict.
+ *
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "StepResult".
+ */
+export interface StepResult {
+  graded: number;
+  passed: number;
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema
@@ -860,7 +876,17 @@ export interface Repro {
 export interface ReproSide {
   budget_stopped: number;
   cost_usd_per_task: number;
+  /**
+   * which steps worked
+   */
+  criteria?: {
+    [k: string]: StepResult | undefined;
+  } | null;
   errors: number;
+  /**
+   * mean partial credit over the tasks
+   */
+  partial?: number | null;
   passed: number;
   setup_fp: string;
   timeouts: number;
@@ -881,7 +907,17 @@ export interface PerTask {
 export interface ReproVariant {
   budget_stopped: number;
   cost_usd_per_task: number;
+  /**
+   * which steps worked
+   */
+  criteria?: {
+    [k: string]: StepResult | undefined;
+  } | null;
   errors: number;
+  /**
+   * mean partial credit over the tasks
+   */
+  partial?: number | null;
   passed: number;
   setup: ClaimSetup;
   setup_fp: string;

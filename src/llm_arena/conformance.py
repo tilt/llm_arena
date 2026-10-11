@@ -260,6 +260,12 @@ def claim_vector_inputs() -> dict[str, dict[str, Any]]:
     from llm_arena.claims import ClaimSetup, setup_fingerprint  # noqa: PLC0415
 
     self_hosted["setup_fp"] = setup_fingerprint(ClaimSetup.model_validate(self_hosted["setup"]))
+    stepped = {**claim, "result": {**claim["result"], "criteria": {"final_correct": {"passed": 2, "graded": 2}}}}
+    stepped_text = canonical(stepped)
+    stepped_hash = check_claim(stepped_text).claim_hash
+    stepped_side = {"setup_fp": claim["setup_fp"], "passed": 2, "trials": 2, "errors": 0, "timeouts": 0,
+                    "budget_stopped": 0, "cost_usd_per_task": 0.0013, "partial": 1.0,
+                    "criteria": {"final_correct": {"passed": 2, "graded": 2}}}  # fmt: skip
     return {
         "claim-mixed-thread": {"claim": text, "comments": mixed, "author": "alice"},
         "claim-above-interval": {"claim": text, "comments": three, "author": "alice"},
@@ -270,6 +276,13 @@ def claim_vector_inputs() -> dict[str, dict[str, Any]]:
             _comment(22, "dave", body([1, 1])), _comment(30, "bob", body([1, 1], seen=[21, 22])),
             _comment(21, "carol", body([1, 1]))]},
         "claim-self-hosted": {"claim": canonical(self_hosted), "comments": [], "author": "alice"},
+        # added for the claims board (section 1): per-step results on claims and reproductions, checked everywhere
+        "claim-with-criteria": {"claim": stepped_text, "author": "alice", "comments": [
+            _comment(50, "bob", _repro_body(stepped, stepped_hash, [1, 1], baseline=stepped_side)),
+            _comment(51, "carol", _repro_body(stepped, stepped_hash, [1, 0], baseline={
+                **stepped_side, "passed": 1, "criteria": {"final_correct": {"passed": 3, "graded": 2}}}))]},
+        "claim-hostile-criteria": {"claim": canonical({**claim, "result": {
+            **claim["result"], "criteria": {"made_up": {"passed": 1, "graded": 1}}}}), "comments": [], "author": "alice"},
         # added for the claims board (D4): account ids survive renames; a renamed author stays excluded
         "claim-renamed-accounts": {"claim": text, "author": "alice-new", "author_id": 1, "comments": [
             _comment(40, "alice", body([1, 1]), account=1), _comment(41, "bob", body([0, 1]), account=7),
