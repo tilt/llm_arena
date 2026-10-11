@@ -76,6 +76,8 @@ jobs:
         run: cd web && npx playwright install --with-deps chromium
       - name: Claim link → Beat this → post → counted
         run: cd web && npm run test:claim
+      - name: Claims board renders before the engine, phone layout, axe scan
+        run: cd web && npm run test:board
 
   board:
     # The claims board workflows: lint, the "only board.yml writes board-data" rule, and an offline dry run.

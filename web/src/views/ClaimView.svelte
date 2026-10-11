@@ -4,6 +4,7 @@
   // Renders before the in-browser engine is ready (2.1): the gist loads at once and a guarded preview shows; the
   // engine (llm_arena/claims.py) is the only validator.
   import { untrack } from "svelte";
+  import { submitHref } from "../lib/board";
   import BarsCI from "../components/BarsCI.svelte";
   import ClaimBand from "../components/ClaimBand.svelte";
   import KeyPanel from "../components/KeyPanel.svelte";
@@ -341,7 +342,8 @@
     {:else}
       <h1 tabindex="-1" bind:this={heading}>Claim</h1>
     {/if}
-    {#if gist?.owner}<p class="muted small">claimed by @{gist.owner} · <a href={gist.html_url} target="_blank" rel="noopener">gist</a></p>{/if}
+    {#if gist?.owner}<p class="muted small">claimed by @{gist.owner} · <a href={gist.html_url} target="_blank" rel="noopener">gist</a>
+      {#if link?.kind === "gist"} · <a href={submitHref(link.id, link.revision)} target="_blank" rel="noopener" title="The claim's author can list it on the claims board">Submit to board</a>{/if}</p>{/if}
     <div class="numbers" aria-live="polite">
       {#if claim || preview}
         {@const rate = claim?.result.pass_rate ?? preview!.passRate}

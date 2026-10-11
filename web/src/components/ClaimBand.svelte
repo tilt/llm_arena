@@ -9,6 +9,7 @@
     type PostedNote,
   } from "../lib/claims";
   import type { Claim, ClaimDraft, CreatedGist, ReproDraft, RunBundle } from "../lib/contracts";
+  import { submitHref } from "../lib/board";
   import KeyPanel from "./KeyPanel.svelte";
 
   // onposted: the claim page re-reads its thread so the new reproduction shows (2.4).
@@ -175,6 +176,7 @@
       {#if posted}
         {#if postedState === "checking"}<p><span class="pill" aria-live="polite">checking…</span></p>
         {:else if postedState === "found"}<p aria-live="polite">Posted · <a href={posted.html_url || claimLink || "#"} target="_blank" rel="noopener">view on GitHub</a></p>
+          <p class="muted small">If the claim is on the <a href="#/board">claims board</a>, it shows there after the next update (within 6 hours).</p>
         {:else if postedState === "removed"}
           <p class="note" role="status">Your reproduction is no longer in the thread (removed by the gist owner or you).</p>
         {:else}<p class="muted">Posted · couldn't check the thread now ({postedWhy})</p>{/if}
@@ -217,8 +219,10 @@
           <input class="link" readonly value={link} aria-label="Claim link" />
           <button class="primary" onclick={() => copy(link, "link")}>Copy link</button>
           <a href={shared.html_url} target="_blank" rel="noopener">View gist</a>
+          <a href={submitHref(shared.gist_id, shared.revision)} target="_blank" rel="noopener">Submit to board</a>
           {#if copied === "link"}<span class="muted small" role="status">Copied</span>{/if}
         </div>
+        <p class="muted small">Submit to board opens a prefilled GitHub issue; the board checks it within minutes.</p>
       {:else if draft.claim_json}
         {#if preview}<p class="small">Publishes: {preview}</p>{/if}
         <div class="actions">

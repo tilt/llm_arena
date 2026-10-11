@@ -33,6 +33,7 @@ from llm_arena.api import (
     StartRun,
     ThreadRequest,
 )
+from llm_arena.board import Board
 from llm_arena.claims import Claim, ClaimCheck, ClaimDraft, Repro, ReproDraft, Swap, TrustStats
 from llm_arena.conformance import CASES, claim_vectors, needs_sandbox, record
 from llm_arena.core.task import Task
@@ -90,6 +91,7 @@ SCHEMA_TYPES: dict[str, Any] = {
     "CreateClaimGist": CreateClaimGist,
     "CreatedGist": CreatedGist,
     "PostComment": PostComment,
+    "Board": Board,
 }
 
 
