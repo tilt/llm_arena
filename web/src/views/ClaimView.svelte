@@ -45,11 +45,14 @@
     invalid = "";
     if (!link) { invalid = "This link doesn't contain a valid claim."; return; }
     if (link.kind === "inline") { claimText = link.text; return; }
+    const asked = link;  // every late answer below is dropped once the visitor opened another claim
     try {
-      gist = await github.claim(link.id, link.revision);
-      claimText = gist.claim;
+      const loaded = await github.claim(asked.id, asked.revision);
+      if (link !== asked) return;
+      gist = loaded;
+      claimText = loaded.claim;
     } catch (e) {
-      failure = e instanceof GitHubFailure ? e : new GitHubFailure("unreachable", String(e));
+      if (link === asked) failure = e instanceof GitHubFailure ? e : new GitHubFailure("unreachable", String(e));
     }
   }
 
@@ -69,8 +72,8 @@
     const text = claimText;
     if (!backend || !text) return;
     untrack(() => {
-      backend.claimCheck(text).then((value) => { check = value; invalid = ""; heading?.focus(); })
-        .catch((e) => { invalid = e instanceof Error ? e.message : String(e); });
+      backend.claimCheck(text).then((value) => { if (claimText === text) { check = value; invalid = ""; heading?.focus(); } })
+        .catch((e) => { if (claimText === text) invalid = e instanceof Error ? e.message : String(e); });
     });
   });
 
@@ -93,19 +96,21 @@
       const rows = await github.thread(asked.id, from.comments);
       if (link === asked && gist === from) comments = rows;  // dropped if the visitor moved on meanwhile
     } catch (e) {
-      threadFailure = e instanceof GitHubFailure ? e : new GitHubFailure("unreachable", String(e));
+      if (link === asked && gist === from) threadFailure = e instanceof GitHubFailure ? e : new GitHubFailure("unreachable", String(e));
     }
   }
   $effect(() => { if (gist) untrack(() => void loadThread()); });
 
   async function reloadThread() {
     if (link?.kind !== "gist") return;
-    const asked = link;
+    const asked = link, before = gist?.comments ?? 0;
     try {
-      const fresh = await github.claim(asked.id, asked.revision);  // a fresh comment count; the effect re-reads the thread
-      if (link === asked) gist = fresh;
+      // A fresh comment count, at least one more than before (GitHub's count may lag the comment just posted);
+      // the effect above then re-reads the thread.
+      const fresh = await github.claim(asked.id, asked.revision);
+      if (link === asked) gist = { ...fresh, comments: Math.max(fresh.comments, before + 1) };
     } catch (e) {
-      threadFailure = e instanceof GitHubFailure ? e : new GitHubFailure("unreachable", String(e));
+      if (link === asked) threadFailure = e instanceof GitHubFailure ? e : new GitHubFailure("unreachable", String(e));
     }
   }
 
@@ -114,11 +119,13 @@
     const backend = app.backend, rows = comments, filter = engineFilter;
     if (!backend || !rows || !check || !gist || !claimText) return;
     const g = gist, text = claimText;
+    // Only the latest tally lands: a slower one for older rows, filter or claim must not overwrite it.
+    const current = () => comments === rows && engineFilter === filter && gist === g && claimText === text;
     untrack(() => {
       threadError = "";
       backend.claimThread({ claim: text, comments: rows as unknown as Record<string, unknown>[], author: g.owner, total: g.comments,
-        engine: filter || null }).then((value) => { stats = value; })
-        .catch((e) => { threadError = e instanceof Error ? e.message : String(e); });
+        engine: filter || null }).then((value) => { if (current()) stats = value; })
+        .catch((e) => { if (current()) threadError = e instanceof Error ? e.message : String(e); });
     });
   });
 
