@@ -24,6 +24,8 @@ jobs:
     permissions:
       contents: write
       issues: write
+    outputs:
+      internal_errors: ${{ steps.notify.outputs.internal_errors }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -51,6 +53,7 @@ jobs:
           git commit -q -m "board: build $(date -u +%Y-%m-%dT%H:%MZ)"
           git push origin HEAD:board-data
       - name: Answer the submissions this run decided (only after the push)
+        id: notify
         run: uv run arena board notify --actions "$RUNNER_TEMP/actions.json"
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -64,3 +67,17 @@ jobs:
     uses: ./.github/workflows/pages.yml
     with:
       ref: main
+
+  # Fails the run (and so notifies the maintainer) when a submission closed as an internal error, after the deploy.
+  alert:
+    needs: [board, deploy]
+    if: needs.board.outputs.internal_errors != '0'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Submissions closed as internal errors
+        env:
+          COUNT: ${{ needs.board.outputs.internal_errors }}
+        run: |
+          echo "::error::$COUNT submission(s) closed because the board kept failing to read them; see the board job log"
+          exit 1

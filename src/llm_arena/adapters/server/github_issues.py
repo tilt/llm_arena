@@ -19,6 +19,7 @@ from llm_arena.adapters.server.gists import TIMEOUT_S, GistFailure, _raise_for, 
 API = "https://api.github.com/repos"
 RETRY_MARK = "<!-- board-retry -->"
 ACCEPTED, REJECTED, RETRY, INTERNAL = "board-accepted", "board-rejected", "board-retry", "board-internal-error"
+ANSWER_LABELS = {ACCEPTED: "0e8a16", REJECTED: "b60205", RETRY: "fbca04", INTERNAL: "5319e7"}
 _REPO = re.compile(r"^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$")
 
 
@@ -32,14 +33,18 @@ class IssueClient:
     ) -> None:
         if not _REPO.fullmatch(repo):
             raise ValueError(f"not a repository name: {repo!r}")
-        self._token, self._base, self._transport = token, f"{API}/{repo}/issues", transport
+        self._token, self._repo, self._transport = token, f"{API}/{repo}", transport
+        self._base = f"{self._repo}/issues"
 
     async def open_submissions(self, label: str) -> list[dict[str, Any]]:
-        rows = await self._request("GET", self._base, params={"state": "open", "labels": label, "per_page": 100})
+        """The 100 oldest open submissions: a larger backlog drains over the next runs, in order."""
+        rows = await self._request("GET", self._base, params={
+            "state": "open", "labels": label, "sort": "created", "direction": "asc", "per_page": 100})  # fmt: skip
         return [_issue(row) for row in rows if isinstance(row, dict) and "pull_request" not in row]
 
     async def recent_count(self, label: str, login: str, since: str) -> int:
-        """Submissions by `login` closed as accepted or rejected since `since` (the per-person daily limit)."""
+        """Submissions by `login` closed as accepted or rejected since `since` (the per-person daily limit). One page
+        is enough: newest first, and anything past the limit only has to reach it."""
         rows = await self._request("GET", self._base, params={
             "state": "closed", "labels": label, "creator": login, "since": since, "per_page": 100})  # fmt: skip
         return sum(1 for row in rows if isinstance(row, dict) and str(row.get("created_at") or "") >= since
@@ -52,6 +57,14 @@ class IssueClient:
 
     async def comment(self, number: int, body: str) -> None:
         await self._request("POST", f"{self._base}/{number}/comments", body={"body": body[:65_000]})
+
+    async def ensure_labels(self, labels: dict[str, str]) -> None:
+        """Create the answer labels that don't exist yet (name -> color), so adding them to an issue can't fail."""
+        rows = await self._request("GET", f"{self._repo}/labels", params={"per_page": 100})
+        have = {str(row.get("name")) for row in rows or [] if isinstance(row, dict)}
+        for name, color in labels.items():
+            if name not in have:
+                await self._request("POST", f"{self._repo}/labels", body={"name": name, "color": color})
 
     async def label(self, number: int, labels: list[str]) -> None:
         await self._request("POST", f"{self._base}/{number}/labels", body={"labels": labels})

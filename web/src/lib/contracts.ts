@@ -77,6 +77,11 @@ export interface Board {
    * hash of the registry's entries at this build
    */
   registry_head?: string;
+  removed_entries?: number;
+  /**
+   * hash of the removed list at this build
+   */
+  removed_head?: string;
   reproductions: number;
   scenarios?: ScenarioBoard[];
 }

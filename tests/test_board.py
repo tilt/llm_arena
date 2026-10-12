@@ -188,3 +188,15 @@ def test_a_build_refuses_evidence_changed_since_the_last_build() -> None:
         build(renamed, claims, lines, {}, now=NOW, previous=first)
     with pytest.raises(BoardIntegrityError, match="ledger no longer matches"):
         build(registry, claims, [], {}, now=NOW, previous=first)
+
+
+def test_removals_need_a_full_timestamp_and_are_anchored_between_builds() -> None:
+    registry, claims, chash, _ = _setup()
+    with pytest.raises(ValueError, match="timestamp"):
+        Removal(claim_hash=chash, reason="spam", at="2026-10-12")
+    removed = Registry(entries=registry.entries,
+                       removed=[Removal(claim_hash=chash, reason="spam", at="2026-10-01T00:00:00+00:00")])  # fmt: skip
+    first = build(removed, claims, [], {}, now=NOW)[0]
+    assert first.removed_entries == 1
+    with pytest.raises(BoardIntegrityError, match="removed list no longer matches"):
+        build(registry, claims, [], {}, now=NOW, previous=first)

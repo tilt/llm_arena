@@ -1,6 +1,6 @@
 {
   "expected": {
-    "error": "reflection_sql has no pass criteria ['made_up']"
+    "error": "reflection_sql has no pass criteria 'made_up'"
   },
   "input": {
     "author": "alice",

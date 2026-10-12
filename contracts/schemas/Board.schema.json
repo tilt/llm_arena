@@ -560,6 +560,17 @@
       "title": "Registry Head",
       "type": "string"
     },
+    "removed_entries": {
+      "default": 0,
+      "title": "Removed Entries",
+      "type": "integer"
+    },
+    "removed_head": {
+      "default": "0000000000000000000000000000000000000000000000000000000000000000",
+      "description": "hash of the removed list at this build",
+      "title": "Removed Head",
+      "type": "string"
+    },
     "reproductions": {
       "title": "Reproductions",
       "type": "integer"

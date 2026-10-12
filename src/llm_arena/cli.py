@@ -542,9 +542,13 @@ def board_notify(actions: Annotated[Path, typer.Option(help="The answers `board 
 
     token = os.environ.get("GITHUB_TOKEN") or None
     pending = load_actions(actions.read_text() if actions.exists() else "[]")
+    internal = 0
     if pending:
-        asyncio.run(notify(pending, IssueClient(lambda: token, os.environ.get("GITHUB_REPOSITORY", ""))))
-    console.print(f"answered {len(pending)} submissions")
+        internal = asyncio.run(notify(pending, IssueClient(lambda: token, os.environ.get("GITHUB_REPOSITORY", ""))))
+    if output := os.environ.get("GITHUB_OUTPUT"):  # the workflow's last job fails on these, after deploying
+        with Path(output).open("a") as file:
+            file.write(f"internal_errors={internal}\n")
+    console.print(f"answered {len(pending)} submissions ({internal} closed as internal errors)")
 
 
 if __name__ == "__main__":

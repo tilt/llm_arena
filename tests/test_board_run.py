@@ -184,3 +184,88 @@ async def test_notify_answers_and_closes_and_leaves_retries_open() -> None:
     assert ("POST", f"/repos/{REPO}/issues/5/labels", {"labels": ["board-accepted"]}) in calls
     assert not any(method == "PATCH" and path.endswith("/6") for method, path, _ in calls)
     assert any(path.endswith("/6/comments") and RETRY_MARK in body.get("body", "") for _, path, body in calls)
+
+
+# ---- pre-landing review regressions -------------------------------------------------------------------------------
+def _head(count: int) -> httpx.Response:
+    return httpx.Response(200, json={"owner": {"login": "alice", "id": 1}, "history": [{"version": REV}],
+                                     "comments": count})  # fmt: skip
+
+
+@pytest.mark.parametrize("bad_page", ["1", "2"])
+async def test_an_oversized_comment_page_reads_as_a_partial_thread_and_never_stops_the_run(
+    tmp_path: Path, bad_page: str
+) -> None:
+    github = FakeGitHub()
+    github.comments = [github.repro(2, "bob", 7, [1, 1])]
+    data = _listed(tmp_path, github)
+    await run(data, *github.clients(), now=NOW)  # bob's reproduction is recorded
+    huge = b"[" + b'"x",' * 600_000 + b'"x"]'  # a page of maximum-size spam comments, over the 2 MB cap
+
+    def spam(request: httpx.Request) -> httpx.Response | None:
+        if request.url.path == f"/gists/{GIST}":
+            return _head(150)
+        if request.url.path.endswith("/comments") and request.url.params.get("page") == bad_page:
+            return httpx.Response(200, content=huge)
+        return None
+
+    github.override = spam
+    result = await run(data, *github.clients(), now=NOW)
+    row = result.board.scenarios[0].ranked[0]
+    assert row.people == 1 and "partial_thread" in [n.kind for n in row.notes]
+
+
+async def test_rows_failing_for_their_own_gist_never_stop_the_run_but_an_outage_does(tmp_path: Path) -> None:
+    github = FakeGitHub()
+    data = _listed(tmp_path, github)
+    github.override = lambda r: (
+        httpx.Response(200, content=b"x" * 2_100_000) if r.url.path == f"/gists/{GIST}" else None
+    )
+    result = await run(data, *github.clients(), now=NOW)
+    assert [n.kind for n in result.board.scenarios[0].unreproduced[0].notes] == ["not_refreshed"]
+    github.override = lambda r: httpx.Response(502) if r.url.path == f"/gists/{GIST}" else None
+    with pytest.raises(RunStopped, match="couldn't be read"):
+        await run(data, *github.clients(), now=NOW)
+
+
+async def test_the_daily_limit_counts_submissions_decided_in_the_same_run(tmp_path: Path) -> None:
+    github = FakeGitHub(issues=[_issue(n, f"{GIST} {REV}") for n in range(10, 17)])
+    result = await run(BoardData(tmp_path), *github.clients(), now=NOW)
+    assert [a.kind for a in result.actions] == ["accept"] + ["reject"] * 6
+    assert sum("at most 5 submissions" in a.text for a in result.actions) == 2
+    listing = next(r for r in github.requests if r.url.path == f"/repos/{REPO}/issues")
+    assert listing.url.params["direction"] == "asc"  # oldest first, so a backlog drains in order
+
+
+async def test_an_accepted_submission_seen_again_after_a_failed_answer_is_accepted_again(tmp_path: Path) -> None:
+    github = FakeGitHub(issues=[_issue(5, f"{GIST} {REV}")])
+    data = BoardData(tmp_path)
+    await run(data, *github.clients(), now=NOW)
+    again = await run(data, *github.clients(), now=NOW)  # notify failed, so issue 5 is still open
+    assert [(a.issue, a.kind) for a in again.actions] == [(5, "accept")] and again.added == []
+    assert len(data.registry().entries) == 1
+
+
+async def test_a_hand_written_removal_with_a_plain_date_stops_the_run_cleanly(tmp_path: Path) -> None:
+    github = FakeGitHub()
+    data = _listed(tmp_path, github)
+    path = tmp_path / "board" / "registry.json"
+    registry = json.loads(path.read_text())
+    registry["removed"] = [{"claim_hash": github.claim_hash, "reason": "spam", "at": "2026-10-12"}]
+    path.write_text(json.dumps(registry))
+    with pytest.raises(RunStopped, match="registry.json"):
+        await run(data, *github.clients(), now=NOW)
+
+
+async def test_answers_quote_claim_text_and_create_missing_labels() -> None:
+    github = FakeGitHub()
+    _, issues = github.clients()
+    hostile = "@everyone see [prize](https://evil.example)\n\n# Hi `x`" + "a" * 5000
+    sent = await notify([Action(issue=5, kind="reject", text=hostile), Action(issue=6, kind="internal_error", text="502")],
+                        issues)  # fmt: skip
+    calls = [(r.method, r.url.path, json.loads(r.content or b"{}")) for r in github.requests]
+    body = next(b["body"] for m, p, b in calls if p.endswith("/5/comments"))
+    assert len(body) < 400 and "\n" not in body and body.count("`") == 2 and "`@everyone" in body
+    created = {b["name"] for m, p, b in calls if m == "POST" and p == f"/repos/{REPO}/labels"}
+    assert created == {"board-accepted", "board-rejected", "board-retry", "board-internal-error"}
+    assert sent == 1  # internal errors, which fail the workflow so the maintainer hears of them

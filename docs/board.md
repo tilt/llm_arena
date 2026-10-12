@@ -21,20 +21,26 @@ The board is built by `.github/workflows/board.yml` and stored on the `board-dat
    expires, board runs fail with a message naming the token, and submissions stay open until it works again.
 
 4. **Create the label** `claim-submission` (issue forms only apply labels that exist). The board creates its answer
-   labels (`board-accepted`, `board-rejected`, `board-retry`, `board-internal-error`) when it first uses them.
+   labels (`board-accepted`, `board-rejected`, `board-retry`, `board-internal-error`) before it first answers.
 
 ## Running it
 
 - Every 6 hours, on each new submission issue, and from the Actions tab (`workflow_dispatch`). A run answers open
   submissions, reads each listed gist (one request plus up to three comment pages), pushes `board-data`, answers the
   issues, then deploys Pages through `pages.yml`, building current `main`.
-- A build stops without writing when the token is refused, the hourly request budget runs low, more than 20% of the
-  gists can't be read, or any evidence check fails; the published board stays as it was.
-- To delist a claim, append `{"claim_hash": ..., "reason": ..., "at": ...}` to `removed` in `board/registry.json` on
-  `board-data` (never edit or delete earlier entries). It disappears from the board and is listed as delisted for 30
-  days.
+- A build stops without writing when the token is refused, the hourly request budget runs low, GitHub fails (times
+  out or errors) on more than 20% of the gists, `board/registry.json` doesn't validate, or any evidence check fails;
+  the published board stays as it was. A gist or comment page too large to read only affects its own row (the row is
+  marked not refreshed, or its thread partial), so nobody can stop the board by bloating a gist.
+- Submissions are answered oldest first, at most 100 per run, and at most 5 per person per day, counting the ones
+  decided in the same run. A submission closed as an internal error (the board failed to read it three times) fails
+  the workflow's last job after the deploy, so you get GitHub's failure notification.
+- To delist a claim, append `{"claim_hash": "...", "reason": "...", "at": "2026-10-12T00:00:00+00:00"}` to `removed`
+  in `board/registry.json` on `board-data` (`at` is a full timestamp with its time zone; never edit or delete earlier
+  entries). It disappears from the board and is listed as delisted for 30 days.
 - Local check: `uv run arena board run --offline --data <checkout of board-data> --actions /tmp/actions.json`.
 
 What the board can't catch, also stated on the page: reproductions are self-reported (several accounts can inflate a
-claim), a reproduction deleted before the first build that saw it, comments beyond the first 300, and direct pushes by
-people with write access to `board-data` made in a way that also rewrites `board.json`.
+claim), a reproduction deleted before the first build that saw it, comments beyond the first 300 (or beyond a page too
+large to read; recorded reproductions there still count), and direct pushes by people with write access to
+`board-data` made in a way that also rewrites `board.json`.

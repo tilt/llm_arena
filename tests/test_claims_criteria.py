@@ -69,6 +69,9 @@ async def test_a_reproduction_carries_per_step_results_and_partial_credit() -> N
     assert "don't fit" in (validate_repro(check, Repro.model_validate(hostile)) or "")
     hostile["baseline"]["criteria"] = {"made_up": {"passed": 0, "graded": 1}}
     assert "no pass criteria" in (validate_repro(check, Repro.model_validate(hostile)) or "")
+    hostile["baseline"]["criteria"] = {f"@user{i} " + "x" * 5000: {"passed": 0, "graded": 1} for i in range(9)}
+    message = validate_repro(check, Repro.model_validate(hostile)) or ""
+    assert "no pass criteria" in message and "and more" in message and len(message) < 200  # never echoes it all
 
 
 async def test_unset_post_v1_fields_stay_out_of_published_bytes() -> None:

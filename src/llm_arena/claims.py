@@ -379,7 +379,8 @@ def criteria_problem(scenario: Scenario, criteria: Criteria | None, trials: int)
     if criteria is None:
         return None
     if unknown := set(criteria) - set(scenario.pass_criteria):
-        return f"{scenario.name} has no pass criteria {sorted(unknown)}"
+        named = ", ".join(repr(name[:40]) for name in sorted(unknown)[:3])
+        return f"{scenario.name} has no pass criteria {named}{' and more' if len(unknown) > 3 else ''}"
     if any(c.passed > c.graded or c.graded > trials for c in criteria.values()):
         return "per-step results don't fit the number of trials"
     return None

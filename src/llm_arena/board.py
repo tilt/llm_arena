@@ -22,7 +22,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timedelta
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from llm_arena.claims import (
     ClaimCheck,
@@ -90,9 +90,24 @@ class RegistryEntry(_Closed):
 
 
 class Removal(_Closed):
+    """A delisting, written by hand on board-data: `at` is a full timestamp such as 2026-10-12T00:00:00+00:00."""
+
     claim_hash: str = Field(pattern=_HEX64)
     reason: str = Field(min_length=1, max_length=200)
     at: str = Field(max_length=40)
+
+    @field_validator("at")
+    @classmethod
+    def _timestamp(cls, value: str) -> str:
+        try:
+            aware = datetime.fromisoformat(value).tzinfo is not None
+        except ValueError:
+            aware = False
+        if not aware:
+            raise ValueError(
+                f"needs a full timestamp with its time zone, such as 2026-10-12T00:00:00+00:00 ({value!r})"
+            )
+        return value
 
 
 class Registry(_Closed):
@@ -131,6 +146,7 @@ class GistState(BaseModel):
     comments: list[dict[str, Any]] = Field(default_factory=list)
     total: int = 0
     reason: str = ""
+    transient: bool = Field(default=False, description="GitHub's trouble (timeout, 5xx), not the gist's own")
 
 
 # ---- the published board ---------------------------------------------------------------------------------------
@@ -211,6 +227,8 @@ class Board(BaseModel):
     ledger_head: str = Field(default=GENESIS, description="hash of the ledger's last line at this build")
     registry_entries: int = 0
     registry_head: str = Field(default=GENESIS, description="hash of the registry's entries at this build")
+    removed_entries: int = 0
+    removed_head: str = Field(default=GENESIS, description="hash of the removed list at this build")
 
 
 # ---- integrity ---------------------------------------------------------------------------------------------------
@@ -244,7 +262,7 @@ def check_cache(registry: Registry, claims: Mapping[str, str]) -> None:
             raise BoardIntegrityError(f"the cached claim {entry.claim_hash[:12]} doesn't match its hash")
 
 
-def _registry_head(entries: Sequence[RegistryEntry]) -> str:
+def _registry_head(entries: Sequence[RegistryEntry | Removal]) -> str:
     return _sha(canonical([payload(e) for e in entries]))
 
 
@@ -256,6 +274,9 @@ def check_anchor(previous: Board, registry: Registry, ledger: Sequence[LedgerLin
     m = previous.registry_entries
     if len(registry.entries) < m or (m and _registry_head(registry.entries[:m]) != previous.registry_head):
         raise BoardIntegrityError("the registry no longer matches the last build: listed claims were changed")
+    k = previous.removed_entries
+    if len(registry.removed) < k or (k and _registry_head(registry.removed[:k]) != previous.removed_head):
+        raise BoardIntegrityError("the removed list no longer matches the last build: delistings were changed")
 
 
 def check_evidence(
@@ -324,10 +345,9 @@ def _merged_thread(state: GistState, recorded: Sequence[LedgerLine]) -> tuple[li
     for line in recorded:
         live = by_id.get(line.comment_id)
         if live is None:
-            if state.status == "ok" and partial and line.comment_id > newest:
-                continue  # beyond the comments this build could read, not known to be gone
             comments.append(_comment_of(line))
-            removed += state.status == "ok"
+            # beyond the comments this build could read: still counted, but not known to be gone
+            removed += state.status == "ok" and not (partial and line.comment_id > newest)
         elif live.get("updated_at") != live.get("created_at"):
             comments[comments.index(live)] = _comment_of(line)
             edited += 1
@@ -593,6 +613,7 @@ def build(
         ledger_lines=len(ledger) + len(new_lines),
         ledger_head=_sha(line_text([*ledger, *new_lines][-1])) if ledger or new_lines else GENESIS,
         registry_entries=len(registry.entries), registry_head=_registry_head(registry.entries),
+        removed_entries=len(registry.removed), removed_head=_registry_head(registry.removed),
     )  # fmt: skip
     return board, new_lines
 
