@@ -80,6 +80,7 @@ describe("words", () => {
   it("explains witness notes and disables links where the claim page can't load", () => {
     const note = { kind: "removed_after_recorded" as const, count: 1, detail: "" };
     expect(noteText(note)).toBe("1 reproduction removed by the author after the board recorded it (still counted)");
+    expect(noteText({ kind: "partial_thread", count: 1, detail: "150" })).toBe("based on 1 of 150 comments");
     const gone = normalize(raw([{ scenario: "s", version: "1", ranked: [row("1", 1, { notes: [{ kind: "gist_deleted" }], runnable: false })] }]));
     expect(linkable(gone.scenarios[0]!.ranked[0]!)).toBe(false);
     expect(gapText({ score: -0.04 } as never)).toBe("4 pts behind the best, on average");

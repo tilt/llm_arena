@@ -231,7 +231,7 @@ async def test_a_reproduction_after_a_spam_page_is_still_read_and_recorded(tmp_p
     github.override = spam_then_repro
     result = await run(data, *github.clients(), now=NOW)
     row = result.board.scenarios[0].ranked[0]
-    assert result.new_lines == 1 and row.people == 1 and "partial_thread" in [n.kind for n in row.notes]
+    assert result.new_lines == 1 and row.people == 1 and [n.kind for n in row.notes] == ["partial_thread"]
 
 
 async def test_rows_failing_for_their_own_gist_never_stop_the_run_but_an_outage_does(tmp_path: Path) -> None:

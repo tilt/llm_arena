@@ -160,7 +160,7 @@ export function noteText(note: RowNote): string {
     case "not_runnable":
       return `no longer runnable: ${note.detail}`;
     case "partial_thread":
-      return `based on the first ${note.count} of ${note.detail} comments`;
+      return `based on ${note.count} of ${note.detail} comments`;
     default:
       return "";
   }

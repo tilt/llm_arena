@@ -149,13 +149,15 @@ async def _read_thread(gists: GistClient, entry: RegistryEntry) -> GistState:
         try:
             head = await gists.head(entry.gist_id)
             comments: list[dict[str, Any]] = []
+            gap = False
             for page in range(1, min(MAX_PAGES, math.ceil(head["comments"] / PER_PAGE)) + 1):
                 try:
                     comments += await gists.comments(entry.gist_id, page)
                 except GistFailure as failure:
                     if failure.kind != "invalid":
                         raise
-            return GistState(status="ok", comments=comments, total=head["comments"])
+                    gap = True
+            return GistState(status="ok", comments=comments, total=head["comments"], gap=gap)
         except GistFailure as failure:
             if failure.kind == "not_found":
                 return GistState(status="deleted")

@@ -42,5 +42,5 @@ The board is built by `.github/workflows/board.yml` and stored on the `board-dat
 
 What the board can't catch, also stated on the page: reproductions are self-reported (several accounts can inflate a
 claim), a reproduction deleted before the first build that saw it, comments beyond the first 300 or on a page of 100 too
-large to read (recorded reproductions there still count, but aren't flagged when deleted), and direct pushes by people with write access to
+large to read (recorded reproductions there still count; with an unreadable page, their deletion isn't flagged), and direct pushes by people with write access to
 `board-data` made in a way that also rewrites `board.json`.

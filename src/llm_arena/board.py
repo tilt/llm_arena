@@ -147,6 +147,7 @@ class GistState(BaseModel):
     total: int = 0
     reason: str = ""
     transient: bool = Field(default=False, description="GitHub's trouble (timeout, 5xx), not the gist's own")
+    gap: bool = Field(default=False, description="a comment page was skipped, so the comments read aren't a prefix")
 
 
 # ---- the published board ---------------------------------------------------------------------------------------
@@ -339,14 +340,15 @@ def _merged_thread(state: GistState, recorded: Sequence[LedgerLine]) -> tuple[li
     """The live thread with recorded copies standing in for deleted or edited comments."""
     by_id = {int(c.get("id") or 0): c for c in state.comments}
     partial = state.total > len(state.comments)
+    newest = max(by_id, default=0)
     comments = [c for c in state.comments]
     removed = edited = 0
     for line in recorded:
         live = by_id.get(line.comment_id)
         if live is None:
             comments.append(_comment_of(line))
-            # in a partial thread it may sit on a page this build couldn't read: still counted, not known to be gone
-            removed += state.status == "ok" and not partial
+            # past the comments read, or anywhere in a thread with a skipped page: still counted, not known to be gone
+            removed += state.status == "ok" and not state.gap and not (partial and line.comment_id > newest)
         elif live.get("updated_at") != live.get("created_at"):
             comments[comments.index(live)] = _comment_of(line)
             edited += 1
@@ -374,7 +376,7 @@ def claim_row(
     if not_runnable:
         notes.append(RowNote(kind="not_runnable", detail=not_runnable))
     stats = trust_stats(check, comments, author=entry.owner_login, author_id=entry.owner_id, total=total)
-    if stats.removed:
+    if stats.removed and not state.gap:  # with a skipped page, "referenced but missing" may just be unread
         notes.append(RowNote(kind="removed_referenced", count=stats.removed))
     if stats.partial:
         notes.append(RowNote(kind="partial_thread", count=stats.loaded, detail=str(stats.total)))

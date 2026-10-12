@@ -202,11 +202,20 @@ def test_removals_need_a_full_timestamp_and_are_anchored_between_builds() -> Non
         build(registry, claims, [], {}, now=NOW, previous=first)
 
 
-def test_a_partial_thread_never_calls_a_recorded_reproduction_removed() -> None:
+def test_a_thread_with_a_skipped_page_accuses_nobody_but_a_read_prefix_still_flags_deletions() -> None:
     registry, claims, chash, fixture = _setup()
     thread = _thread(chash, fixture, (2, "bob", 7, [1, 1]), (4, "carol", 3, [1, 1]))
     _, lines = build(registry, claims, [], {chash: GistState(status="ok", comments=thread, total=2)}, now=NOW)
-    # bob's comment sat on a page too large to read: unknown, not removed
-    row = build(registry, claims, lines, {chash: GistState(status="ok", comments=thread[1:], total=150)}, now=NOW)[0]
-    ranked = row.scenarios[0].ranked[0]
+    # bob's comment sat on a page too large to read (a gap): unknown, not removed
+    gap = GistState(status="ok", comments=thread[1:], total=150, gap=True)
+    ranked = build(registry, claims, lines, {chash: gap}, now=NOW)[0].scenarios[0].ranked[0]
     assert ranked.people == 2 and [n.kind for n in ranked.notes] == ["partial_thread"]
+    # read as an unbroken prefix of a long thread, a missing recorded comment below the newest one is a deletion
+    prefix = GistState(status="ok", comments=thread[1:], total=400)
+    ranked = build(registry, claims, lines, {chash: prefix}, now=NOW)[0].scenarios[0].ranked[0]
+    assert [n.kind for n in ranked.notes] == ["removed_after_recorded", "partial_thread"]
+    # a later reproduction that saw one on the unreadable page: no "removed before the board saw it"
+    dave = [_comment(9, "dave", 5, _repro_body(fixture, chash, [1, 1], seen=[2]))]
+    ranked = build(registry, claims, [], {chash: GistState(status="ok", comments=dave, total=150, gap=True)},
+                   now=NOW)[0].scenarios[0].ranked[0]  # fmt: skip
+    assert [n.kind for n in ranked.notes] == ["partial_thread"]
