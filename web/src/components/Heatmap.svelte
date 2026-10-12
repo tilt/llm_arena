@@ -1,10 +1,7 @@
 <script lang="ts">
-  import type { Matrix } from "../lib/report";
+  import { heatInk, heatStep, type Matrix } from "../lib/report";
 
   let { matrix, format, label }: { matrix: Matrix; format: (v: number) => string; label: string } = $props();
-
-  // Sequential single-hue ramp (7 steps); ink flips on the dark end so labels stay legible in both themes.
-  const step = (v: number) => Math.min(6, Math.max(0, Math.round(v * 6)));
 </script>
 
 <div class="wrap" role="table" aria-label={label}>
@@ -21,8 +18,7 @@
           <span role="cell" class="cell empty" title={`${row} · ${column}: no data`}>–</span>
         {:else}
           <span role="cell" class="cell" title={`${row} · ${column}: ${format(value)}`}
-            style:background={`var(--seq-${step(value)})`}
-            style:color={value > 0.55 ? "var(--ink-on-high)" : "var(--ink-on-low)"}>{format(value)}</span>
+            style:background={`var(--seq-${heatStep(value)})`} style:color={`var(${heatInk(heatStep(value))})`}>{format(value)}</span>
         {/if}
       {/each}
     </div>

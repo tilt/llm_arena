@@ -100,6 +100,6 @@
   .kind-check .stripe { fill: var(--kind-check); }
   .kind { font-size: 10.5px; fill: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
   .title { font-size: 13px; font-weight: 600; fill: var(--text-primary); }
-  .model { font-size: 11.5px; fill: var(--accent); }
+  .model { font-size: 11.5px; fill: var(--accent-text); }
   .desc { font-size: 11.5px; fill: var(--text-secondary); }
 </style>

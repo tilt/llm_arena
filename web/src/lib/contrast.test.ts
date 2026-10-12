@@ -2,8 +2,9 @@
 // read from the stylesheet (which token a rule uses, what the token holds), so a new value or a rewired rule is checked.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { heatInk } from "./report";
 
-const css = readFileSync(new URL("../app.css", import.meta.url), "utf8");
+const css = readFileSync(new URL("../app.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");  // without comments
 
 const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -46,10 +47,37 @@ function contrast(a: string, b: string): number {
   return (light! + 0.05) / (dark! + 0.05);
 }
 
-function ratio(theme: Record<string, string>, foreground: string, background: string): number {
-  for (const token of [foreground, background]) if (!theme[token]) throw new Error(`app.css defines no ${token}`);
-  return contrast(theme[foreground]!, theme[background]!);
+function colorOf(theme: Record<string, string>, token: string): string {
+  if (!theme[token]) throw new Error(`app.css defines no ${token}`);
+  return theme[token];
 }
+
+const ratio = (theme: Record<string, string>, foreground: string, background: string): number =>
+  contrast(colorOf(theme, foreground), colorOf(theme, background));
+
+/** `color-mix(in srgb, top share, base)` of two hex colors: a component's tint as it lands on a surface. */
+function mix(top: string, share: number, base: string): string {
+  const channels = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const [a, b] = [channels(top), channels(base)];
+  return `#${a.map((value, i) => Math.round(value * share + b[i]! * (1 - share)).toString(16).padStart(2, "0")).join("")}`;
+}
+
+// Text on a tint of a token (color-mix over a surface), as components render it: [text, tinted token, share, surface].
+const TINTED: [string, string, number, string][] = [
+  ["--accent-text", "--accent", 0.18, "--page"],          // ExperimentsView .num
+  ["--accent-text", "--accent", 0.18, "--surface-1"],
+  ["--accent-text", "--accent", 0.14, "--surface-1"],     // ExperimentsView .badge
+  ["--accent-text", "--accent", 0.14, "--surface-2"],
+  ["--good", "--good", 0.14, "--surface-1"],              // SetupDetail .cell.ok
+  ["--good", "--good", 0.14, "--surface-2"],
+  ["--good", "--good", 0.1, "--surface-2"],               // SpanView .diff .added
+  ["--critical", "--critical", 0.12, "--surface-1"],      // SetupDetail .cell.bad without partial credit
+  ["--critical", "--critical", 0.12, "--surface-2"],
+  ["--critical", "--critical", 0.1, "--surface-2"],       // SpanView .diff .removed
+  ["--critical", "--critical", 0.07, "--surface-1"],      // StepInspector .diagnosis
+  ["--warn-text", "--kind-decision", 0.14, "--surface-1"],  // SetupDetail .cell.err
+  ["--warn-text", "--kind-decision", 0.14, "--surface-2"],
+];
 
 describe("the WCAG formula", () => {
   it("matches the reference values", () => {
@@ -88,4 +116,26 @@ describe.each(THEMES)("contrast in the %s theme", (_name, theme) => {
     "the focus ring (%s) against %s reaches 3:1", (ring, surface) => {
       expect(ratio(theme, ring!, surface!)).toBeGreaterThanOrEqual(3);
     });
+
+  it("a hovered accent fill keeps its ink at 4.5:1", () => {
+    expect(rule("button.primary:hover:not(:disabled), button.pill.on:hover:not(:disabled)").background)
+      .toBe("color-mix(in srgb, var(--accent) 85%, var(--text-primary))");
+    const hovered = mix(colorOf(theme, "--accent"), 0.85, colorOf(theme, "--text-primary"));
+    expect(contrast(colorOf(theme, "--accent-ink"), hovered)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(["--good", "--critical", "--warn-text"].flatMap((text) => SURFACES.map((surface) => [text, surface])))(
+    "status text %s on %s reaches 4.5:1", (text, surface) => {
+      expect(ratio(theme, text!, surface!)).toBeGreaterThanOrEqual(4.5);
+    });
+
+  it.each(TINTED)("%s on %s at %f over %s reaches 4.5:1", (text, tinted, share, surface) => {
+    const background = mix(colorOf(theme, tinted), share, colorOf(theme, surface));
+    expect(contrast(colorOf(theme, text), background)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  // The 7-step ramp under heatmap values and the board's tier pills (--ink-on-low on --seq-1, --ink-on-high on --seq-5).
+  it.each([0, 1, 2, 3, 4, 5, 6])("the ramp's ink on --seq-%i reaches 4.5:1", (step) => {
+    expect(ratio(theme, heatInk(step), `--seq-${step}`)).toBeGreaterThanOrEqual(4.5);
+  });
 });

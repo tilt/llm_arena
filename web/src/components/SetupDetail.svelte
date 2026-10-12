@@ -107,7 +107,7 @@
   .cell.ok { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
   .cell.bad { color: var(--critical); background: linear-gradient(to top, color-mix(in srgb, var(--good) 22%, transparent) var(--credit, 0%),
     color-mix(in srgb, var(--critical) 12%, transparent) var(--credit, 0%)); }
-  .cell.err { color: var(--kind-decision); background: color-mix(in srgb, var(--kind-decision) 14%, transparent); }
+  .cell.err { color: var(--warn-text); background: color-mix(in srgb, var(--kind-decision) 14%, transparent); }
   a.cell:hover, a.cell:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .legend { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
   .legend .cell { width: 18px; height: 18px; font-size: 11px; }

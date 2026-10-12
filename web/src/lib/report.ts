@@ -30,6 +30,10 @@ export interface Matrix {
   values: (number | null)[][];
 }
 
+/** A heatmap cell's step on the 7-step --seq ramp, and the ink token that stays readable on that step. */
+export const heatStep = (value: number): number => Math.min(6, Math.max(0, Math.round(value * 6)));
+export const heatInk = (step: number): string => (step >= 4 ? "--ink-on-high" : "--ink-on-low");
+
 const keysOf = (configs: ConfigSummary[], pick: (c: ConfigSummary) => Record<string, number | undefined> | undefined) =>
   [...new Set(configs.flatMap((c) => Object.keys(pick(c) ?? {})))].sort();
 

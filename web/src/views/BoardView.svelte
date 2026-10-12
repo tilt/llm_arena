@@ -244,16 +244,13 @@
     border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; }
   .button { display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; border-radius: 8px;
     background: var(--surface-2); color: var(--text-primary); text-decoration: none; font-size: 14px; }
-  .linklike { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; font: inherit; }
+  .linklike { background: none; border: 0; padding: 0; color: var(--accent-text); text-decoration: underline; cursor: pointer; font: inherit; }
   .tabs { display: flex; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--border); margin: 8px 0 16px; }
   .tabs a { padding: 8px 0; color: var(--text-secondary); text-decoration: none; border-bottom: 2px solid transparent; }
   .tabs a[aria-current="page"] { color: var(--text-primary); border-bottom-color: var(--accent); font-weight: 600; }
   .controls { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
   .controls h2 { margin: 8px 0; }
   .pills label { cursor: pointer; }
-  /* .pill.on's white on --accent is 4.41:1; the board's selected pills use the darker ramp step (11A: 4.5:1). */
-  .pills label.on { background: var(--seq-5); color: var(--ink-on-high); }
-  .board a:not(.button) { color: var(--seq-5); }
   .pills input { position: absolute; opacity: 0; width: 1px; height: 1px; }
   .pills label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
   .groups { margin: 8px 0 12px; }
