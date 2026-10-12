@@ -78,6 +78,8 @@ jobs:
         run: cd web && npm run test:claim
       - name: Claims board renders before the engine, phone layout, axe scan
         run: cd web && npm run test:board
+      - name: Color contrast on the main routes, light and dark (axe)
+        run: cd web && npm run test:a11y
 
   board:
     # The claims board workflows: lint, the "only board.yml writes board-data" rule, and an offline dry run.

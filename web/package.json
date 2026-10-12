@@ -12,7 +12,8 @@
     "test:isolation": "playwright test isolation.spec.ts",
     "test:claim": "CLAIM_E2E=1 playwright test claim.spec.ts --project=chromium",
     "verify:assets": "node scripts/verify-pyodide-assets.mjs",
-    "test:board": "CLAIM_E2E=1 playwright test board.spec.ts --project=chromium"
+    "test:board": "CLAIM_E2E=1 playwright test board.spec.ts --project=chromium",
+    "test:a11y": "CLAIM_E2E=1 playwright test a11y.spec.ts --project=chromium"
   },
   "dependencies": {
     "pyodide": "314.0.7",
