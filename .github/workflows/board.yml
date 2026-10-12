@@ -68,10 +68,11 @@ jobs:
     with:
       ref: main
 
-  # Fails the run (and so notifies the maintainer) when a submission closed as an internal error, after the deploy.
+  # Fails the run (and so notifies the maintainer) when a submission closed as an internal error. Runs after the
+  # deploy whatever its result, since a push to main can cancel a running Pages deploy.
   alert:
     needs: [board, deploy]
-    if: needs.board.outputs.internal_errors != '0'
+    if: always() && needs.board.result == 'success' && needs.board.outputs.internal_errors != '0'
     runs-on: ubuntu-latest
     permissions: {}
     steps:

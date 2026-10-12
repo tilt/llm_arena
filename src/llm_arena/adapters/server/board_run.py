@@ -8,8 +8,8 @@ pushed the branch, so a failed push leaves every submission open for the next sw
 Failures (design §3-§4): a claim's own problems reject its submission; a timeout or 5xx on one gist is retried once
 and then counts against that issue or row only; a missing or refused token or a spent rate limit stops the whole run
 before anything is written. Only GitHub's own trouble (timeouts, 5xx) counts toward the "too many gists failed" stop:
-a gist or thread that is too large is its author's or commenters' doing, so it fails or shortens that row alone and
-can't be used to freeze the board.
+a gist or comment page that is too large is its author's or commenters' doing, so it fails that row or leaves a gap
+in its thread, and can't be used to freeze the board.
 """
 
 from __future__ import annotations
@@ -144,7 +144,7 @@ TRANSIENT_KINDS = frozenset({"unreachable", "server"})
 
 async def _read_thread(gists: GistClient, entry: RegistryEntry) -> GistState:
     """Head plus only the comment pages it needs; one retry on a timeout or 5xx, then this row fails alone. A comment
-    page too large to read ends the thread there (a partial thread), so spam comments can't fail the row."""
+    page too large to read is skipped (a partial thread), so spam comments can't fail the row or hide later pages."""
     for attempt in (1, 2):
         try:
             head = await gists.head(entry.gist_id)
@@ -155,7 +155,6 @@ async def _read_thread(gists: GistClient, entry: RegistryEntry) -> GistState:
                 except GistFailure as failure:
                     if failure.kind != "invalid":
                         raise
-                    break
             return GistState(status="ok", comments=comments, total=head["comments"])
         except GistFailure as failure:
             if failure.kind == "not_found":

@@ -59,11 +59,14 @@ class IssueClient:
         await self._request("POST", f"{self._base}/{number}/comments", body={"body": body[:65_000]})
 
     async def ensure_labels(self, labels: dict[str, str]) -> None:
-        """Create the answer labels that don't exist yet (name -> color), so adding them to an issue can't fail."""
-        rows = await self._request("GET", f"{self._repo}/labels", params={"per_page": 100})
-        have = {str(row.get("name")) for row in rows or [] if isinstance(row, dict)}
+        """Create the answer labels that don't exist yet (name -> color), so adding them to an issue can't fail.
+        Looked up by name, so it works however many labels the repository has."""
         for name, color in labels.items():
-            if name not in have:
+            try:
+                await self._request("GET", f"{self._repo}/labels/{name}")
+            except GistFailure as failure:
+                if failure.kind != "not_found":
+                    raise
                 await self._request("POST", f"{self._repo}/labels", body={"name": name, "color": color})
 
     async def label(self, number: int, labels: list[str]) -> None:

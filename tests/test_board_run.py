@@ -215,6 +215,25 @@ async def test_an_oversized_comment_page_reads_as_a_partial_thread_and_never_sto
     assert row.people == 1 and "partial_thread" in [n.kind for n in row.notes]
 
 
+async def test_a_reproduction_after_a_spam_page_is_still_read_and_recorded(tmp_path: Path) -> None:
+    github = FakeGitHub()
+    data = _listed(tmp_path, github)
+    later = [github.repro(9, "carol", 3, [1, 1])]
+
+    def spam_then_repro(request: httpx.Request) -> httpx.Response | None:
+        if request.url.path == f"/gists/{GIST}":
+            return _head(150)
+        if request.url.path.endswith("/comments"):
+            page = request.url.params.get("page")
+            return httpx.Response(200, content=b"x" * 2_100_000) if page == "1" else httpx.Response(200, json=later)
+        return None
+
+    github.override = spam_then_repro
+    result = await run(data, *github.clients(), now=NOW)
+    row = result.board.scenarios[0].ranked[0]
+    assert result.new_lines == 1 and row.people == 1 and "partial_thread" in [n.kind for n in row.notes]
+
+
 async def test_rows_failing_for_their_own_gist_never_stop_the_run_but_an_outage_does(tmp_path: Path) -> None:
     github = FakeGitHub()
     data = _listed(tmp_path, github)
@@ -259,6 +278,8 @@ async def test_a_hand_written_removal_with_a_plain_date_stops_the_run_cleanly(tm
 
 async def test_answers_quote_claim_text_and_create_missing_labels() -> None:
     github = FakeGitHub()
+    missing = {"board-rejected", "board-internal-error"}
+    github.override = lambda r: httpx.Response(404) if r.url.path.rsplit("/", 1)[-1] in missing else None
     _, issues = github.clients()
     hostile = "@everyone see [prize](https://evil.example)\n\n# Hi `x`" + "a" * 5000
     sent = await notify([Action(issue=5, kind="reject", text=hostile), Action(issue=6, kind="internal_error", text="502")],
@@ -267,5 +288,5 @@ async def test_answers_quote_claim_text_and_create_missing_labels() -> None:
     body = next(b["body"] for m, p, b in calls if p.endswith("/5/comments"))
     assert len(body) < 400 and "\n" not in body and body.count("`") == 2 and "`@everyone" in body
     created = {b["name"] for m, p, b in calls if m == "POST" and p == f"/repos/{REPO}/labels"}
-    assert created == {"board-accepted", "board-rejected", "board-retry", "board-internal-error"}
+    assert created == {"board-rejected", "board-internal-error"}  # checked by name, however many labels exist
     assert sent == 1  # internal errors, which fail the workflow so the maintainer hears of them

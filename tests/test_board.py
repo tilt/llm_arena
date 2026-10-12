@@ -200,3 +200,13 @@ def test_removals_need_a_full_timestamp_and_are_anchored_between_builds() -> Non
     assert first.removed_entries == 1
     with pytest.raises(BoardIntegrityError, match="removed list no longer matches"):
         build(registry, claims, [], {}, now=NOW, previous=first)
+
+
+def test_a_partial_thread_never_calls_a_recorded_reproduction_removed() -> None:
+    registry, claims, chash, fixture = _setup()
+    thread = _thread(chash, fixture, (2, "bob", 7, [1, 1]), (4, "carol", 3, [1, 1]))
+    _, lines = build(registry, claims, [], {chash: GistState(status="ok", comments=thread, total=2)}, now=NOW)
+    # bob's comment sat on a page too large to read: unknown, not removed
+    row = build(registry, claims, lines, {chash: GistState(status="ok", comments=thread[1:], total=150)}, now=NOW)[0]
+    ranked = row.scenarios[0].ranked[0]
+    assert ranked.people == 2 and [n.kind for n in ranked.notes] == ["partial_thread"]

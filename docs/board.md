@@ -41,6 +41,6 @@ The board is built by `.github/workflows/board.yml` and stored on the `board-dat
 - Local check: `uv run arena board run --offline --data <checkout of board-data> --actions /tmp/actions.json`.
 
 What the board can't catch, also stated on the page: reproductions are self-reported (several accounts can inflate a
-claim), a reproduction deleted before the first build that saw it, comments beyond the first 300 (or beyond a page too
-large to read; recorded reproductions there still count), and direct pushes by people with write access to
+claim), a reproduction deleted before the first build that saw it, comments beyond the first 300 or on a page of 100 too
+large to read (recorded reproductions there still count, but aren't flagged when deleted), and direct pushes by people with write access to
 `board-data` made in a way that also rewrites `board.json`.
