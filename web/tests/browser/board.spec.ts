@@ -62,6 +62,7 @@ test("on a phone each row keeps rate and confidence visible, with the rest under
   const first = page.getByRole("row", { name: /^1 agent · gpt-4\.1 / });
   await expect(first.getByText("92% [84–98]")).toBeVisible();
   await expect(first.getByText("verified · 4 people")).toBeVisible();
+  await expect(first.getByText("by user0, user1, user2 and 1 more")).toBeVisible();
   await expect(first.locator("td.wide").first()).toBeHidden();
   await first.getByText("Details").click();
   await expect(first.locator("td.phone").getByRole("link", { name: "Beat this" })).toBeVisible();

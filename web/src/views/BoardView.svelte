@@ -3,9 +3,9 @@
   // in-browser engine, so App renders it outside the engine gate (eng D2).
   import { app } from "../lib/app.svelte";
   import {
-    GROUPS, OVERALL, PAGES_BOARD, SUBMIT_FORM, answerLine, claimHref, defaultFeed, defaultTab, entryLabel, gapText,
-    interval, isStale, linkable, loadBoard, nextUpdate, noteText, overallOf, rowsOf, saveFeed, scenarioOf, setupText,
-    storedFeed, tierText, type BoardLoad, type Feed, type Group, type Row,
+    BY_SHOWN, GROUPS, OVERALL, PAGES_BOARD, SUBMIT_FORM, answerLine, byText, claimHref, defaultFeed, defaultTab,
+    entryLabel, gapText, interval, isStale, linkable, loadBoard, nextUpdate, noteText, overallOf, rowsOf, saveFeed,
+    scenarioOf, setupText, storedFeed, tierText, type BoardLoad, type Feed, type Group, type Row,
   } from "../lib/board";
   import { pct, usd } from "../lib/format";
   import { roleLinesOf } from "../lib/leaderboard";
@@ -156,7 +156,9 @@
                 <td role="cell" class="rate"><IntervalStrip low={row.low} rate={row.rate} high={row.high} /> <span class="num">{interval(row)}</span> <span class="muted small">· {row.tasks} tasks</span></td>
                 <td role="cell" class="wide">{@render steps(row)}</td>
                 <td role="cell"><span class={`pill tier ${row.tier}`}>{tierText(row)}</span>
-                  {#if row.reproducers.length}<span class="sr-only">by {row.reproducers.join(", ")}</span>{/if}</td>
+                  {#if row.reproducers.length > BY_SHOWN}
+                    <details class="by small"><summary>by {byText(row)}</summary>{row.reproducers.join(", ")}</details>
+                  {:else if row.reproducers.length}<p class="by small">by {byText(row)}</p>{/if}</td>
                 <td role="cell" class="wide num">{usd(row.cost_usd_per_task)}{#if row.cost_source === "reproduced"} <span class="muted small">reproduced</span>{/if}</td>
                 <td role="cell" class="wide">{@render beat(row)}</td>
                 <td role="cell" class="phone">
@@ -261,6 +263,8 @@
   .num { font-variant-numeric: tabular-nums; }
   .chip { margin: 1px 4px 1px 0; }
   .tier.claimed { background: transparent; border: 1px solid var(--axis); }
+  .by { margin: 4px 0 0; color: var(--text-secondary); overflow-wrap: anywhere; }
+  .by summary { cursor: pointer; }
   .tier.reproduced { background: var(--seq-1); color: var(--ink-on-low); }
   .tier.verified { background: var(--seq-5); color: var(--ink-on-high); }
   tr.lit td { background: var(--surface-2); }

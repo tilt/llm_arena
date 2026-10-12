@@ -137,6 +137,14 @@ export function answerLine(scenario: ScenarioBoard): string {
 export const tierText = (row: Row) =>
   row.tier === "verified" ? `verified · ${row.people} people` : row.tier === "reproduced" ? `reproduced · ${row.people}` : "claimed";
 
+/** Who reproduced it, shown on the row (the visible answer to sock-puppet accounts, design R2-4). */
+export const BY_SHOWN = 3;
+export function byText(row: Row): string {
+  const names = row.reproducers.slice(0, BY_SHOWN).join(", ");
+  const more = row.reproducers.length - BY_SHOWN;
+  return more > 0 ? `${names} and ${more} more` : names;
+}
+
 export function noteText(note: RowNote): string {
   switch (note.kind) {
     case "removed_after_recorded":

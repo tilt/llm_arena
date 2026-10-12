@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  OVERALL, answerLine, defaultFeed, defaultTab, gapText, linkable, loadBoard, nextUpdate, normalize, noteText, rowsOf,
+  OVERALL, answerLine, byText, defaultFeed, defaultTab, gapText, linkable, loadBoard, nextUpdate, normalize, noteText, rowsOf,
   saveFeed, storedFeed, submitHref, type Board,
 } from "./board";
 import type { Board as RawBoard, Row as RawRow } from "./contracts";
@@ -84,6 +84,13 @@ describe("words", () => {
     expect(linkable(gone.scenarios[0]!.ranked[0]!)).toBe(false);
     expect(gapText({ score: -0.04 } as never)).toBe("4 pts behind the best, on average");
     expect(gapText({ score: 0 } as never)).toBe("level with the best, on average");
+  });
+
+  it("names who reproduced a row, up to three people and a count of the rest (R2-4)", () => {
+    const named = (n: number) => normalize(raw([{ scenario: "s", version: "1",
+      ranked: [row("1", n, { reproducers: Array.from({ length: n }, (_, i) => `user${i}`) })] }])).scenarios[0]!.ranked[0]!;
+    expect(byText(named(2))).toBe("user0, user1");
+    expect(byText(named(5))).toBe("user0, user1, user2 and 2 more");
   });
 
   it("prefills the submission form and estimates the next update at :17 every 6 hours", () => {
