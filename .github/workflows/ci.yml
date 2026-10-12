@@ -95,7 +95,8 @@ jobs:
         run: |
           offenders=$(grep -l "board-data" .github/workflows/*.yml | grep -v -e board.yml -e pages.yml -e ci.yml || true)
           if [ -n "$offenders" ]; then echo "board-data is written only by board.yml: $offenders"; exit 1; fi
-          if grep -n "git push" .github/workflows/pages.yml .github/workflows/ci.yml; then exit 1; fi
+          # the [g] keeps the pattern from matching this check's own line
+          if grep -n "[g]it push" .github/workflows/pages.yml .github/workflows/ci.yml; then exit 1; fi
       - name: Dry run without GitHub
         run: |
           uv sync --python 3.12
