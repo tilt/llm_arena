@@ -9,7 +9,9 @@
   } from "../lib/board";
   import { pct, usd } from "../lib/format";
   import { roleLinesOf } from "../lib/leaderboard";
+  import Hint from "../components/Hint.svelte";
   import IntervalStrip from "../components/IntervalStrip.svelte";
+  import SubmitSteps from "../components/SubmitSteps.svelte";
 
   let { tab }: { tab?: string } = $props();
 
@@ -58,9 +60,11 @@
       <div class="steps">
         <ol>
           <li>Run a scenario (<a href="#/">Scenarios</a>).</li>
-          <li>On the run page, choose <b>Share as claim</b>.</li>
+          <li>On the run page, choose <b>Share as claim</b>. This needs a GitHub token with the Gists permission.</li>
           <li>On the claim page, choose <b>Submit to board</b>.</li>
         </ol>
+        <p class="small"><b>What happens next</b></p>
+        <div class="small"><SubmitSteps /></div>
         <p class="muted small">Already have a claim gist? <a href={SUBMIT_FORM} target="_blank" rel="noopener">Open the submission form</a>.</p>
       </div>
     </details>
@@ -93,7 +97,25 @@
     </nav>
 
     <div class="controls">
-      <h2>{current === OVERALL ? "Models by role" : "Ranked setups"}</h2>
+      <div class="heading">
+        <h2>{current === OVERALL ? "Models by role" : "Ranked setups"}</h2>
+        {#if current === OVERALL}
+          <Hint label="How are models compared?">
+            Each model is scored by how far its setups are behind the best setup in the same scenario, averaged over the
+            setups it appears in: "level with the best" means its setups top their scenarios. The raw average is the
+            plain mean pass rate. The groups choose which role the model played. These are associations, not
+            head-to-head tests.
+          </Hint>
+        {:else}
+          <Hint label="How are setups ranked?">
+            <b>Pass rate</b> is the share of tasks passed, with its 95% interval in brackets. Once other people
+            reproduce a claim, their numbers replace the claimed ones. Setups are ranked by the low end of the interval,
+            so a high score on a few tasks can rank below a slightly lower one on many; ties go to the steps that
+            worked. <b>Confidence</b>: claimed (only the author's run), reproduced (1 or 2 other people), verified (3 or
+            more).
+          </Hint>
+        {/if}
+      </div>
       <div class="pills" role="radiogroup" aria-label="Which claims to include">
         {#each [["reproduced", "Reproduced only"], ["merged", "Include unreproduced"]] as [value, label] (value)}
           <label class="pill" class:on={feed === value}>
@@ -252,6 +274,7 @@
   .tabs a[aria-current="page"] { color: var(--text-primary); border-bottom-color: var(--accent); font-weight: 600; }
   .controls { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
   .controls h2 { margin: 8px 0; }
+  .heading { display: flex; flex-wrap: wrap; align-items: center; gap: 0 8px; flex: 1 1 320px; }
   .pills label { cursor: pointer; }
   .pills input { position: absolute; opacity: 0; width: 1px; height: 1px; }
   .pills label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }

@@ -175,6 +175,8 @@ export function submitHref(gistId: string, revision: string): string {
   return `${REPO_URL}/issues/new?${query}`;
 }
 export const SUBMIT_FORM = `${REPO_URL}/issues/new?template=claim.yml`;
+/** The user guide to publishing a claim and getting it on the board. */
+export const GUIDE = `${REPO_URL}/blob/main/docs/claims.md`;
 
 // ---- overall ---------------------------------------------------------------------------------------------------------
 export function overallOf(board: Board, feed: Feed, group: Group): OverallEntry[] {

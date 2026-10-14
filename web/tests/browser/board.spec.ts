@@ -68,10 +68,31 @@ test("on a phone each row keeps rate and confidence visible, with the rest under
   await expect(first.locator("td.phone").getByRole("link", { name: "Beat this" })).toBeVisible();
 });
 
+test("the hints open from the keyboard, fit a phone, and the submit steps say what happens next", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  await serveBoard(page);
+  await page.goto(`${SITE}#/board/email_assistant`);
+  const hint = page.getByRole("button", { name: "How are setups ranked?" });
+  const text = page.getByText("ranked by the low end of the interval");
+  await expect(hint).toHaveAttribute("aria-expanded", "false");
+  await expect(text).toBeHidden();
+  await hint.focus();
+  await page.keyboard.press("Enter");
+  await expect(hint).toHaveAttribute("aria-expanded", "true");
+  await expect(text).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+  await page.keyboard.press("Escape");
+  await expect(text).toBeHidden();
+  await page.getByText("Submit a claim").click();
+  await expect(page.getByText("Sign in as the account that owns the claim's gist")).toBeVisible();
+  await expect(page.getByRole("link", { name: "The full guide" })).toHaveAttribute("href", /docs\/claims\.md$/);
+});
+
 test("the board passes an axe scan", async ({ page }) => {
   await serveBoard(page);
   await page.goto(`${SITE}#/board/email_assistant`);
   await expect(page.getByRole("table")).toBeVisible();
+  await page.getByRole("button", { name: "How are setups ranked?" }).click();  // scanned open too
   const results = await new AxeBuilder({ page }).include(".board").analyze();
   expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
 });

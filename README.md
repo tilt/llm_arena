@@ -228,6 +228,7 @@ people other than the author with a 95% interval.
 - Posting a gist needs a GitHub token with the Gists permission: pasted on Pages (kept in the tab's memory), or
   `GITHUB_TOKEN` in `.env` or "GitHub (claims)" under API keys in the local app. There, a missing or refused GitHub
   token answers 403; a 401 always means the app session ended, and the page asks you to reopen the `arena ui` link.
+- Step by step, from a run to a ranked row on the board: [docs/claims.md](docs/claims.md).
 - Design and decisions: [docs/designs/shareable-claims.md](docs/designs/shareable-claims.md).
 
 ### Claims board

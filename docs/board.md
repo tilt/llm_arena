@@ -1,7 +1,8 @@
 # Claims board: maintainer setup
 
 The board is built by `.github/workflows/board.yml` and stored on the `board-data` branch. Design and decisions:
-[designs/claims-board.md](designs/claims-board.md). One-time setup before the first run:
+[designs/claims-board.md](designs/claims-board.md). The guide for people publishing claims is
+[claims.md](claims.md). One-time setup before the first run:
 
 1. **Create the data branch.** It holds `board/registry.json`, `board/claims/<claim_hash>.json`,
    `board/ledger.jsonl` and `board/board.json`, written only by the board workflow:
