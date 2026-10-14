@@ -1,8 +1,9 @@
 # llm_arena
 
-An evaluation arena for **local** (Ollama, LM Studio) and **remote** (OpenAI, Anthropic) language models. It covers classic
-benchmarks and, above all, **agentic AI patterns**: reflection, tool use, code execution, ReAct, planning and
-multi-agent workflows.
+This project serves for experimentation with language models and combinations of models. It contains standard agentic workflows and allows for inspecting how models performed at each step. Finally results are rated and compared in a leaderboard. A shared claims board is meant for collaboratively collecting and validating results, so that other runs can be used as a baseline to compare against.
+
+Currently **local LLMs** are supported via Ollama and LM Studio, **remote LLMs** are supported via and OpenAI-compatible end point or directly via APIs by OpenAI, and Anthropic. The benchmarks comprise **agentic AI patterns**: reflection, tool use, code execution, ReAct, planning and multi-agent workflows.
+
 
 Every pipeline step is bound to a configurable model *role*. So "Qwen drafts, GPT critiques" and "a GPT planner with a
 local executor" are one config line each. Each pipeline is scored **per step** (component evals read from the execution
