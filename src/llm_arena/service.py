@@ -430,10 +430,11 @@ class ArenaService:
         comments: Iterable[Mapping[str, Any]],
         *,
         author: str,
+        author_id: int | None = None,
         total: int | None = None,
         engine: Engine | None = None,
     ) -> TrustStats:
-        return trust_stats(check_claim(claim), comments, author=author, total=total, engine=engine)
+        return trust_stats(check_claim(claim), comments, author=author, author_id=author_id, total=total, engine=engine)
 
     def _resolve(self, ref: str) -> ModelSpec:
         try:

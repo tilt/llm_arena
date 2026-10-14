@@ -78,5 +78,5 @@ make install && make web && uv run arena ui</pre>
   .intro h2 { margin-top: 0; }
   .intro code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
   .title { font-weight: 600; color: var(--text-primary); text-decoration: none; }
-  .title:hover { color: var(--accent); text-decoration: underline; }
+  .title:hover { color: var(--accent-text); text-decoration: underline; }
 </style>

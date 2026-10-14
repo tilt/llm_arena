@@ -7,7 +7,8 @@ import yaml
 
 ROOT = Path(__file__).parents[1]
 ACTION = re.compile(r"^\s*-?\s*uses:\s*[^\s@]+@([0-9a-f]{40})\s+#\s+v\d", re.MULTILINE)
-ANY_ACTION = re.compile(r"^\s*-?\s*uses:\s*([^\s#]+)", re.MULTILINE)
+# Every remote action or reusable workflow; a same-repo workflow ("./.github/...") is pinned by the commit itself.
+ANY_ACTION = re.compile(r"^\s*-?\s*uses:\s*(?!\./)([^\s#]+)", re.MULTILINE)
 
 
 def test_every_github_action_is_immutably_pinned_with_a_release_comment() -> None:

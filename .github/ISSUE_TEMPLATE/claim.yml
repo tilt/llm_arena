@@ -1,0 +1,25 @@
+name: Submit a claim to the board
+description: List one of your published claims on the public claims board.
+title: "Claim submission"
+labels: ["claim-submission"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use **Submit to board** on your claim's page; it fills in both fields. Only the gist's owner can submit a
+        claim. The board checks it within minutes and answers here.
+  - type: input
+    id: gist
+    attributes:
+      label: Claim gist
+      description: The claim's gist link or id (from the claim page).
+      placeholder: https://gist.github.com/you/0123456789abcdef0123456789abcdef
+    validations:
+      required: true
+  - type: input
+    id: revision
+    attributes:
+      label: Revision
+      description: The pinned revision of claim.json (40 hex characters, from the claim page).
+    validations:
+      required: true

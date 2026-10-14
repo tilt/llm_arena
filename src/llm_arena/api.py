@@ -129,12 +129,14 @@ class ThreadRequest(BaseModel):
     claim: str = Field(max_length=256 * 1024)
     comments: list[dict[str, Any]] = Field(default_factory=list, max_length=300)
     author: str = Field(max_length=100)
+    author_id: int | None = Field(default=None, ge=1, description="the gist owner's account id (survives renames)")
     total: int | None = Field(default=None, ge=0)
     engine: Literal["pages", "local"] | None = None
 
 
 class GistUser(BaseModel):
     login: str
+    id: int | None = Field(default=None, description="GitHub's numeric account id")
 
 
 class GistComment(BaseModel):
@@ -151,6 +153,7 @@ class GistClaim(BaseModel):
 
     claim: str
     owner: str
+    owner_id: int | None = Field(default=None, description="the owner's numeric account id")
     head_revision: str = Field(description="the gist's newest revision (differs: edited since the link was shared)")
     comments: int = Field(description="how many comments the gist has (more than 300: the thread loads partially)")
     html_url: str = ""

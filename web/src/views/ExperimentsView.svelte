@@ -448,7 +448,7 @@
   .step { margin: 24px 0; }
   .step h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; font-size: 18px; }
   .num { width: 26px; height: 26px; display: inline-grid; place-items: center; border-radius: 999px; font-size: 14px;
-    background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); font-weight: 700; }
+    background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent-text); font-weight: 700; }
   .line { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 10px; align-items: baseline; margin: 8px 0; font-size: 14px; }
   @media (max-width: 560px) { .line { grid-template-columns: 1fr; gap: 4px; } }
   .label { color: var(--text-secondary); font-weight: 600; font-size: 13px; }
@@ -490,7 +490,7 @@
   .bundle { font-weight: 400; white-space: normal; }
   .bundle-head { display: grid; gap: 2px; }
   .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px;
-    color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+    color: var(--accent-text); background: color-mix(in srgb, var(--accent) 14%, transparent); }
   .bundle strong { overflow-wrap: anywhere; }
   .cell-note { display: block; margin-top: 3px; font-size: 11px; color: var(--text-muted); cursor: help; }
   .cell-note.bad { color: var(--critical); cursor: default; }

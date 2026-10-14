@@ -1,0 +1,84 @@
+# Builds the public claims board (docs/designs/claims-board.md): answers claim submissions, reads every listed gist,
+# records reproductions in the witness ledger on the board-data branch, then deploys Pages with the new board.json.
+name: Board
+
+on:
+  issues:
+    types: [opened]
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One writer of board-data at a time; a dropped pending run is recovered by the next run's sweep.
+concurrency:
+  group: board-data
+  cancel-in-progress: false
+
+jobs:
+  board:
+    if: github.event_name != 'issues' || contains(github.event.issue.labels.*.name, 'claim-submission')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+    outputs:
+      internal_errors: ${{ steps.notify.outputs.internal_errors }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check out board-data (the only branch this workflow writes)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: board-data
+          path: board-data
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - name: Install
+        run: uv sync --extra server --python 3.12
+      - name: Build the board (issue bodies are read through the API, never through expressions)
+        run: uv run arena board run --data board-data --actions "$RUNNER_TEMP/actions.json"
+        env:
+          BOARD_READ_TOKEN: ${{ secrets.BOARD_READ_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Push board-data (fast-forward only; a rejected push fails the run and keeps the published board)
+        working-directory: board-data
+        run: |
+          git config user.name "llm-arena board"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add board
+          if git diff --cached --quiet; then echo "board unchanged"; exit 0; fi
+          git commit -q -m "board: build $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push origin HEAD:board-data
+      - name: Answer the submissions this run decided (only after the push)
+        id: notify
+        run: uv run arena board notify --actions "$RUNNER_TEMP/actions.json"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  deploy:
+    needs: board
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml
+    with:
+      ref: main
+
+  # Fails the run (and so notifies the maintainer) when a submission closed as an internal error. Runs after the
+  # deploy whatever its result, since a push to main can cancel a running Pages deploy.
+  alert:
+    needs: [board, deploy]
+    if: always() && needs.board.result == 'success' && needs.board.outputs.internal_errors != '0'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Submissions closed as internal errors
+        env:
+          COUNT: ${{ needs.board.outputs.internal_errors }}
+        run: |
+          echo "::error::$COUNT submission(s) closed because the board kept failing to read them; see the board job log"
+          exit 1

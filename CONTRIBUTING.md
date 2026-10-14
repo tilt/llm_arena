@@ -21,6 +21,12 @@ pip install pre-commit && pre-commit install   # secret scanning on every commit
 - If you changed shareable claims, run `make web`, then `cd web && npm run test:claim`: the claim link, Beat this,
   post and count loop in Chromium against the built site (it sets `CLAIM_E2E`; GitHub and OpenAI are mocked).
   `npm run test:isolation` runs only the browser-isolation spec (`isolation.spec.ts`).
+- If you changed the claims board page, run `make web`, then `cd web && npm run test:board` (rendering before the
+  engine, the phone layout and an axe scan over a fixture `board.json`). Board engine and workflow logic is covered by
+  `tests/test_board.py` and `tests/test_board_run.py`; `uvx --from actionlint-py==1.7.12.25 actionlint` lints workflows.
+- If you changed colors (the tokens in `web/src/app.css`, or a component's text or background color), `make test-web`
+  checks the token pairs against WCAG AA (`src/lib/contrast.test.ts`). Then run `make web` and
+  `cd web && npm run test:a11y`: an axe color-contrast scan of the main routes in the light and the dark theme.
 
 ## Rules that matter here
 

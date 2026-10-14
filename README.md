@@ -1,8 +1,9 @@
 # llm_arena
 
-An evaluation arena for **local** (Ollama, LM Studio) and **remote** (OpenAI, Anthropic) language models. It covers classic
-benchmarks and, above all, **agentic AI patterns**: reflection, tool use, code execution, ReAct, planning and
-multi-agent workflows.
+This project serves for experimentation with language models and combinations of models. It contains standard agentic workflows and allows for inspecting how models performed at each step. Finally results are rated and compared in a leaderboard. A shared claims board is meant for collaboratively collecting and validating results, so that other runs can be used as a baseline to compare against.
+
+Currently **local LLMs** are supported via Ollama and LM Studio, **remote LLMs** are supported via and OpenAI-compatible end point or directly via APIs by OpenAI, and Anthropic. The benchmarks comprise **agentic AI patterns**: reflection, tool use, code execution, ReAct, planning and multi-agent workflows.
+
 
 Every pipeline step is bound to a configurable model *role*. So "Qwen drafts, GPT critiques" and "a GPT planner with a
 local executor" are one config line each. Each pipeline is scored **per step** (component evals read from the execution
@@ -228,7 +229,24 @@ people other than the author with a 95% interval.
 - Posting a gist needs a GitHub token with the Gists permission: pasted on Pages (kept in the tab's memory), or
   `GITHUB_TOKEN` in `.env` or "GitHub (claims)" under API keys in the local app. There, a missing or refused GitHub
   token answers 403; a 401 always means the app session ended, and the page asks you to reopen the `arena ui` link.
+- Step by step, from a run to a ranked row on the board: [docs/claims.md](docs/claims.md).
 - Design and decisions: [docs/designs/shareable-claims.md](docs/designs/shareable-claims.md).
+
+### Claims board
+
+The [claims board](https://tilt.github.io/llm_arena/#/board) lists submitted claims per scenario. Claims that someone
+other than the author reproduced are ranked by the low end of their pass-rate interval (each task counts once), then
+by how many steps worked; unreproduced claims wait in their own list, and a switch merges both. The **Overall** tab
+ranks models across scenarios by role group (tool calling, code, writing, critique, planning, vision, decision) by how
+far their setups are behind the best setup in each scenario.
+
+- Submit a claim with **Submit to board** on its claim page (only the gist's owner can). It opens a prefilled issue;
+  the board workflow checks it and answers within minutes.
+- The board keeps a witness ledger: a reproduction it has recorded still counts, flagged, if the gist's author later
+  deletes or edits it. Reproductions are self-reported; one person with several accounts can still inflate a claim.
+- It rebuilds every 6 hours (`.github/workflows/board.yml`); `arena board run --offline --data DIR --actions FILE`
+  rebuilds from stored evidence without GitHub. Setup for maintainers: [docs/board.md](docs/board.md).
+- Design and decisions: [docs/designs/claims-board.md](docs/designs/claims-board.md).
 
 ## Model presets and replacement studies
 

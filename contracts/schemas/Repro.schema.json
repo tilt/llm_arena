@@ -169,10 +169,42 @@
           "title": "Cost Usd Per Task",
           "type": "number"
         },
+        "criteria": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/StepResult"
+              },
+              "maxProperties": 16,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "which steps worked",
+          "title": "Criteria"
+        },
         "errors": {
           "minimum": 0,
           "title": "Errors",
           "type": "integer"
+        },
+        "partial": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "mean partial credit over the tasks",
+          "title": "Partial"
         },
         "passed": {
           "minimum": 0,
@@ -220,10 +252,42 @@
           "title": "Cost Usd Per Task",
           "type": "number"
         },
+        "criteria": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/StepResult"
+              },
+              "maxProperties": 16,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "which steps worked",
+          "title": "Criteria"
+        },
         "errors": {
           "minimum": 0,
           "title": "Errors",
           "type": "integer"
+        },
+        "partial": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "mean partial credit over the tasks",
+          "title": "Partial"
         },
         "passed": {
           "minimum": 0,
@@ -260,6 +324,28 @@
         "setup"
       ],
       "title": "ReproVariant",
+      "type": "object"
+    },
+    "StepResult": {
+      "additionalProperties": false,
+      "description": "One pass criterion over a run: in how many trials it passed, of those where it gave a verdict.",
+      "properties": {
+        "graded": {
+          "minimum": 1,
+          "title": "Graded",
+          "type": "integer"
+        },
+        "passed": {
+          "minimum": 0,
+          "title": "Passed",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "passed",
+        "graded"
+      ],
+      "title": "StepResult",
       "type": "object"
     }
   },

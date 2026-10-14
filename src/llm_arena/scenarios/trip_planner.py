@@ -104,7 +104,7 @@ class TripPlanner(Scenario):
     pattern = "planning"
     description = "Constrained trip booking with an injected sold-out failure; plan-and-execute vs single tool loop."
     roles = [
-        RoleRequirement("planner", "writes and repairs the plan, writes the final summary"),
+        RoleRequirement("planner", "writes and repairs the plan, writes the final summary", skill="planning"),
         RoleRequirement("executor", "executes plan steps with the booking tools", fallback="planner", kind="agent"),
     ]
     default_params = {"mode": "plan_execute", "max_replans": 2, "max_step_turns": 6, "max_turns": 16}

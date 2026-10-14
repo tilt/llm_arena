@@ -38,7 +38,8 @@
       "fallback": null,
       "kind": "code",
       "name": "model",
-      "needs": []
+      "needs": [],
+      "skill": null
     }
   ],
   "supports_decisions": false,

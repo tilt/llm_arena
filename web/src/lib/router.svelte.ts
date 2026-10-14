@@ -11,7 +11,8 @@ export type Route =
   | { name: "scenario"; id: string; tab?: string }
   | { name: "selftest" }
   | { name: "run"; id: string; trial?: string; step?: string }
-  | { name: "claim"; link: ClaimLink | null };
+  | { name: "claim"; link: ClaimLink | null }
+  | { name: "board"; tab?: string };
 
 export function parse(hash: string): Route {
   const path = hash.replace(/^#/, "");
@@ -32,6 +33,7 @@ export function parse(hash: string): Route {
   if (section === "presets" || section === "settings") return { name: "presets" }; // #/settings: old links
   if (section === "scenarios" && id) return { name: "scenario", id: decodeURIComponent(id), tab: sub };
   if (section === "selftest") return { name: "selftest" };
+  if (section === "board") return { name: "board", tab: id ? decodeURIComponent(id) : undefined };
   return { name: "home" };
 }
 

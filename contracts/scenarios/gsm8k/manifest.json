@@ -36,7 +36,8 @@
       "fallback": null,
       "kind": "text",
       "name": "model",
-      "needs": []
+      "needs": [],
+      "skill": null
     }
   ],
   "supports_decisions": false,

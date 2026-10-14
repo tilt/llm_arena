@@ -132,6 +132,24 @@ a changed limit gives 400s in only one layer.
 **Priority:** P3
 **Depends on:** shareable claims v1 shipped
 
+### Claims board slice 2: the measured role ranking
+
+**What:** Add the measured-swap tier to the claims board's "Overall" tab (slice 1 ships it with appearance-based
+entries only, design 5A): measured entries from one-role Beat-this swaps (all valid swaps, latest per user, claim,
+role and entry, author swaps labeled) replace an entry's appearance number where swaps exist.
+
+**Why:** The brainstorm asked for a role-wise model ranking (tool calling, code, writing, critique, decision). Slice 1
+ships the board without it because its statistics aren't decided.
+
+**Context:** `docs/designs/claims-board.md` section 6 and Open Question 2 (estimator: pooled paired deltas vs one
+fitted scale per role group; the reference entry; pooling across scenarios). Swap pairs come from the stored `Repro`
+objects' `per_task` (ledger copies), since `trust_stats` rows don't carry them. Spec-review notes R3-15 to R3-17
+(decision-service policies vs LLM decision roles, author share for mixed entries, panel placement) apply here.
+
+**Effort:** M
+**Priority:** P2
+**Depends on:** claims board slice 1 shipped; Open Question 2 decided
+
 ## Leaderboard
 
 ### Leaderboard and resume ignore the judge

@@ -7,6 +7,7 @@
 export type RunEvent = RunStarted | TrialStarted | TrialFinished | BudgetExceeded | RunWarning | RunFinished;
 
 export interface Contracts {
+  Board?: Board;
   Candidate?: Candidate;
   CandidatesRequest?: CandidatesRequest;
   CatalogEntry?: CatalogEntry;
@@ -46,6 +47,194 @@ export interface Contracts {
   ThreadRequest?: ThreadRequest;
   Trace?: Trace;
   TrustStats?: TrustStats;
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "Board".
+ */
+export interface Board {
+  board_version?: number;
+  built_at: string;
+  claims: number;
+  delisted?: Delisted[];
+  /**
+   * hash of the ledger's last line at this build
+   */
+  ledger_head?: string;
+  /**
+   * ledger length at this build
+   */
+  ledger_lines?: number;
+  overall?: {
+    [k: string]:
+      | {
+          [k: string]: OverallEntry[] | undefined;
+        }
+      | undefined;
+  };
+  registry_entries?: number;
+  /**
+   * hash of the registry's entries at this build
+   */
+  registry_head?: string;
+  removed_entries?: number;
+  /**
+   * hash of the removed list at this build
+   */
+  removed_head?: string;
+  reproductions: number;
+  scenarios?: ScenarioBoard[];
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "Delisted".
+ */
+export interface Delisted {
+  at: string;
+  claim_hash: string;
+  reason: string;
+  scenario: string;
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "OverallEntry".
+ */
+export interface OverallEntry {
+  /**
+   * claim hashes it appears in
+   */
+  claims?: string[];
+  model: string;
+  /**
+   * setups that are the only claim in their scenario
+   */
+  only_claim: number;
+  provider: string;
+  /**
+   * mean performance of its setups
+   */
+  raw: number;
+  reasoning_effort?: string | null;
+  scenarios: number;
+  /**
+   * mean gap to the best setup in each scenario (0 = always the best)
+   */
+  score: number;
+  setups: number;
+  tool_mode?: string;
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "ScenarioBoard".
+ */
+export interface ScenarioBoard {
+  /**
+   * claim hashes of both lists in one ranking
+   */
+  merged?: string[];
+  /**
+   * made on an older scenario version
+   */
+  older?: Row[];
+  /**
+   * claims reproduced by someone else, best first
+   */
+  ranked?: Row[];
+  scenario: string;
+  /**
+   * waiting for a first reproduction
+   */
+  unreproduced?: Row[];
+  version: string;
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "Row".
+ */
+export interface Row {
+  claim_hash: string;
+  claimed_rate: number;
+  cost_source: "claimed" | "reproduced";
+  cost_usd_per_task: number;
+  criteria?: {
+    [k: string]: StepResult | undefined;
+  } | null;
+  decisions?: {
+    [k: string]: unknown | undefined;
+  } | null;
+  gist_id: string;
+  high: number;
+  judge?: ClaimRole | null;
+  low: number;
+  made_at: string;
+  notes?: RowNote[];
+  owner: string;
+  people: number;
+  rate: number;
+  refreshed_at: string;
+  /**
+   * about this much to reproduce the claimed setup once
+   */
+  reproduce_usd: number;
+  /**
+   * logins of the counted reproducers
+   */
+  reproducers?: string[];
+  revision: string;
+  roles: {
+    [k: string]: ClaimRole | undefined;
+  };
+  runnable?: boolean;
+  scenario: string;
+  scenario_version: string;
+  state: "ok" | "grading_drift" | "task_drift" | "newer_version";
+  step_credit: number;
+  tasks: number;
+  tier: "claimed" | "reproduced" | "verified";
+}
+/**
+ * One pass criterion over a run: in how many trials it passed, of those where it gave a verdict.
+ *
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "StepResult".
+ */
+export interface StepResult {
+  graded: number;
+  passed: number;
+}
+/**
+ * A role's model as it travels: the call settings of `runner.fingerprint.SPEC_FIELDS`, no endpoint fields.
+ *
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "ClaimRole".
+ */
+export interface ClaimRole {
+  backend?: "auto";
+  max_tokens?: number | null;
+  /**
+   * the provider's model id, or a self-hosted model's declared 'compare as' name
+   */
+  model: string;
+  provider: "openai" | "anthropic" | "self_hosted";
+  reasoning_effort?: ("none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max") | null;
+  temperature?: number | null;
+  tool_mode?: "native" | "json";
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "RowNote".
+ */
+export interface RowNote {
+  count?: number;
+  detail?: string;
+  kind:
+    | "removed_after_recorded"
+    | "edited_after_recorded"
+    | "removed_referenced"
+    | "gist_deleted"
+    | "not_refreshed"
+    | "not_runnable"
+    | "partial_thread";
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema
@@ -159,24 +348,6 @@ export interface Claim {
   tasks: [ClaimTask, ...ClaimTask[]];
 }
 /**
- * A role's model as it travels: the call settings of `runner.fingerprint.SPEC_FIELDS`, no endpoint fields.
- *
- * This interface was referenced by `Contracts`'s JSON-Schema
- * via the `definition` "ClaimRole".
- */
-export interface ClaimRole {
-  backend?: "auto";
-  max_tokens?: number | null;
-  /**
-   * the provider's model id, or a self-hosted model's declared 'compare as' name
-   */
-  model: string;
-  provider: "openai" | "anthropic" | "self_hosted";
-  reasoning_effort?: ("none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max") | null;
-  temperature?: number | null;
-  tool_mode?: "native" | "json";
-}
-/**
  * This interface was referenced by `Contracts`'s JSON-Schema
  * via the `definition` "ClaimResult".
  */
@@ -185,6 +356,12 @@ export interface ClaimResult {
    * priced roles only
    */
   cost_usd_per_task: number;
+  /**
+   * which steps worked
+   */
+  criteria?: {
+    [k: string]: StepResult | undefined;
+  } | null;
   engine: "pages" | "local";
   partial: number;
   pass_rate: number;
@@ -672,6 +849,10 @@ export interface GistClaim {
   head_revision: string;
   html_url?: string;
   owner: string;
+  /**
+   * the owner's numeric account id
+   */
+  owner_id?: number | null;
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema
@@ -690,6 +871,10 @@ export interface GistComment {
  * via the `definition` "GistUser".
  */
 export interface GistUser {
+  /**
+   * GitHub's numeric account id
+   */
+  id?: number | null;
   login: string;
 }
 /**
@@ -852,7 +1037,17 @@ export interface Repro {
 export interface ReproSide {
   budget_stopped: number;
   cost_usd_per_task: number;
+  /**
+   * which steps worked
+   */
+  criteria?: {
+    [k: string]: StepResult | undefined;
+  } | null;
   errors: number;
+  /**
+   * mean partial credit over the tasks
+   */
+  partial?: number | null;
   passed: number;
   setup_fp: string;
   timeouts: number;
@@ -873,7 +1068,17 @@ export interface PerTask {
 export interface ReproVariant {
   budget_stopped: number;
   cost_usd_per_task: number;
+  /**
+   * which steps worked
+   */
+  criteria?: {
+    [k: string]: StepResult | undefined;
+  } | null;
   errors: number;
+  /**
+   * mean partial credit over the tasks
+   */
+  partial?: number | null;
   passed: number;
   setup: ClaimSetup;
   setup_fp: string;
@@ -1440,6 +1645,10 @@ export interface RoleManifest {
    * capabilities the bound model must have
    */
   needs?: string[];
+  /**
+   * for text roles: what the output is judged as (claims board role groups)
+   */
+  skill?: ("writing" | "critique" | "planning") | null;
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema
@@ -1583,6 +1792,10 @@ export interface Expectation {
  */
 export interface ThreadRequest {
   author: string;
+  /**
+   * the gist owner's account id (survives renames)
+   */
+  author_id?: number | null;
   claim: string;
   /**
    * @maxItems 300

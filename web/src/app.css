@@ -1,9 +1,13 @@
 :root {
   color-scheme: light;
   --page: #f9f9f7; --surface-1: #fcfcfb; --surface-2: #f3f2ee; --surface-3: #ebeae4;
-  --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #6f6d68;
+  --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #696763;
   --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11, 11, 11, 0.1);
-  --accent: #2a78d6; --accent-ink: #ffffff; --good: #006300; --critical: #b52f2f; --warn-bg: #fdf3dc;
+  /* One blue, three roles: --accent is a fill, a border and the focus ring; --accent-ink is text on that fill;
+     --accent-text is the blue as text on a surface (links), where the fill's value misses 4.5:1. Likewise
+     --warn-text is --kind-decision's amber as text. src/lib/contrast.test.ts holds every pair to WCAG AA. */
+  --accent: #1f6bc4; --accent-ink: #ffffff; --accent-text: #205da7;
+  --good: #006300; --critical: #b52f2f; --warn-bg: #fdf3dc; --warn-text: #8c5408;
   --seq-0: #cde2fb; --seq-1: #9ec5f4; --seq-2: #6da7ec; --seq-3: #3987e5; --seq-4: #256abf; --seq-5: #184f95; --seq-6: #0d366b;
   --ink-on-low: #0b0b0b; --ink-on-high: #ffffff;
   --kind-tool: #16806a; --kind-code: #7447c2; --kind-decision: #b86e0a; --kind-human: #b03d74; --kind-check: #6f6d68;
@@ -16,8 +20,9 @@
     --page: #0d0d0d; --surface-1: #1a1a19; --surface-2: #232321; --surface-3: #2c2c2a;
     --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #9a988f;
     --grid: #2c2c2a; --axis: #383835; --border: rgba(255, 255, 255, 0.1);
-    --accent: #3987e5; --good: #0ca30c; --critical: #e66767; --warn-bg: #3a2f14;
-    --seq-0: #1d2a3a; --seq-1: #104281; --seq-2: #184f95; --seq-3: #1c5cab; --seq-4: #2a78d6; --seq-5: #5598e7; --seq-6: #9ec5f4;
+    --accent: #3987e5; --accent-ink: #0b0b0b; --accent-text: #66a2eb;
+    --good: #0eb90e; --critical: #e97c7c; --warn-bg: #3a2f14; --warn-text: #e0a13c;
+    --seq-0: #1d2a3a; --seq-1: #104281; --seq-2: #184f95; --seq-3: #1c5cab; --seq-4: #307ed9; --seq-5: #5598e7; --seq-6: #9ec5f4;
     --ink-on-low: #ffffff; --ink-on-high: #0b0b0b;
     --kind-tool: #35b596; --kind-code: #a283e3; --kind-decision: #e0a13c; --kind-human: #e07aab; --kind-check: #9a988f;
   }
@@ -27,14 +32,15 @@
   --page: #0d0d0d; --surface-1: #1a1a19; --surface-2: #232321; --surface-3: #2c2c2a;
   --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #9a988f;
   --grid: #2c2c2a; --axis: #383835; --border: rgba(255, 255, 255, 0.1);
-  --accent: #3987e5; --good: #0ca30c; --critical: #e66767; --warn-bg: #3a2f14;
-  --seq-0: #1d2a3a; --seq-1: #104281; --seq-2: #184f95; --seq-3: #1c5cab; --seq-4: #2a78d6; --seq-5: #5598e7; --seq-6: #9ec5f4;
+  --accent: #3987e5; --accent-ink: #0b0b0b; --accent-text: #66a2eb;
+  --good: #0eb90e; --critical: #e97c7c; --warn-bg: #3a2f14; --warn-text: #e0a13c;
+  --seq-0: #1d2a3a; --seq-1: #104281; --seq-2: #184f95; --seq-3: #1c5cab; --seq-4: #307ed9; --seq-5: #5598e7; --seq-6: #9ec5f4;
   --ink-on-low: #ffffff; --ink-on-high: #0b0b0b;
   --kind-tool: #35b596; --kind-code: #a283e3; --kind-decision: #e0a13c; --kind-human: #e07aab; --kind-check: #9a988f;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--page); color: var(--text-primary); }
-a { color: var(--accent); }
+a { color: var(--accent-text); }
 h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
 h2 { font-size: 19px; margin: 32px 0 8px; }
 h3 { font-size: 15px; margin: 20px 0 6px; }
@@ -57,9 +63,12 @@ button, select, input, textarea { font: inherit; font-size: 14px; color: var(--t
 button { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
 button:hover:not(:disabled) { background: var(--surface-3); }
 button.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+/* The plain button hover (--surface-3) under --accent-ink would be unreadable: accent fills step toward the text color. */
+button.primary:hover:not(:disabled), button.pill.on:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 85%, var(--text-primary)); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 /* A button that reads as a link inside text, and a link that looks like a primary button. */
-button.link { background: none; border: none; border-radius: 0; padding: 0; color: var(--accent); text-decoration: underline;
+button.link { background: none; border: none; border-radius: 0; padding: 0; color: var(--accent-text); text-decoration: underline;
   font: inherit; cursor: pointer; }
 button.link:hover:not(:disabled) { background: none; }
 a.button { display: inline-block; padding: 6px 12px; border-radius: 8px; background: var(--accent); color: var(--accent-ink);

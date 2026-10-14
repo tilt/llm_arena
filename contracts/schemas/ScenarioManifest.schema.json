@@ -185,6 +185,24 @@
           },
           "title": "Needs",
           "type": "array"
+        },
+        "skill": {
+          "anyOf": [
+            {
+              "enum": [
+                "writing",
+                "critique",
+                "planning"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "for text roles: what the output is judged as (claims board role groups)",
+          "title": "Skill"
         }
       },
       "required": [

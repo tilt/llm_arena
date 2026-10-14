@@ -9,7 +9,10 @@
     type PostedNote,
   } from "../lib/claims";
   import type { Claim, ClaimDraft, CreatedGist, ReproDraft, RunBundle } from "../lib/contracts";
+  import { submitHref } from "../lib/board";
+  import Hint from "./Hint.svelte";
   import KeyPanel from "./KeyPanel.svelte";
+  import SubmitSteps from "./SubmitSteps.svelte";
 
   // onposted: the claim page re-reads its thread so the new reproduction shows (2.4).
   let { runId, bundle, onposted }: { runId: string; bundle: RunBundle; onposted?: () => void } = $props();
@@ -122,7 +125,7 @@
       const gist = await github.claim(ref.gist_id, ref.revision);
       const comments = await github.thread(ref.gist_id, gist.comments);
       const stats = await app.backend!.claimThread({ claim: claimText, comments: comments as unknown as Record<string, unknown>[],
-        author: gist.owner, total: gist.comments });
+        author: gist.owner, author_id: gist.owner_id ?? null, total: gist.comments });
       const fresh = await app.backend!.reproDraft(runId, { claim: claimText, seen: seenIds(stats.rows) });
       if (!fresh.block) { repro = fresh; return; }
       const comment = await github.post(ref.gist_id, fresh.block);
@@ -175,6 +178,7 @@
       {#if posted}
         {#if postedState === "checking"}<p><span class="pill" aria-live="polite">checking…</span></p>
         {:else if postedState === "found"}<p aria-live="polite">Posted · <a href={posted.html_url || claimLink || "#"} target="_blank" rel="noopener">view on GitHub</a></p>
+          <p class="muted small">If the claim is on the <a href="#/board">claims board</a>, it shows there after the next update (within 6 hours).</p>
         {:else if postedState === "removed"}
           <p class="note" role="status">Your reproduction is no longer in the thread (removed by the gist owner or you).</p>
         {:else}<p class="muted">Posted · couldn't check the thread now ({postedWhy})</p>{/if}
@@ -217,19 +221,30 @@
           <input class="link" readonly value={link} aria-label="Claim link" />
           <button class="primary" onclick={() => copy(link, "link")}>Copy link</button>
           <a href={shared.html_url} target="_blank" rel="noopener">View gist</a>
+          <a href={submitHref(shared.gist_id, shared.revision)} target="_blank" rel="noopener">Submit to board</a>
           {#if copied === "link"}<span class="muted small" role="status">Copied</span>{/if}
+        </div>
+        <div class="actions">
+          <span class="muted small">Submit to board opens a prefilled GitHub issue; the board answers there within minutes.</span>
+          <Hint label="What happens when I submit?"><SubmitSteps /></Hint>
         </div>
       {:else if draft.claim_json}
         {#if preview}<p class="small">Publishes: {preview}</p>{/if}
         <div class="actions">
           <button class="primary" onclick={() => share(draft!.claim_json!)} disabled={busy || Object.values(nameErrors).some(Boolean)}>Share as claim</button>
           <span class="muted small">Creates a public gist{mode === "local" ? "" : " under your GitHub account"}.</span>
+          <Hint label="What does sharing publish?">
+            A public gist with one file, <code>claim.json</code>: the setup, which tasks ran, and the score and cost. Your
+            API keys and your endpoints' names and addresses are never in it. Anyone with the link can open the claim,
+            re-run it and post a reproduction as a comment. You can then list it on the claims board. Deleting the gist
+            takes the claim down.
+          </Hint>
         </div>
         {#if githubMissing && mode === "browser"}
           <p class="muted small">No token? <a href={download(draft.claim_json)} download="claim.json">Download claim.json</a>, create a public
             gist with it at gist.github.com (file name <code>claim.json</code>), then share
             <code>#/claim/gist/&lt;id&gt;@&lt;revision&gt;</code> on this site. Or share this
-            <a href={inlineLink(draft.claim_json, "")}>link without a gist</a> (no reproduction thread).</p>
+            <a href={inlineLink(draft.claim_json, "")}>link without a gist</a> (no reproduction thread, and it can't go on the board).</p>
         {/if}
       {:else}
         <button class="primary" disabled aria-describedby="share-reasons">Share as claim</button>
@@ -247,7 +262,9 @@
         <label for="gh-token">GitHub token (fine-grained, Gists permission)</label>
         <input id="gh-token" type="password" autocomplete="off" bind:value={tokenDraft} aria-describedby="gh-token-warn" />
         <button onclick={useToken} disabled={!tokenDraft.trim()}>Use</button>
-        <p id="gh-token-warn" class="muted small">This token can read, edit and delete all your gists. It stays in this tab.</p>
+        <p id="gh-token-warn" class="muted small"><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create one</a>
+          with only <b>Account permissions → Gists: Read and write</b>. It can read, edit and delete all your gists, so it
+          stays in this tab's memory and is gone when you reload.</p>
       </div>
     {/if}
   {/if}

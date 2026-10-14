@@ -23,6 +23,19 @@
     "owner": {
       "title": "Owner",
       "type": "string"
+    },
+    "owner_id": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "the owner's numeric account id",
+      "title": "Owner Id"
     }
   },
   "required": [

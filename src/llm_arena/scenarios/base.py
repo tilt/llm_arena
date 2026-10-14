@@ -39,6 +39,9 @@ Capability = Literal["tools", "vision", "json_schema"]
 # What kind of work a role does, so baseline profiles can bind a model per kind:
 # text (prompt → text), vision (image + prompt → text), code (prompt → code), agent (tool use), decision (control).
 RoleKind = Literal["text", "vision", "code", "agent", "decision"]
+# What a text role's output is judged as, so the claims board can rank models per job (writing vs critique vs
+# planning). Every text role of a pattern scenario declares one.
+RoleSkill = Literal["writing", "critique", "planning"]
 
 
 def work_dir() -> Path:
@@ -55,6 +58,7 @@ class RoleRequirement:
     needs: frozenset[Capability] = frozenset()
     fallback: str | None = None  # optional role: reuse another role's model when unbound
     kind: RoleKind = "text"
+    skill: RoleSkill | None = None
 
 
 @dataclass
@@ -148,7 +152,12 @@ class Scenario(ABC):
             kind=self.kind,
             roles=[
                 RoleManifest(
-                    name=r.name, description=r.description, needs=sorted(r.needs), fallback=r.fallback, kind=r.kind
+                    name=r.name,
+                    description=r.description,
+                    needs=sorted(r.needs),
+                    fallback=r.fallback,
+                    kind=r.kind,
+                    skill=r.skill,
                 )  # fmt: skip
                 for r in self.roles
             ],

@@ -158,8 +158,8 @@ class ReflectionWriting(Scenario):
     pattern = "reflection"
     description = "Constrained writing; a critic (same or other model) reviews; constraints are checked by code."
     roles = [
-        RoleRequirement("writer", "drafts and revises"),
-        RoleRequirement("critic", "reviews drafts against the brief", fallback="writer"),
+        RoleRequirement("writer", "drafts and revises", skill="writing"),
+        RoleRequirement("critic", "reviews drafts against the brief", fallback="writer", skill="critique"),
     ]
     default_params = {"reflection_rounds": 1, "show_constraints_to_critic": True}
     pass_criteria = ["constraints_ok"]

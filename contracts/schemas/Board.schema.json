@@ -1,0 +1,593 @@
+{
+  "$defs": {
+    "ClaimRole": {
+      "additionalProperties": false,
+      "description": "A role's model as it travels: the call settings of `runner.fingerprint.SPEC_FIELDS`, no endpoint fields.",
+      "properties": {
+        "backend": {
+          "const": "auto",
+          "default": "auto",
+          "title": "Backend",
+          "type": "string"
+        },
+        "max_tokens": {
+          "anyOf": [
+            {
+              "maximum": 1000000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Tokens"
+        },
+        "model": {
+          "description": "the provider's model id, or a self-hosted model's declared 'compare as' name",
+          "title": "Model",
+          "type": "string"
+        },
+        "provider": {
+          "enum": [
+            "openai",
+            "anthropic",
+            "self_hosted"
+          ],
+          "title": "Provider",
+          "type": "string"
+        },
+        "reasoning_effort": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "minimal",
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reasoning Effort"
+        },
+        "temperature": {
+          "anyOf": [
+            {
+              "maximum": 2,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.2,
+          "title": "Temperature"
+        },
+        "tool_mode": {
+          "default": "native",
+          "enum": [
+            "native",
+            "json"
+          ],
+          "title": "Tool Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "model"
+      ],
+      "title": "ClaimRole",
+      "type": "object"
+    },
+    "Delisted": {
+      "properties": {
+        "at": {
+          "title": "At",
+          "type": "string"
+        },
+        "claim_hash": {
+          "title": "Claim Hash",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "scenario": {
+          "title": "Scenario",
+          "type": "string"
+        }
+      },
+      "required": [
+        "claim_hash",
+        "scenario",
+        "reason",
+        "at"
+      ],
+      "title": "Delisted",
+      "type": "object"
+    },
+    "OverallEntry": {
+      "properties": {
+        "claims": {
+          "description": "claim hashes it appears in",
+          "items": {
+            "type": "string"
+          },
+          "title": "Claims",
+          "type": "array"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "only_claim": {
+          "description": "setups that are the only claim in their scenario",
+          "title": "Only Claim",
+          "type": "integer"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "raw": {
+          "description": "mean performance of its setups",
+          "title": "Raw",
+          "type": "number"
+        },
+        "reasoning_effort": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reasoning Effort"
+        },
+        "scenarios": {
+          "title": "Scenarios",
+          "type": "integer"
+        },
+        "score": {
+          "description": "mean gap to the best setup in each scenario (0 = always the best)",
+          "title": "Score",
+          "type": "number"
+        },
+        "setups": {
+          "title": "Setups",
+          "type": "integer"
+        },
+        "tool_mode": {
+          "default": "native",
+          "title": "Tool Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "model",
+        "score",
+        "raw",
+        "setups",
+        "scenarios",
+        "only_claim"
+      ],
+      "title": "OverallEntry",
+      "type": "object"
+    },
+    "Row": {
+      "properties": {
+        "claim_hash": {
+          "title": "Claim Hash",
+          "type": "string"
+        },
+        "claimed_rate": {
+          "title": "Claimed Rate",
+          "type": "number"
+        },
+        "cost_source": {
+          "enum": [
+            "claimed",
+            "reproduced"
+          ],
+          "title": "Cost Source",
+          "type": "string"
+        },
+        "cost_usd_per_task": {
+          "title": "Cost Usd Per Task",
+          "type": "number"
+        },
+        "criteria": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/StepResult"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Criteria"
+        },
+        "decisions": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Decisions"
+        },
+        "gist_id": {
+          "title": "Gist Id",
+          "type": "string"
+        },
+        "high": {
+          "title": "High",
+          "type": "number"
+        },
+        "judge": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClaimRole"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "low": {
+          "title": "Low",
+          "type": "number"
+        },
+        "made_at": {
+          "title": "Made At",
+          "type": "string"
+        },
+        "notes": {
+          "items": {
+            "$ref": "#/$defs/RowNote"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
+        "owner": {
+          "title": "Owner",
+          "type": "string"
+        },
+        "people": {
+          "title": "People",
+          "type": "integer"
+        },
+        "rate": {
+          "title": "Rate",
+          "type": "number"
+        },
+        "refreshed_at": {
+          "title": "Refreshed At",
+          "type": "string"
+        },
+        "reproduce_usd": {
+          "description": "about this much to reproduce the claimed setup once",
+          "title": "Reproduce Usd",
+          "type": "number"
+        },
+        "reproducers": {
+          "description": "logins of the counted reproducers",
+          "items": {
+            "type": "string"
+          },
+          "title": "Reproducers",
+          "type": "array"
+        },
+        "revision": {
+          "title": "Revision",
+          "type": "string"
+        },
+        "roles": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ClaimRole"
+          },
+          "title": "Roles",
+          "type": "object"
+        },
+        "runnable": {
+          "default": true,
+          "title": "Runnable",
+          "type": "boolean"
+        },
+        "scenario": {
+          "title": "Scenario",
+          "type": "string"
+        },
+        "scenario_version": {
+          "title": "Scenario Version",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "ok",
+            "grading_drift",
+            "task_drift",
+            "newer_version"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "step_credit": {
+          "title": "Step Credit",
+          "type": "number"
+        },
+        "tasks": {
+          "title": "Tasks",
+          "type": "integer"
+        },
+        "tier": {
+          "enum": [
+            "claimed",
+            "reproduced",
+            "verified"
+          ],
+          "title": "Tier",
+          "type": "string"
+        }
+      },
+      "required": [
+        "gist_id",
+        "revision",
+        "claim_hash",
+        "owner",
+        "scenario",
+        "scenario_version",
+        "state",
+        "roles",
+        "tier",
+        "people",
+        "rate",
+        "low",
+        "high",
+        "tasks",
+        "step_credit",
+        "cost_usd_per_task",
+        "cost_source",
+        "claimed_rate",
+        "reproduce_usd",
+        "made_at",
+        "refreshed_at"
+      ],
+      "title": "Row",
+      "type": "object"
+    },
+    "RowNote": {
+      "properties": {
+        "count": {
+          "default": 0,
+          "title": "Count",
+          "type": "integer"
+        },
+        "detail": {
+          "default": "",
+          "title": "Detail",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "removed_after_recorded",
+            "edited_after_recorded",
+            "removed_referenced",
+            "gist_deleted",
+            "not_refreshed",
+            "not_runnable",
+            "partial_thread"
+          ],
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "RowNote",
+      "type": "object"
+    },
+    "ScenarioBoard": {
+      "properties": {
+        "merged": {
+          "description": "claim hashes of both lists in one ranking",
+          "items": {
+            "type": "string"
+          },
+          "title": "Merged",
+          "type": "array"
+        },
+        "older": {
+          "description": "made on an older scenario version",
+          "items": {
+            "$ref": "#/$defs/Row"
+          },
+          "title": "Older",
+          "type": "array"
+        },
+        "ranked": {
+          "description": "claims reproduced by someone else, best first",
+          "items": {
+            "$ref": "#/$defs/Row"
+          },
+          "title": "Ranked",
+          "type": "array"
+        },
+        "scenario": {
+          "title": "Scenario",
+          "type": "string"
+        },
+        "unreproduced": {
+          "description": "waiting for a first reproduction",
+          "items": {
+            "$ref": "#/$defs/Row"
+          },
+          "title": "Unreproduced",
+          "type": "array"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scenario",
+        "version"
+      ],
+      "title": "ScenarioBoard",
+      "type": "object"
+    },
+    "StepResult": {
+      "additionalProperties": false,
+      "description": "One pass criterion over a run: in how many trials it passed, of those where it gave a verdict.",
+      "properties": {
+        "graded": {
+          "minimum": 1,
+          "title": "Graded",
+          "type": "integer"
+        },
+        "passed": {
+          "minimum": 0,
+          "title": "Passed",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "passed",
+        "graded"
+      ],
+      "title": "StepResult",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "board_version": {
+      "default": 1,
+      "title": "Board Version",
+      "type": "integer"
+    },
+    "built_at": {
+      "title": "Built At",
+      "type": "string"
+    },
+    "claims": {
+      "title": "Claims",
+      "type": "integer"
+    },
+    "delisted": {
+      "items": {
+        "$ref": "#/$defs/Delisted"
+      },
+      "title": "Delisted",
+      "type": "array"
+    },
+    "ledger_head": {
+      "default": "0000000000000000000000000000000000000000000000000000000000000000",
+      "description": "hash of the ledger's last line at this build",
+      "title": "Ledger Head",
+      "type": "string"
+    },
+    "ledger_lines": {
+      "default": 0,
+      "description": "ledger length at this build",
+      "title": "Ledger Lines",
+      "type": "integer"
+    },
+    "overall": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "items": {
+            "$ref": "#/$defs/OverallEntry"
+          },
+          "type": "array"
+        },
+        "propertyNames": {
+          "enum": [
+            "all",
+            "tool_calling",
+            "code",
+            "writing",
+            "critique",
+            "planning",
+            "vision",
+            "decision"
+          ]
+        },
+        "type": "object"
+      },
+      "propertyNames": {
+        "enum": [
+          "reproduced",
+          "merged"
+        ]
+      },
+      "title": "Overall",
+      "type": "object"
+    },
+    "registry_entries": {
+      "default": 0,
+      "title": "Registry Entries",
+      "type": "integer"
+    },
+    "registry_head": {
+      "default": "0000000000000000000000000000000000000000000000000000000000000000",
+      "description": "hash of the registry's entries at this build",
+      "title": "Registry Head",
+      "type": "string"
+    },
+    "removed_entries": {
+      "default": 0,
+      "title": "Removed Entries",
+      "type": "integer"
+    },
+    "removed_head": {
+      "default": "0000000000000000000000000000000000000000000000000000000000000000",
+      "description": "hash of the removed list at this build",
+      "title": "Removed Head",
+      "type": "string"
+    },
+    "reproductions": {
+      "title": "Reproductions",
+      "type": "integer"
+    },
+    "scenarios": {
+      "items": {
+        "$ref": "#/$defs/ScenarioBoard"
+      },
+      "title": "Scenarios",
+      "type": "array"
+    }
+  },
+  "required": [
+    "built_at",
+    "claims",
+    "reproductions"
+  ],
+  "title": "Board",
+  "type": "object"
+}

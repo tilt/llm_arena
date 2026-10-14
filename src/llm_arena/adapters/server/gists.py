@@ -83,6 +83,7 @@ class GistClient:
         self._token = token
         self._transport = transport
         self._timeout_s = timeout_s
+        self.remaining: int | None = None  # X-RateLimit-Remaining of the latest response (the board's budget guard)
 
     # ---- reads ---------------------------------------------------------------------------------------------------
     async def claim(self, gist_id: str, revision: str) -> dict[str, Any]:
@@ -100,9 +101,22 @@ class GistClient:
         return {
             "claim": file["content"],
             "owner": str((pinned.get("owner") or {}).get("login") or ""),
+            "owner_id": _account_id(pinned.get("owner")),
             "head_revision": str(history[0].get("version") or "") if history else revision,
             "comments": int(head.get("comments") or 0),
             "html_url": str(head.get("html_url") or ""),
+        }
+
+    async def head(self, gist_id: str) -> dict[str, Any]:
+        """The gist's current state in one request: owner, comment count, newest revision (the board's build reads
+        only this plus the comment pages it needs; the claim itself comes from the board's cache)."""
+        head = await self._get(f"{API}/{check_gist_id(gist_id)}")
+        history = head.get("history") or []
+        return {
+            "owner": str((head.get("owner") or {}).get("login") or ""),
+            "owner_id": _account_id(head.get("owner")),
+            "head_revision": str(history[0].get("version") or "") if history else "",
+            "comments": int(head.get("comments") or 0),
         }
 
     async def comments(self, gist_id: str, page: int) -> list[dict[str, Any]]:
@@ -174,6 +188,8 @@ class GistClient:
                 http.stream(method, url, params=params, json=json_body, headers=headers) as response,
             ):
                 data = await _read_capped(response)
+                remaining = response.headers.get("x-ratelimit-remaining", "")
+                self.remaining = int(remaining) if remaining.isdigit() else self.remaining
         except httpx.TimeoutException as exc:
             raise GistFailure("unreachable", "GitHub didn't answer within 10 seconds") from exc
         except httpx.TransportError as exc:
@@ -227,13 +243,19 @@ def _raise_for(response: httpx.Response, data: bytes) -> None:
     raise GistFailure("invalid", f"GitHub refused the request ({status})")
 
 
+def _account_id(user: Any) -> int | None:
+    """GitHub's numeric account id, which survives renames (None when missing or malformed)."""
+    value = user.get("id") if isinstance(user, dict) else None
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else None
+
+
 def _comment(row: Any) -> dict[str, Any]:
     if not isinstance(row, dict):
         raise GistFailure("server", "GitHub returned an unexpected comment")
     body = str(row.get("body") or "")
     return {
         "id": int(row.get("id") or 0),
-        "user": {"login": str((row.get("user") or {}).get("login") or "")[:100]},
+        "user": {"login": str((row.get("user") or {}).get("login") or "")[:100], "id": _account_id(row.get("user"))},
         "created_at": str(row.get("created_at") or "")[:40],
         "updated_at": str(row.get("updated_at") or "")[:40],
         "body": body[:MAX_COMMENT_CHARS],

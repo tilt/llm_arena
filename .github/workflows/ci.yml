@@ -76,6 +76,33 @@ jobs:
         run: cd web && npx playwright install --with-deps chromium
       - name: Claim link → Beat this → post → counted
         run: cd web && npm run test:claim
+      - name: Claims board renders before the engine, phone layout, axe scan
+        run: cd web && npm run test:board
+      - name: Color contrast on the main routes, light and dark (axe)
+        run: cd web && npm run test:a11y
+
+  board:
+    # The claims board workflows: lint, the "only board.yml writes board-data" rule, and an offline dry run.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - name: actionlint (pinned)
+        run: uvx --from actionlint-py==1.7.12.25 actionlint
+      - name: Only board.yml may push board-data
+        run: |
+          offenders=$(grep -l "board-data" .github/workflows/*.yml | grep -v -e board.yml -e pages.yml -e ci.yml || true)
+          if [ -n "$offenders" ]; then echo "board-data is written only by board.yml: $offenders"; exit 1; fi
+          # the [g] keeps the pattern from matching this check's own line
+          if grep -n "[g]it push" .github/workflows/pages.yml .github/workflows/ci.yml; then exit 1; fi
+      - name: Dry run without GitHub
+        run: |
+          uv sync --extra server --python 3.12
+          mkdir -p "$RUNNER_TEMP/board-data"
+          uv run arena board run --data "$RUNNER_TEMP/board-data" --actions "$RUNNER_TEMP/actions.json" --offline
+          test -s "$RUNNER_TEMP/board-data/board/board.json"
 
   secrets:
     runs-on: ubuntu-latest

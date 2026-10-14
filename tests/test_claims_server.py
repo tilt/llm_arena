@@ -80,11 +80,11 @@ def test_ids_pages_and_comment_ids_are_checked_before_any_request(tmp_path: Path
 
 
 def test_reads_go_only_to_the_github_api_and_map_each_failure(tmp_path: Path) -> None:
-    claim_file = {"files": {"claim.json": {"content": "{}"}}, "owner": {"login": "alice"}}
+    claim_file = {"files": {"claim.json": {"content": "{}"}}, "owner": {"login": "alice", "id": 4242}}
     head = {"history": [{"version": "c" * 40}], "comments": 3, "html_url": "https://gist.github.com/x"}
     github = GitHub(lambda request: ok(claim_file if request.url.path.endswith(REV) else head))
     found = app(tmp_path, github).get(f"/api/claims/gists/{GIST}/{REV}").json()
-    assert found == {"claim": "{}", "owner": "alice", "head_revision": "c" * 40, "comments": 3,
+    assert found == {"claim": "{}", "owner": "alice", "owner_id": 4242, "head_revision": "c" * 40, "comments": 3,
                      "html_url": "https://gist.github.com/x"}  # fmt: skip
     assert {str(r.url).split("?")[0] for r in github.requests} == {
         f"https://api.github.com/gists/{GIST}/{REV}", f"https://api.github.com/gists/{GIST}"}  # fmt: skip

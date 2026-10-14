@@ -259,7 +259,7 @@
   .chev { color: var(--text-muted); display: inline-block; width: 12px; }
   .setup-name { min-width: 0; padding: 2px 4px; background: transparent; border-color: transparent; color: var(--text-primary);
     text-align: left; overflow-wrap: anywhere; }
-  .setup-name:hover:not(:disabled), .setup-name:focus-visible { background: transparent; color: var(--accent); text-decoration: underline; }
+  .setup-name:hover:not(:disabled), .setup-name:focus-visible { background: transparent; color: var(--accent-text); text-decoration: underline; }
   .icon { width: 24px; height: 24px; display: inline-grid; place-items: center; flex: 0 0 24px; padding: 0; border-radius: 6px;
     text-decoration: none; color: var(--text-secondary); background: transparent; border: 1px solid transparent; line-height: 1; }
   .icon:hover:not(:disabled), a.icon:hover, .icon:focus-visible { background: var(--surface-3); border-color: var(--border); color: var(--text-primary); }
@@ -271,5 +271,5 @@
   .ci { position: relative; height: 6px; background: var(--surface-3); border-radius: 3px; margin-top: 4px; min-width: 90px; }
   .ci span { position: absolute; top: 0; height: 6px; background: var(--accent); opacity: 0.35; border-radius: 3px; }
   .ci i { position: absolute; top: -2px; width: 2px; height: 10px; background: var(--accent); }
-  .few { font-size: 10.5px; color: var(--kind-decision); }
+  .few { font-size: 10.5px; color: var(--warn-text); }
 </style>

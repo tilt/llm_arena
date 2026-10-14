@@ -17,6 +17,7 @@
   import RunsView from "./views/RunsView.svelte";
   import RunView from "./views/RunView.svelte";
   import ClaimView from "./views/ClaimView.svelte";
+  import BoardView from "./views/BoardView.svelte";
 
   // A claim link opened while the local app is locked survives the unlock (design §10): kept 10 minutes.
   const PENDING_CLAIM = "arena.pendingClaim";
@@ -128,6 +129,7 @@
     { href: "#/models", label: "Models", match: "models" },
     { href: "#/runs", label: "Runs", match: "runs" },
     { href: "#/leaderboard", label: "Leaderboard", match: "leaderboard" },
+    { href: "#/board", label: "Claims board", match: "board" },
     { href: "#/presets", label: "Presets", match: "presets" },
   ];
 </script>
@@ -185,6 +187,9 @@
     {#if app.error}<p class="note">{app.error}</p>{/if}
     {#if app.mode === "browser" && !app.backend}<p class="muted small" role="status">{app.status || "Starting the in-browser engine…"}</p>{/if}
     <ClaimView link={router.route.link} />
+  {:else if router.route.name === "board"}
+    <!-- Outside the engine gate too: the board is one static file and never needs the engine (eng D2). -->
+    <BoardView tab={router.route.tab} />
   {:else if app.mode === "browser" && !app.backend}
     <h1>LLM Arena</h1>
     {#if app.error}

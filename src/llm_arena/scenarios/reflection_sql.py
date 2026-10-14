@@ -115,7 +115,7 @@ class ReflectionSQL(Scenario):
     description = "Text-to-SQL; the critic reviews the query with (or without) its execution result."
     roles = [
         RoleRequirement("generator", "writes and revises SQL", kind="code"),
-        RoleRequirement("critic", "reviews the query", fallback="generator"),
+        RoleRequirement("critic", "reviews the query", fallback="generator", skill="critique"),
     ]
     default_params = {"reflection_rounds": 1, "feedback": "execution"}  # feedback: execution | sql_only
     pass_criteria = ["final_correct"]

@@ -9,8 +9,8 @@
 :root {
   color-scheme: light;
   --page: #f9f9f7; --surface-1: #fcfcfb; --surface-2: #f3f2ee;
-  --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #6f6d68;
-  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #696763;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.1);
   --series-1: #2a78d6; --good: #006300; --critical: #b52f2f; --warn-bg: #fdf3dc;
   --seq: "#cde2fb,#9ec5f4,#6da7ec,#3987e5,#256abf,#184f95,#0d366b";
   --ink-on-low: #0b0b0b; --ink-on-high: #ffffff;
@@ -20,9 +20,9 @@
     color-scheme: dark;
     --page: #0d0d0d; --surface-1: #1a1a19; --surface-2: #232321;
     --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #9a988f;
-    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
-    --series-1: #3987e5; --good: #0ca30c; --critical: #e66767; --warn-bg: #3a2f14;
-    --seq: "#1d2a3a,#104281,#184f95,#1c5cab,#2a78d6,#5598e7,#9ec5f4";
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.1);
+    --series-1: #3987e5; --good: #0eb90e; --critical: #e97c7c; --warn-bg: #3a2f14;
+    --seq: "#1d2a3a,#104281,#184f95,#1c5cab,#307ed9,#5598e7,#9ec5f4";
     --ink-on-low: #ffffff; --ink-on-high: #0b0b0b;
   }
 }
@@ -30,9 +30,9 @@
   color-scheme: dark;
   --page: #0d0d0d; --surface-1: #1a1a19; --surface-2: #232321;
   --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #9a988f;
-  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
-  --series-1: #3987e5; --good: #0ca30c; --critical: #e66767; --warn-bg: #3a2f14;
-  --seq: "#1d2a3a,#104281,#184f95,#1c5cab,#2a78d6,#5598e7,#9ec5f4";
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.1);
+  --series-1: #3987e5; --good: #0eb90e; --critical: #e97c7c; --warn-bg: #3a2f14;
+  --seq: "#1d2a3a,#104281,#184f95,#1c5cab,#307ed9,#5598e7,#9ec5f4";
   --ink-on-low: #ffffff; --ink-on-high: #0b0b0b;
 }
 * { box-sizing: border-box; }
@@ -300,7 +300,7 @@ function cellLabels(t, z, x, y, fmt) {
   const out = [];
   z.forEach((row, i) => row.forEach((v, j) => {
     if (v === null) return;
-    out.push({ x: x[j], y: y[i], text: fmt(v), showarrow: false, font: { size: 12, color: v > 0.55 ? t.inkHigh : t.inkLow } });
+    out.push({ x: x[j], y: y[i], text: fmt(v), showarrow: false, font: { size: 12, color: step(t, v) >= 4 ? t.inkHigh : t.inkLow } });
   }));
   return out;
 }
@@ -315,7 +315,14 @@ function baseLayout(t, extra) {
 function axis(t, extra) {
   return Object.assign({ gridcolor: t.grid, linecolor: t.axis, zerolinecolor: t.axis, tickfont: { color: t.muted } }, extra);
 }
-function scale(t) { return t.seq.map((c, i) => [i / (t.seq.length - 1), c]); }
+// Flat steps as in the app's heatmap (web/src/lib/report.ts): a cell is --seq step round(v * 6), and the label ink
+// flips from step 4, where both inks are checked to reach 4.5:1 (web/src/lib/contrast.test.ts). A smooth ramp would
+// pass through colors where neither ink does.
+function step(t, v) { return Math.min(t.seq.length - 1, Math.max(0, Math.round(v * (t.seq.length - 1)))); }
+function scale(t) {
+  const n = t.seq.length - 1;
+  return t.seq.flatMap((c, i) => [[Math.max(0, (i - 0.5) / n), c], [Math.min(1, (i + 0.5) / n), c]]);
+}
 const CONFIG = { displayModeBar: false, responsive: true };
 
 function draw() {

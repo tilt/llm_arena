@@ -224,9 +224,9 @@ def _repro_body(claim: dict[str, Any], chash: str, passed: list[int], **override
     return repro_comment(Repro.model_validate(repro))
 
 
-def _comment(cid: int, user: str, body: str, *, edited: bool = False) -> dict[str, Any]:
+def _comment(cid: int, user: str, body: str, *, edited: bool = False, account: int | None = None) -> dict[str, Any]:
     created = f"2026-10-10T10:{cid:02d}:00Z"
-    return {"id": cid, "user": {"login": user}, "created_at": created,
+    return {"id": cid, "user": {"login": user, **({"id": account} if account else {})}, "created_at": created,
             "updated_at": "2026-10-11T00:00:00Z" if edited else created, "body": body}  # fmt: skip
 
 
@@ -260,6 +260,12 @@ def claim_vector_inputs() -> dict[str, dict[str, Any]]:
     from llm_arena.claims import ClaimSetup, setup_fingerprint  # noqa: PLC0415
 
     self_hosted["setup_fp"] = setup_fingerprint(ClaimSetup.model_validate(self_hosted["setup"]))
+    stepped = {**claim, "result": {**claim["result"], "criteria": {"final_correct": {"passed": 2, "graded": 2}}}}
+    stepped_text = canonical(stepped)
+    stepped_hash = check_claim(stepped_text).claim_hash
+    stepped_side = {"setup_fp": claim["setup_fp"], "passed": 2, "trials": 2, "errors": 0, "timeouts": 0,
+                    "budget_stopped": 0, "cost_usd_per_task": 0.0013, "partial": 1.0,
+                    "criteria": {"final_correct": {"passed": 2, "graded": 2}}}  # fmt: skip
     return {
         "claim-mixed-thread": {"claim": text, "comments": mixed, "author": "alice"},
         "claim-above-interval": {"claim": text, "comments": three, "author": "alice"},
@@ -270,6 +276,17 @@ def claim_vector_inputs() -> dict[str, dict[str, Any]]:
             _comment(22, "dave", body([1, 1])), _comment(30, "bob", body([1, 1], seen=[21, 22])),
             _comment(21, "carol", body([1, 1]))]},
         "claim-self-hosted": {"claim": canonical(self_hosted), "comments": [], "author": "alice"},
+        # added for the claims board (section 1): per-step results on claims and reproductions, checked everywhere
+        "claim-with-criteria": {"claim": stepped_text, "author": "alice", "comments": [
+            _comment(50, "bob", _repro_body(stepped, stepped_hash, [1, 1], baseline=stepped_side)),
+            _comment(51, "carol", _repro_body(stepped, stepped_hash, [1, 0], baseline={
+                **stepped_side, "passed": 1, "criteria": {"final_correct": {"passed": 3, "graded": 2}}}))]},
+        "claim-hostile-criteria": {"claim": canonical({**claim, "result": {
+            **claim["result"], "criteria": {"made_up": {"passed": 1, "graded": 1}}}}), "comments": [], "author": "alice"},
+        # added for the claims board (D4): account ids survive renames; a renamed author stays excluded
+        "claim-renamed-accounts": {"claim": text, "author": "alice-new", "author_id": 1, "comments": [
+            _comment(40, "alice", body([1, 1]), account=1), _comment(41, "bob", body([0, 1]), account=7),
+            _comment(42, "bobby", body([1, 1]), account=7), _comment(43, "carol", body([1, 0]))]},
         "claim-hostile-extra-field": {"claim": canonical({**claim, "base_url": "http://evil"}), "comments": [],
                                       "author": "alice"},
         "claim-hostile-provider": {"claim": canonical({**claim, "setup": {**claim["setup"], "roles": {
@@ -286,7 +303,8 @@ def replay_claim(vector: dict[str, Any]) -> dict[str, Any]:
         check = check_claim(str(vector["claim"]))
     except ClaimError as exc:
         return {"error": str(exc)}
-    stats = trust_stats(check, vector.get("comments", []), author=str(vector["author"]), total=vector.get("total"))
+    stats = trust_stats(check, vector.get("comments", []), author=str(vector["author"]),
+                        author_id=vector.get("author_id"), total=vector.get("total"))  # fmt: skip
     return {
         "claim_hash": check.claim_hash, "state": check.state, "swappable_roles": check.swappable_roles,
         "stats": json.loads(stats.model_dump_json()),

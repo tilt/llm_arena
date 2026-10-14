@@ -4,12 +4,15 @@
   // Renders before the in-browser engine is ready (2.1): the gist loads at once and a guarded preview shows; the
   // engine (llm_arena/claims.py) is the only validator.
   import { untrack } from "svelte";
+  import { submitHref } from "../lib/board";
   import BarsCI from "../components/BarsCI.svelte";
   import ClaimBand from "../components/ClaimBand.svelte";
+  import Hint from "../components/Hint.svelte";
   import KeyPanel from "../components/KeyPanel.svelte";
   import ModelRefInput from "../components/ModelRefInput.svelte";
   import ReplacementEffects from "../components/ReplacementEffects.svelte";
   import RunProgress from "../components/RunProgress.svelte";
+  import SubmitSteps from "../components/SubmitSteps.svelte";
   import { app } from "../lib/app.svelte";
   import type { CatalogItem } from "../lib/backend";
   import {
@@ -123,7 +126,7 @@
     const current = () => comments === rows && engineFilter === filter && gist === g && claimText === text;
     untrack(() => {
       threadError = "";
-      backend.claimThread({ claim: text, comments: rows as unknown as Record<string, unknown>[], author: g.owner, total: g.comments,
+      backend.claimThread({ claim: text, comments: rows as unknown as Record<string, unknown>[], author: g.owner, author_id: g.owner_id ?? null, total: g.comments,
         engine: filter || null }).then((value) => { if (current()) stats = value; })
         .catch((e) => { if (current()) threadError = e instanceof Error ? e.message : String(e); });
     });
@@ -341,7 +344,10 @@
     {:else}
       <h1 tabindex="-1" bind:this={heading}>Claim</h1>
     {/if}
-    {#if gist?.owner}<p class="muted small">claimed by @{gist.owner} · <a href={gist.html_url} target="_blank" rel="noopener">gist</a></p>{/if}
+    {#if gist?.owner}<div class="byline muted small"><span>claimed by @{gist.owner} · <a href={gist.html_url} target="_blank" rel="noopener">gist</a>
+      {#if link?.kind === "gist"} · <a href={submitHref(link.id, link.revision)} target="_blank" rel="noopener">Submit to board</a>{/if}</span>
+      {#if link?.kind === "gist"}<Hint label="Who can submit, and what happens next?">
+        <p>Only the claim's author (@{gist.owner}) can list it on the claims board.</p><SubmitSteps /></Hint>{/if}</div>{/if}
     <div class="numbers" aria-live="polite">
       {#if claim || preview}
         {@const rate = claim?.result.pass_rate ?? preview!.passRate}
@@ -527,6 +533,7 @@
 
 <style>
   .claim-head h1 { margin-bottom: 4px; overflow-wrap: anywhere; }
+  .byline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0 0 8px; }
   .numbers { display: flex; gap: 12px; flex-wrap: wrap; font-size: 17px; font-variant-numeric: tabular-nums; margin: 8px 0; }
   .sep { color: var(--text-muted, var(--text-secondary)); }
   .workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; margin: 16px 0; }
