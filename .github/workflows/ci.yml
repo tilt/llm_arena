@@ -99,7 +99,7 @@ jobs:
           if grep -n "[g]it push" .github/workflows/pages.yml .github/workflows/ci.yml; then exit 1; fi
       - name: Dry run without GitHub
         run: |
-          uv sync --python 3.12
+          uv sync --extra server --python 3.12
           mkdir -p "$RUNNER_TEMP/board-data"
           uv run arena board run --data "$RUNNER_TEMP/board-data" --actions "$RUNNER_TEMP/actions.json" --offline
           test -s "$RUNNER_TEMP/board-data/board/board.json"

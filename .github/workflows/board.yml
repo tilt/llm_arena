@@ -37,7 +37,7 @@ jobs:
           path: board-data
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - name: Install
-        run: uv sync --python 3.12
+        run: uv sync --extra server --python 3.12
       - name: Build the board (issue bodies are read through the API, never through expressions)
         run: uv run arena board run --data board-data --actions "$RUNNER_TEMP/actions.json"
         env:
