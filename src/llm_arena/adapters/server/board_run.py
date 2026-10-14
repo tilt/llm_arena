@@ -232,7 +232,10 @@ async def run(
     actions: list[Action] = []
     added: list[str] = []
     if issues is not None and not offline:
-        registry, actions, added = await _sweep(registry, claims, gists, issues, now)
+        try:
+            registry, actions, added = await _sweep(registry, claims, gists, issues, now)
+        except GistFailure as failure:  # gist failures are handled per submission; this is the issues API
+            raise RunStopped(f"GitHub's issues API failed ({failure}); no submission was decided") from failure
     threads: dict[str, GistState] = {}
     if not offline:
         removed = {r.claim_hash for r in registry.removed}

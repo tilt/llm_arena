@@ -538,13 +538,18 @@ def board_notify(actions: Annotated[Path, typer.Option(help="The answers `board 
     import os  # noqa: PLC0415
 
     from llm_arena.adapters.server.board_run import load_actions, notify  # noqa: PLC0415
+    from llm_arena.adapters.server.gists import GistFailure  # noqa: PLC0415
     from llm_arena.adapters.server.github_issues import IssueClient  # noqa: PLC0415
 
     token = os.environ.get("GITHUB_TOKEN") or None
     pending = load_actions(actions.read_text() if actions.exists() else "[]")
     internal = 0
     if pending:
-        internal = asyncio.run(notify(pending, IssueClient(lambda: token, os.environ.get("GITHUB_REPOSITORY", ""))))
+        try:
+            internal = asyncio.run(notify(pending, IssueClient(lambda: token, os.environ.get("GITHUB_REPOSITORY", ""))))
+        except GistFailure as exc:  # the unanswered submissions stay open; the next run answers them again
+            console.print(f"[red]answering stopped[/]: {escape(str(exc))}")
+            raise typer.Exit(1) from exc
     if output := os.environ.get("GITHUB_OUTPUT"):  # the workflow's last job fails on these, after deploying
         with Path(output).open("a") as file:
             file.write(f"internal_errors={internal}\n")

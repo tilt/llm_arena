@@ -247,6 +247,25 @@ async def test_rows_failing_for_their_own_gist_never_stop_the_run_but_an_outage_
         await run(data, *github.clients(), now=NOW)
 
 
+@pytest.mark.parametrize("failure", [httpx.ConnectTimeout("timed out"), httpx.Response(503)])
+async def test_an_unreachable_issues_api_stops_the_run_cleanly(tmp_path: Path, failure: Any) -> None:
+    github = FakeGitHub(issues=[_issue(5, f"{GIST} {REV}")])
+    data = _listed(tmp_path, github)
+    before = (tmp_path / "board" / "registry.json").read_text()
+
+    def issues_down(request: httpx.Request) -> httpx.Response | None:
+        if not request.url.path.startswith(f"/repos/{REPO}/issues"):
+            return None
+        if isinstance(failure, Exception):
+            raise failure
+        return failure
+
+    github.override = issues_down
+    with pytest.raises(RunStopped, match="issues"):
+        await run(data, *github.clients(), now=NOW)
+    assert (tmp_path / "board" / "registry.json").read_text() == before
+
+
 async def test_the_daily_limit_counts_submissions_decided_in_the_same_run(tmp_path: Path) -> None:
     github = FakeGitHub(issues=[_issue(n, f"{GIST} {REV}") for n in range(10, 17)])
     result = await run(BoardData(tmp_path), *github.clients(), now=NOW)
